@@ -1,0 +1,392 @@
+.poop-game-container {
+  text-align: center;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+}
+
+.poop-back-button {
+  display: inline-block;
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  margin-bottom: 8px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  align-self: flex-start;
+}
+
+.poop-back-button:hover {
+  opacity: 1;
+}
+
+.poop-game-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.poop-game-area {
+  width: 400px;
+  height: 600px;
+  background: linear-gradient(to bottom, #2c3e50, #4a6741, #8B7355);
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ground */
+.poop-game-area::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, #6d5c3e, #5a4a30);
+  border-top: 2px solid #8B7355;
+}
+
+/* HUD inside game area */
+.poop-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
+  z-index: 15;
+}
+
+.poop-score {
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.poop-high-score {
+  color: #ffd700;
+  font-size: 16px;
+  font-weight: bold;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* shield bar inside game area */
+.poop-shield-bar {
+  position: absolute;
+  top: 40px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 15;
+}
+
+.poop-shield-label {
+  color: white;
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.poop-shield-timer {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.poop-shield-timer-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+  border-radius: 4px;
+  transition: width 0.1s linear;
+}
+
+.poop-shield-time {
+  color: #00d2ff;
+  font-size: 13px;
+  font-weight: bold;
+  min-width: 32px;
+  text-align: right;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* player */
+.poop-player {
+  position: absolute;
+  bottom: 16px;
+  font-size: 36px;
+  transform: translateX(-50%);
+  transition: left 0.05s linear;
+  z-index: 10;
+  filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.4));
+}
+
+.poop-player-emoji {
+  display: inline-block;
+}
+
+.poop-player-shielded {
+  animation: shieldGlow 0.6s ease-in-out infinite alternate;
+}
+
+.poop-shield-effect {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 18px;
+  animation: floatShield 1s ease-in-out infinite;
+}
+
+@keyframes shieldGlow {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.6));
+  }
+  100% {
+    filter: drop-shadow(0 0 16px rgba(58, 123, 213, 0.8));
+  }
+}
+
+@keyframes floatShield {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-4px);
+  }
+}
+
+/* falling items */
+.poop-falling-item {
+  position: absolute;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 5;
+  line-height: 1;
+}
+
+.poop-falling-poop {
+  animation: poopFall 0.3s ease-in-out infinite alternate;
+  filter: drop-shadow(1px 2px 3px rgba(0, 0, 0, 0.3));
+}
+
+.poop-falling-shield {
+  animation: shieldFloat 0.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px rgba(0, 210, 255, 0.5));
+}
+
+.poop-falling-star {
+  animation: starSpin 1s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.7));
+}
+
+@keyframes starSpin {
+  0% {
+    transform: translateX(-50%) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) rotate(180deg) scale(1.2);
+  }
+  100% {
+    transform: translateX(-50%) rotate(360deg) scale(1);
+  }
+}
+
+/* firework particles */
+.poop-firework-particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 12;
+  box-shadow: 0 0 6px currentColor;
+  transition: none;
+}
+
+@keyframes poopFall {
+  0% {
+    transform: translateX(-50%) rotate(-5deg);
+  }
+  100% {
+    transform: translateX(-50%) rotate(5deg);
+  }
+}
+
+@keyframes shieldFloat {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.15);
+  }
+}
+
+/* start screen */
+.poop-start-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 20;
+  color: white;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.poop-start-emoji {
+  font-size: 64px;
+  margin-bottom: 12px;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+}
+
+.poop-start-screen h2 {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.poop-start-screen p {
+  font-size: 16px;
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.poop-start-hint {
+  color: #00d2ff !important;
+  font-weight: bold;
+  margin-bottom: 16px !important;
+}
+
+.poop-start-screen button {
+  background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+  color: white;
+  border: none;
+  padding: 12px 36px;
+  font-size: 18px;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.poop-start-screen button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 5px 20px rgba(139, 69, 19, 0.5);
+}
+
+.poop-start-key {
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  margin-top: 8px !important;
+}
+
+/* game over - overlay covers the game area */
+.poop-game-over-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.poop-game-over {
+  background: rgba(0, 0, 0, 0.92);
+  color: white;
+  padding: 28px 32px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  text-align: center;
+  max-width: calc(100% - 32px);
+}
+
+.poop-game-over h2 {
+  font-size: 24px;
+  margin-bottom: 12px;
+  color: #cd853f;
+  white-space: nowrap;
+}
+
+.poop-final-score {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+
+.poop-new-record {
+  color: #ffd700 !important;
+  font-size: 16px !important;
+  font-weight: bold;
+  margin-bottom: 12px;
+  animation: pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+.poop-game-over button {
+  background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+  color: white;
+  border: none;
+  padding: 12px 36px;
+  font-size: 18px;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.poop-game-over button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 5px 20px rgba(139, 69, 19, 0.5);
+}
+
+.poop-game-over button:active {
+  transform: scale(0.98);
+}
+
+.poop-instructions {
+  color: white;
+  font-size: 14px;
+  margin-top: 12px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  opacity: 0.8;
+}

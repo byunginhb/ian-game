@@ -1,0 +1,525 @@
+.ms-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+}
+
+.ms-back {
+  display: inline-block;
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  margin-bottom: 8px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  align-self: flex-start;
+}
+
+.ms-back:hover {
+  opacity: 1;
+}
+
+.ms-game-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+/* game area */
+.ms-game-area {
+  position: relative;
+  background: linear-gradient(to bottom, #0a0a2e, #1a1a4e, #0d0d3a);
+  border: 2px solid rgba(100, 150, 255, 0.4);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 30px rgba(50, 100, 255, 0.2);
+}
+
+/* starfield bg */
+.ms-game-area::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 20% 15%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 40% 35%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 60% 55%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 80% 75%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 10% 90%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 50% 5%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 70% 45%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 30% 80%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 90% 25%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 15% 60%, rgba(255, 255, 255, 0.3), transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HUD */
+.ms-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+  z-index: 20;
+}
+
+.ms-hud-score {
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(0, 200, 255, 0.5);
+}
+
+.ms-hud-stage {
+  color: #ffd700;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* body remaining gauge */
+.ms-body-bar {
+  position: absolute;
+  top: 30px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 20;
+}
+
+.ms-body-label {
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+
+.ms-body-gauge {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ms-body-gauge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f44, #ff0, #0f0);
+  border-radius: 3px;
+  transition: width 0.15s;
+}
+
+/* danger line */
+.ms-danger-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #f44 0, #f44 8px, transparent 8px, transparent 16px);
+  opacity: 0.5;
+  z-index: 3;
+  animation: dangerPulse 1s ease-in-out infinite;
+}
+
+@keyframes dangerPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+
+.ms-hud-bottom {
+  position: absolute;
+  bottom: 4px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.ms-hud-missile {
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 0 8px currentColor;
+}
+
+.ms-hud-items {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  color: white;
+}
+
+.ms-hud-multi {
+  color: #00d2ff;
+  font-weight: bold;
+}
+
+.ms-hud-bomb {
+  font-weight: bold;
+}
+
+/* stage banner */
+.ms-stage-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 25;
+  pointer-events: none;
+}
+
+.ms-stage-banner span {
+  font-size: 40px;
+  font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.4);
+  letter-spacing: 4px;
+  animation: bannerFade 1.5s ease-out forwards;
+}
+
+@keyframes bannerFade {
+  0% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* snake segments */
+.ms-segment {
+  position: absolute;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #4a0080, #8000c0);
+  border: 2px solid rgba(200, 100, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  box-shadow: 0 0 8px rgba(150, 50, 255, 0.4);
+}
+
+.ms-segment-head {
+  background: linear-gradient(135deg, #800000, #c00020);
+  border-color: rgba(255, 100, 100, 0.7);
+  box-shadow: 0 0 16px rgba(255, 50, 50, 0.6), 0 0 30px rgba(255, 0, 0, 0.3);
+  border-radius: 10px;
+  z-index: 7;
+  overflow: visible;
+}
+
+.ms-segment-head .ms-segment-face {
+  font-size: 28px;
+  filter: drop-shadow(0 0 6px rgba(255, 50, 0, 0.8));
+}
+
+.ms-segment-hp-bar {
+  position: absolute;
+  top: -6px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ms-segment-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f44, #ff0);
+  border-radius: 2px;
+  transition: width 0.1s;
+}
+
+.ms-segment-hp-text {
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  z-index: 1;
+}
+
+.ms-segment-face {
+  position: absolute;
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* missiles */
+.ms-missile {
+  position: absolute;
+  border-radius: 2px;
+  z-index: 8;
+}
+
+.ms-missile-trail::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120%;
+  height: 12px;
+  background: inherit;
+  opacity: 0.3;
+  filter: blur(3px);
+  border-radius: 50%;
+}
+
+/* items */
+.ms-item {
+  position: absolute;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  animation: itemBob 0.6s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+}
+
+@keyframes itemBob {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-3px); }
+}
+
+.ms-item-powerup {
+  filter: drop-shadow(0 0 6px rgba(255, 100, 0, 0.7));
+}
+
+.ms-item-multishot {
+  filter: drop-shadow(0 0 6px rgba(0, 200, 255, 0.7));
+}
+
+.ms-item-bomb {
+  filter: drop-shadow(0 0 6px rgba(255, 50, 50, 0.7));
+}
+
+/* explosions */
+.ms-explosion {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, #fff 0%, #ff0 30%, #f80 60%, transparent 70%);
+  z-index: 12;
+  animation: explode 0.5s ease-out forwards;
+  pointer-events: none;
+}
+
+.ms-explosion-small {
+  width: 24px;
+  height: 24px;
+  background: radial-gradient(circle, #fff 0%, #0ff 40%, transparent 70%);
+  animation: explode 0.3s ease-out forwards;
+}
+
+@keyframes explode {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+}
+
+/* hit flash */
+.ms-hit-flash {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  transform: translate(-50%, -50%);
+  z-index: 11;
+  animation: hitFlash 0.15s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes hitFlash {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2);
+  }
+}
+
+/* bomb effect */
+.ms-bomb-effect {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 200, 50, 0.6), rgba(255, 100, 0, 0.3), transparent);
+  z-index: 15;
+  animation: bombFlash 0.4s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes bombFlash {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* player */
+.ms-player {
+  position: absolute;
+  z-index: 10;
+}
+
+.ms-player-body {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to top, #333, #555);
+  border: 2px solid;
+  border-radius: 8px 8px 4px 4px;
+  position: relative;
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.3);
+}
+
+.ms-player-turret {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 14px;
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* overlays */
+.ms-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 50;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.ms-menu,
+.ms-clear,
+.ms-gameover {
+  background: rgba(10, 10, 50, 0.95);
+  border: 2px solid rgba(100, 150, 255, 0.5);
+  border-radius: 16px;
+  padding: 28px 32px;
+  text-align: center;
+  color: white;
+  max-width: calc(100% - 32px);
+  box-shadow: 0 0 30px rgba(50, 100, 255, 0.3);
+}
+
+.ms-menu-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+}
+
+.ms-menu h2,
+.ms-clear h2,
+.ms-gameover h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+  white-space: nowrap;
+}
+
+.ms-clear h2 {
+  color: #ffd700;
+}
+
+.ms-gameover h2 {
+  color: #ff4444;
+}
+
+.ms-menu p,
+.ms-clear p,
+.ms-gameover p {
+  font-size: 15px;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.ms-menu-sub {
+  color: #f88 !important;
+  font-size: 13px !important;
+  font-weight: bold;
+}
+
+.ms-menu-controls {
+  color: #0ff !important;
+  font-size: 13px !important;
+  margin-bottom: 16px !important;
+}
+
+.ms-menu button,
+.ms-clear button,
+.ms-gameover button {
+  background: linear-gradient(135deg, #2060d0, #4080ff);
+  color: white;
+  border: none;
+  padding: 12px 36px;
+  font-size: 18px;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.ms-menu button:hover,
+.ms-clear button:hover,
+.ms-gameover button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 5px 20px rgba(64, 128, 255, 0.5);
+}
+
+.ms-menu button:active,
+.ms-clear button:active,
+.ms-gameover button:active {
+  transform: scale(0.98);
+}
+
+.ms-menu-hint {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  margin-top: 8px !important;
+}
+
+.ms-instructions {
+  color: white;
+  font-size: 14px;
+  margin-top: 12px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  opacity: 0.8;
+}

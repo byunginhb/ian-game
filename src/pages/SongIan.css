@@ -1,0 +1,220 @@
+.t48-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+}
+
+.t48-back {
+  display: inline-block;
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  margin-bottom: 8px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  align-self: flex-start;
+}
+
+.t48-back:hover {
+  opacity: 1;
+}
+
+.t48-game-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.t48-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.t48-title {
+  font-size: 42px;
+  font-weight: 900;
+  color: #776e65;
+  letter-spacing: -2px;
+}
+
+.t48-scores {
+  display: flex;
+  gap: 6px;
+}
+
+.t48-score-box {
+  background: #bbada0;
+  border-radius: 6px;
+  padding: 4px 14px;
+  text-align: center;
+  min-width: 60px;
+}
+
+.t48-score-label {
+  font-size: 10px;
+  font-weight: bold;
+  color: #eee4da;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.t48-score-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+}
+
+.t48-board {
+  position: relative;
+  background: #bbada0;
+  border-radius: 8px;
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.t48-cell-bg {
+  background: rgba(238, 228, 218, 0.35);
+  border-radius: 6px;
+}
+
+.t48-tile-layer {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  pointer-events: none;
+}
+
+.t48-tile {
+  position: absolute;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  transition: top 0.12s ease, left 0.12s ease;
+}
+
+.t48-tile-new {
+  animation: t48Pop 0.2s ease-out;
+}
+
+.t48-tile-merged {
+  animation: t48Merge 0.2s ease-out;
+}
+
+@keyframes t48Pop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes t48Merge {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* buttons */
+.t48-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.t48-btn {
+  flex: 1;
+  background: #8f7a66;
+  color: white;
+  border: none;
+  padding: 10px 0;
+  font-size: 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.t48-btn:hover {
+  background: #9f8a76;
+}
+
+.t48-btn:active {
+  background: #7f6a56;
+}
+
+/* overlay */
+.t48-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(238, 228, 218, 0.7);
+  z-index: 50;
+  border-radius: 8px;
+  animation: t48FadeIn 0.3s ease-out;
+}
+
+@keyframes t48FadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.t48-overlay-win {
+  background: rgba(237, 194, 46, 0.5);
+}
+
+.t48-overlay-box {
+  text-align: center;
+}
+
+.t48-overlay-box h2 {
+  font-size: 48px;
+  font-weight: 900;
+  color: #776e65;
+  margin-bottom: 8px;
+}
+
+.t48-overlay-win h2 {
+  color: #f9f6f2;
+}
+
+.t48-overlay-box p {
+  font-size: 18px;
+  color: #776e65;
+  margin-bottom: 16px;
+}
+
+.t48-overlay-box button {
+  background: #8f7a66;
+  color: white;
+  border: none;
+  padding: 12px 36px;
+  font-size: 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.t48-overlay-box button:hover {
+  background: #9f8a76;
+}
+
+.t48-instructions {
+  color: white;
+  font-size: 14px;
+  margin-top: 12px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  opacity: 0.8;
+}

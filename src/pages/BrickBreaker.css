@@ -1,0 +1,285 @@
+.bb-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+}
+
+.bb-back {
+  display: inline-block;
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  margin-bottom: 8px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  align-self: flex-start;
+}
+
+.bb-back:hover {
+  opacity: 1;
+}
+
+.bb-game-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.bb-game-area {
+  position: relative;
+  background: linear-gradient(to bottom, #0d0d0d, #1a1a2e, #16213e);
+  border: 2px solid rgba(100, 200, 255, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 30px rgba(0, 100, 255, 0.15);
+}
+
+/* HUD */
+.bb-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+  z-index: 20;
+}
+
+.bb-hud-score {
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(0, 200, 255, 0.5);
+}
+
+.bb-hud-stage {
+  color: #ffd700;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.bb-hud-lives {
+  font-size: 14px;
+}
+
+/* paddle */
+.bb-paddle {
+  position: absolute;
+  border-radius: 6px;
+  background: linear-gradient(to bottom, #4af, #28d);
+  border: 1px solid rgba(100, 200, 255, 0.6);
+  box-shadow: 0 0 12px rgba(50, 150, 255, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.bb-paddle-wide {
+  background: linear-gradient(to bottom, #f4a, #d28);
+  border-color: rgba(255, 100, 200, 0.6);
+  box-shadow: 0 0 12px rgba(255, 50, 150, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ball */
+.bb-ball {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, #eee, #ccc);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 16px rgba(200, 200, 255, 0.3);
+  z-index: 10;
+}
+
+/* ball trail */
+.bb-ball-trail {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(150, 200, 255, 0.3);
+  pointer-events: none;
+  z-index: 9;
+}
+
+/* bricks */
+.bb-brick {
+  position: absolute;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+  transition: opacity 0.1s;
+}
+
+.bb-brick-crack {
+  opacity: 0.7;
+}
+
+/* items */
+.bb-item {
+  position: absolute;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  animation: bbItemFall 0.4s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+}
+
+@keyframes bbItemFall {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.1); }
+}
+
+/* particles */
+.bb-particle {
+  position: absolute;
+  border-radius: 50%;
+  z-index: 12;
+  pointer-events: none;
+  animation: bbParticleFade 0.4s ease-out forwards;
+}
+
+@keyframes bbParticleFade {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+/* overlays */
+.bb-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 50;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.bb-menu,
+.bb-clear,
+.bb-gameover {
+  background: rgba(10, 10, 40, 0.95);
+  border: 2px solid rgba(100, 150, 255, 0.5);
+  border-radius: 16px;
+  padding: 28px 32px;
+  text-align: center;
+  color: white;
+  max-width: calc(100% - 32px);
+  box-shadow: 0 0 30px rgba(50, 100, 255, 0.3);
+}
+
+.bb-menu-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+}
+
+.bb-menu h2,
+.bb-clear h2,
+.bb-gameover h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+  white-space: nowrap;
+}
+
+.bb-clear h2 {
+  color: #ffd700;
+}
+
+.bb-gameover h2 {
+  color: #ff4444;
+}
+
+.bb-menu p,
+.bb-clear p,
+.bb-gameover p {
+  font-size: 15px;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.bb-menu button,
+.bb-clear button,
+.bb-gameover button {
+  background: linear-gradient(135deg, #2060d0, #4080ff);
+  color: white;
+  border: none;
+  padding: 12px 36px;
+  font-size: 18px;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.bb-menu button:hover,
+.bb-clear button:hover,
+.bb-gameover button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 5px 20px rgba(64, 128, 255, 0.5);
+}
+
+.bb-menu button:active,
+.bb-clear button:active,
+.bb-gameover button:active {
+  transform: scale(0.98);
+}
+
+.bb-menu-controls {
+  color: #0ff !important;
+  font-size: 13px !important;
+  margin-bottom: 16px !important;
+}
+
+.bb-menu-hint {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  margin-top: 8px !important;
+}
+
+/* stage banner */
+.bb-stage-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 25;
+  pointer-events: none;
+}
+
+.bb-stage-banner span {
+  font-size: 40px;
+  font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.4);
+  letter-spacing: 4px;
+  animation: bbBannerFade 1.5s ease-out forwards;
+}
+
+@keyframes bbBannerFade {
+  0% { opacity: 1; transform: scale(1.2); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+
+.bb-instructions {
+  color: white;
+  font-size: 14px;
+  margin-top: 12px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  opacity: 0.8;
+}
