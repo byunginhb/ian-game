@@ -176,7 +176,6 @@ function WordPuzzle() {
     return () => window.removeEventListener('keydown', onKey)
   }, [gameState, handleLetterSelect, showResult, handleNextLevel, handleRetry])
 
-  const maxUnlocked = Math.max(0, ...clearedLevels) + 1
   const totalStars = Object.values(levelStars).reduce((sum, s) => sum + s, 0)
   const earnedStars = showResult === 'success' ? calculateStars(hearts, level.maxHearts) : 0
 
@@ -201,29 +200,22 @@ function WordPuzzle() {
                 게임 시작
               </button>
 
-              {clearedLevels.size > 0 && (
-                <div className="wp-level-select">
-                  <div className="wp-level-select-title">
-                    ⭐ {totalStars} / {LEVELS.length * 3} — 레벨 선택
-                  </div>
-                  <div className="wp-level-btns">
-                    {LEVELS.map((_, i) => {
-                      const isCleared = clearedLevels.has(i)
-                      const isLocked = i > maxUnlocked
-                      return (
-                        <button
-                          key={i}
-                          className={`wp-level-btn${isCleared ? ' wp-level-cleared' : ''}${isLocked ? ' wp-level-locked' : ''}`}
-                          disabled={isLocked}
-                          onClick={() => startFromLevel(i)}
-                        >
-                          {i + 1}
-                        </button>
-                      )
-                    })}
-                  </div>
+              <div className="wp-level-select">
+                <div className="wp-level-select-title">
+                  ⭐ {totalStars} / {LEVELS.length * 3} — 레벨 선택
                 </div>
-              )}
+                <div className="wp-level-btns">
+                  {LEVELS.map((_, i) => (
+                    <button
+                      key={i}
+                      className={`wp-level-btn${clearedLevels.has(i) ? ' wp-level-cleared' : ''}`}
+                      onClick={() => startFromLevel(i)}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

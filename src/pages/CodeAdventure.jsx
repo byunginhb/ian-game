@@ -814,26 +814,20 @@ function CodeAdventure() {
               <button className="ca-menu-start" onClick={startGame}>
                 시작하기 🚀
               </button>
-              {clearedLevels.size > 0 && (() => {
-                const maxUnlocked = Math.max(...clearedLevels) + 1
-                return (
-                  <div className="ca-level-select">
-                    <p className="ca-level-select-title">레벨 선택</p>
-                    <div className="ca-level-btns">
-                      {LEVELS.map((lv, i) => (
-                        <button
-                          key={i}
-                          className={`ca-level-btn ${clearedLevels.has(i) ? 'ca-level-cleared' : ''} ${i > maxUnlocked ? 'ca-level-locked' : ''}`}
-                          onClick={() => startFromLevel(i)}
-                          disabled={i > maxUnlocked}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
+              <div className="ca-level-select">
+                <p className="ca-level-select-title">레벨 선택</p>
+                <div className="ca-level-btns">
+                  {LEVELS.map((lv, i) => (
+                    <button
+                      key={i}
+                      className={`ca-level-btn ${clearedLevels.has(i) ? 'ca-level-cleared' : ''}`}
+                      onClick={() => startFromLevel(i)}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>

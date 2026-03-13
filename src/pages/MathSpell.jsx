@@ -283,7 +283,6 @@ function MathSpell() {
     return () => window.removeEventListener('keydown', onKey)
   }, [gameState, feedback, showResult, choices, handleChoice])
 
-  const maxUnlocked = clearedLevels.size > 0 ? Math.max(0, ...clearedLevels) + 1 : 0
   const totalStars = Object.values(levelStars).reduce((sum, s) => sum + s, 0)
   const timerMax = problem ? getTimerSeconds(levelIdx) : 1
   const timerPercent = (timeLeft / timerMax) * 100
@@ -311,29 +310,22 @@ function MathSpell() {
                 게임 시작
               </button>
 
-              {clearedLevels.size > 0 && (
-                <div className="ms2-level-select">
-                  <div className="ms2-level-select-title">
-                    ⭐ {totalStars} / {30 * 3} — 레벨 선택
-                  </div>
-                  <div className="ms2-level-btns">
-                    {Array.from({ length: 30 }, (_, i) => {
-                      const isCleared = clearedLevels.has(i)
-                      const isLocked = i > maxUnlocked
-                      return (
-                        <button
-                          key={i}
-                          className={`ms2-level-btn${isCleared ? ' ms2-level-cleared' : ''}${isLocked ? ' ms2-level-locked' : ''}`}
-                          disabled={isLocked}
-                          onClick={() => startFromLevel(i)}
-                        >
-                          {i + 1}
-                        </button>
-                      )
-                    })}
-                  </div>
+              <div className="ms2-level-select">
+                <div className="ms2-level-select-title">
+                  ⭐ {totalStars} / {30 * 3} — 레벨 선택
                 </div>
-              )}
+                <div className="ms2-level-btns">
+                  {Array.from({ length: 30 }, (_, i) => (
+                    <button
+                      key={i}
+                      className={`ms2-level-btn${clearedLevels.has(i) ? ' ms2-level-cleared' : ''}`}
+                      onClick={() => startFromLevel(i)}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
