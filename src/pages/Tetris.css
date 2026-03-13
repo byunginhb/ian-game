@@ -215,6 +215,46 @@
   margin-top: 8px !important;
 }
 
+/* Touch controls */
+.tt-touch-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.tt-touch-btn {
+  width: 52px;
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+
+.tt-touch-btn:active {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(0.93);
+}
+
+.tt-touch-drop {
+  background: rgba(255, 100, 100, 0.25);
+}
+
+@media (min-width: 769px) {
+  .tt-touch-controls {
+    display: none;
+  }
+}
+
 .tt-instructions {
   color: white;
   font-size: 14px;

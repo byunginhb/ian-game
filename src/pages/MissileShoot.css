@@ -516,6 +516,27 @@
   margin-top: 8px !important;
 }
 
+/* Touch bomb button */
+.ms-touch-bomb {
+  margin-top: 8px;
+  padding: 12px 28px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 100, 50, 0.3);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+
+.ms-touch-bomb:active {
+  background: rgba(255, 100, 50, 0.6);
+  transform: scale(0.95);
+}
+
 .ms-instructions {
   color: white;
   font-size: 14px;

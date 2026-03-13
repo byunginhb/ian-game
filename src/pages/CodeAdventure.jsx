@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
+import { useTouchLock } from '../hooks/useTouchLock'
 import './CodeAdventure.css'
 
 const GAME_W = 400
@@ -464,6 +465,8 @@ function calculateStars(gemCount, gemsCollected, commandCount, maxCommands) {
 
 function CodeAdventure() {
   const scale = useGameScale(GAME_W, GAME_H)
+  const containerRef = useRef(null)
+  useTouchLock(containerRef)
 
   const [gameState, setGameState] = useState('menu')
   const [levelIdx, setLevelIdx] = useState(0)
@@ -793,7 +796,7 @@ function CodeAdventure() {
 
   if (gameState === 'menu') {
     return (
-      <div className="ca-container">
+      <div ref={containerRef} className="ca-container">
         <Link to="/" className="ca-back-button">← 홈으로</Link>
         <div className="ca-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
           <div className="ca-area" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
@@ -840,7 +843,7 @@ function CodeAdventure() {
 
   if (gameState === 'complete') {
     return (
-      <div className="ca-container">
+      <div ref={containerRef} className="ca-container">
         <Link to="/" className="ca-back-button">← 홈으로</Link>
         <div className="ca-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
           <div className="ca-area" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
@@ -868,7 +871,7 @@ function CodeAdventure() {
   }
 
   return (
-    <div className="ca-container">
+    <div ref={containerRef} className="ca-container">
       <Link to="/" className="ca-back-button">← 홈으로</Link>
       <div className="ca-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
         <div className="ca-area" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>

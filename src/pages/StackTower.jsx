@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
+import { useTouchLock } from '../hooks/useTouchLock'
 import './StackTower.css'
 
 const GAME_W = 400
@@ -28,6 +29,8 @@ function hslColorDark(index) {
 
 function StackTower() {
   const scale = useGameScale(GAME_W, GAME_H)
+  const containerRef = useRef(null)
+  useTouchLock(containerRef)
 
   const [gameState, setGameState] = useState('menu')
   const [renderTick, setRenderTick] = useState(0)
@@ -229,7 +232,7 @@ function StackTower() {
   const camY = cameraYRef.current
 
   return (
-    <div className="st-container">
+    <div ref={containerRef} className="st-container">
       <Link to="/" className="st-back">← 홈으로</Link>
 
       <div className="st-game-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>

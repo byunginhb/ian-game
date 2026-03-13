@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
+import { useTouchLock } from '../hooks/useTouchLock'
 import './MissileShoot.css'
 
 const GAME_W = 400
@@ -153,6 +154,8 @@ function rectsOverlap(a, b) {
 }
 
 function MissileShoot() {
+  const containerRef = useRef(null)
+  useTouchLock(containerRef)
   const [gameState, setGameState] = useState('menu')
   const [stage, setStage] = useState(1)
   const [score, setScore] = useState(0)
@@ -245,6 +248,32 @@ function MissileShoot() {
     }
   }, [gameState, stage, startGame, startStage])
 
+  // touch controls
+  const touchTargetXRef = useRef(null)
+
+  useEffect(() => {
+    const area = gameAreaRef.current
+    if (!area) return
+
+    const handleTouchMove = (e) => {
+      e.preventDefault()
+      const rect = area.getBoundingClientRect()
+      const touchX = e.touches[0].clientX
+      const x = (touchX - rect.left) / (rect.width / GAME_W) - PLAYER_W / 2
+      touchTargetXRef.current = Math.max(0, Math.min(GAME_W - PLAYER_W, x))
+    }
+    const handleTouchEnd = () => { touchTargetXRef.current = null }
+
+    area.addEventListener('touchmove', handleTouchMove, { passive: false })
+    area.addEventListener('touchend', handleTouchEnd)
+    area.addEventListener('touchcancel', handleTouchEnd)
+    return () => {
+      area.removeEventListener('touchmove', handleTouchMove)
+      area.removeEventListener('touchend', handleTouchEnd)
+      area.removeEventListener('touchcancel', handleTouchEnd)
+    }
+  }, [])
+
   // main game loop
   useEffect(() => {
     if (gameState !== 'playing') return
@@ -261,6 +290,17 @@ function MissileShoot() {
         let nx = px
         if (keysRef.current.has('ArrowLeft')) nx = Math.max(0, px - PLAYER_SPEED)
         if (keysRef.current.has('ArrowRight')) nx = Math.min(GAME_W - PLAYER_W, px + PLAYER_SPEED)
+
+        // touch: move toward touch position
+        if (touchTargetXRef.current !== null) {
+          const diff = touchTargetXRef.current - px
+          if (Math.abs(diff) < PLAYER_SPEED) {
+            nx = touchTargetXRef.current
+          } else {
+            nx = px + (diff > 0 ? PLAYER_SPEED : -PLAYER_SPEED)
+          }
+        }
+
         playerXRef.current = nx
         return nx
       })
@@ -469,7 +509,7 @@ function MissileShoot() {
   const bodyTotal = snake.filter((s) => !s.isHead).length
 
   return (
-    <div className="ms-container">
+    <div ref={containerRef} className="ms-container">
       <Link to="/" className="ms-back">← 홈으로</Link>
 
       <div className="ms-game-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
@@ -654,7 +694,17 @@ function MissileShoot() {
         </div>
       </div>
 
-      <div className="ms-instructions">← → 이동 | 자동 발사 | Z 폭탄 | 용 머리가 바닥에 닿으면 게임 오버!</div>
+      {gameState === 'playing' && (
+        <button
+          className="ms-touch-bomb"
+          onTouchStart={(e) => { e.preventDefault(); keysRef.current.add('z') }}
+          onTouchEnd={() => keysRef.current.delete('z')}
+          onClick={() => { keysRef.current.add('z'); setTimeout(() => keysRef.current.delete('z'), 50) }}
+        >
+          💣 폭탄 ({bombs})
+        </button>
+      )}
+      <div className="ms-instructions">터치로 이동 · 자동 발사 · 💣 폭탄 버튼</div>
     </div>
   )
 }

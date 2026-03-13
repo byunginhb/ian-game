@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
+import { useTouchLock } from '../hooks/useTouchLock'
 import './SongIan.css'
 
 const SIZE = 4
@@ -140,6 +141,8 @@ function hasWon(grid) {
 
 function SongIan() {
   const scale = useGameScale(LAYOUT_W, LAYOUT_H)
+  const containerRef = useRef(null)
+  useTouchLock(containerRef)
 
   const [grid, setGrid] = useState(createEmpty)
   const [score, setScore] = useState(0)
@@ -294,7 +297,7 @@ function SongIan() {
   }
 
   return (
-    <div className="t48-container">
+    <div ref={containerRef} className="t48-container">
       <Link to="/" className="t48-back">← 홈으로</Link>
 
       <div className="t48-game-wrapper" style={{ width: LAYOUT_W * scale, height: LAYOUT_H * scale }}>

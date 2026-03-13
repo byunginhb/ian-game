@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
+import { useTouchLock } from '../hooks/useTouchLock'
 import './Tetris.css'
 
 const COLS = 10
@@ -95,6 +96,8 @@ const LINE_SCORES = [0, 100, 300, 500, 800]
 
 function Tetris() {
   const scale = useGameScale(LAYOUT_W, LAYOUT_H)
+  const containerRef = useRef(null)
+  useTouchLock(containerRef)
 
   const [gameState, setGameState] = useState('menu')
   const [renderTick, setRenderTick] = useState(0)
@@ -392,7 +395,7 @@ function Tetris() {
   }
 
   return (
-    <div className="tt-container">
+    <div ref={containerRef} className="tt-container">
       <Link to="/" className="tt-back">← 홈으로</Link>
 
       <div className="tt-game-wrapper" style={{ width: LAYOUT_W * scale, height: LAYOUT_H * scale }}>
@@ -465,6 +468,13 @@ function Tetris() {
         </div>
       </div>
 
+      <div className="tt-touch-controls">
+        <button className="tt-touch-btn" onTouchStart={(e) => { e.preventDefault(); moveHorizontal(-1) }} onClick={() => moveHorizontal(-1)}>⬅️</button>
+        <button className="tt-touch-btn" onTouchStart={(e) => { e.preventDefault(); moveDown(); scoreRef.current += 1 }} onClick={() => { moveDown(); scoreRef.current += 1 }}>⬇️</button>
+        <button className="tt-touch-btn" onTouchStart={(e) => { e.preventDefault(); rotatePiece() }} onClick={() => rotatePiece()}>🔄</button>
+        <button className="tt-touch-btn" onTouchStart={(e) => { e.preventDefault(); moveHorizontal(1) }} onClick={() => moveHorizontal(1)}>➡️</button>
+        <button className="tt-touch-btn tt-touch-drop" onTouchStart={(e) => { e.preventDefault(); hardDrop() }} onClick={() => hardDrop()}>⏬</button>
+      </div>
       <div className="tt-instructions">← → 이동 · ↑ 회전 · Space 하드드롭</div>
     </div>
   )

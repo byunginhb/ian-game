@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
+import { useTouchLock } from '../hooks/useTouchLock'
 import './PoopDodge.css'
 
 const POOP_GAME_W = 400
@@ -96,6 +97,10 @@ function PoopDodge() {
     return saved ? Number(saved) : 0
   })
 
+  const scale = useGameScale(POOP_GAME_W, POOP_GAME_H)
+  const containerRef = useRef(null)
+  useTouchLock(containerRef)
+
   const keysPressed = useRef(new Set())
   const gameTickRef = useRef(0)
   const fallSpeedRef = useRef(FALL_SPEED_INITIAL)
@@ -166,6 +171,34 @@ function PoopDodge() {
     return () => clearInterval(interval)
   }, [shieldActive])
 
+  // touch controls: track touch X to move player
+  const touchTargetRef = useRef(null)
+  const gameAreaRef = useRef(null)
+
+  useEffect(() => {
+    if (!started || gameOver) return
+    const area = gameAreaRef.current
+    if (!area) return
+
+    const handleTouchMove = (e) => {
+      e.preventDefault()
+      const rect = area.getBoundingClientRect()
+      const touchX = e.touches[0].clientX
+      const pct = ((touchX - rect.left) / rect.width) * 100
+      touchTargetRef.current = Math.max(4, Math.min(96, pct))
+    }
+    const handleTouchEnd = () => { touchTargetRef.current = null }
+
+    area.addEventListener('touchmove', handleTouchMove, { passive: false })
+    area.addEventListener('touchend', handleTouchEnd)
+    area.addEventListener('touchcancel', handleTouchEnd)
+    return () => {
+      area.removeEventListener('touchmove', handleTouchMove)
+      area.removeEventListener('touchend', handleTouchEnd)
+      area.removeEventListener('touchcancel', handleTouchEnd)
+    }
+  }, [started, gameOver])
+
   useEffect(() => {
     if (!started || gameOver) return
 
@@ -178,6 +211,15 @@ function PoopDodge() {
       }
       if (keysPressed.current.has('ArrowRight')) {
         setPlayerX((prev) => Math.min(96, prev + MOVE_SPEED))
+      }
+
+      // touch: move toward touch position
+      if (touchTargetRef.current !== null) {
+        setPlayerX((prev) => {
+          const diff = touchTargetRef.current - prev
+          if (Math.abs(diff) < MOVE_SPEED) return touchTargetRef.current
+          return prev + (diff > 0 ? MOVE_SPEED : -MOVE_SPEED)
+        })
       }
 
       fallSpeedRef.current = FALL_SPEED_INITIAL + tick * FALL_SPEED_INCREMENT
@@ -322,14 +364,13 @@ function PoopDodge() {
   }, [])
 
   const shieldPercent = (shieldTimeLeft / SHIELD_DURATION) * 100
-  const scale = useGameScale(POOP_GAME_W, POOP_GAME_H)
 
   return (
-    <div className="poop-game-container">
+    <div ref={containerRef} className="poop-game-container">
       <Link to="/" className="poop-back-button">← 홈으로</Link>
 
       <div className="poop-game-wrapper" style={{ width: POOP_GAME_W * scale, height: POOP_GAME_H * scale }}>
-        <div className="poop-game-area" style={{ width: POOP_GAME_W, height: POOP_GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <div ref={gameAreaRef} className="poop-game-area" style={{ width: POOP_GAME_W, height: POOP_GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
         {/* HUD inside game area */}
         <div className="poop-hud">
           <div className="poop-hud-left">
@@ -429,7 +470,7 @@ function PoopDodge() {
         </div>
       </div>
 
-      <div className="poop-instructions">← → 방향키로 이동 | 🛡️ 보호막 | ⭐ 별 +5점</div>
+      <div className="poop-instructions">← → 방향키 또는 터치로 이동 | 🛡️ 보호막 | ⭐ 별 +5점</div>
     </div>
   )
 }

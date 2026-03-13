@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
+import { useTouchLock } from '../hooks/useTouchLock'
 import './BrickBreaker.css'
 
 const GAME_W = 400
@@ -89,6 +90,8 @@ function makeBall(stageNum) {
 
 function BrickBreaker() {
   const scale = useGameScale(GAME_W, GAME_H)
+  const containerRef = useRef(null)
+  useTouchLock(containerRef)
 
   const [gameState, setGameState] = useState('menu')
   const [stageBanner, setStageBanner] = useState(false)
@@ -159,6 +162,35 @@ function BrickBreaker() {
     }
   }, [])
 
+  // touch controls
+  const touchTargetXRef = useRef(null)
+  const gameAreaRef = useRef(null)
+
+  useEffect(() => {
+    const area = gameAreaRef.current
+    if (!area) return
+
+    const handleTouch = (e) => {
+      e.preventDefault()
+      const rect = area.getBoundingClientRect()
+      const touchX = e.touches[0].clientX
+      const x = (touchX - rect.left) / (rect.width / GAME_W) - pw() / 2
+      touchTargetXRef.current = Math.max(0, Math.min(GAME_W - pw(), x))
+    }
+    const handleTouchEnd = () => { touchTargetXRef.current = null }
+
+    area.addEventListener('touchstart', handleTouch, { passive: false })
+    area.addEventListener('touchmove', handleTouch, { passive: false })
+    area.addEventListener('touchend', handleTouchEnd)
+    area.addEventListener('touchcancel', handleTouchEnd)
+    return () => {
+      area.removeEventListener('touchstart', handleTouch)
+      area.removeEventListener('touchmove', handleTouch)
+      area.removeEventListener('touchend', handleTouchEnd)
+      area.removeEventListener('touchcancel', handleTouchEnd)
+    }
+  }, [])
+
   // game loop - all logic on refs, single render trigger
   useEffect(() => {
     if (gameState !== 'playing') return
@@ -171,6 +203,17 @@ function BrickBreaker() {
       let px = paddleXRef.current
       if (keysRef.current['ArrowLeft']) px = Math.max(0, px - PADDLE_SPEED)
       if (keysRef.current['ArrowRight']) px = Math.min(GAME_W - padW, px + PADDLE_SPEED)
+
+      // touch: move toward touch position
+      if (touchTargetXRef.current !== null) {
+        const diff = touchTargetXRef.current - px
+        if (Math.abs(diff) < PADDLE_SPEED * 2) {
+          px = touchTargetXRef.current
+        } else {
+          px = px + (diff > 0 ? PADDLE_SPEED * 2 : -PADDLE_SPEED * 2)
+        }
+      }
+
       paddleXRef.current = px
 
       const speedMult = slowRef.current ? 0.6 : 1
@@ -372,11 +415,12 @@ function BrickBreaker() {
   const currentPaddleW = wideRef.current ? PADDLE_W * 1.5 : PADDLE_W
 
   return (
-    <div className="bb-container">
+    <div ref={containerRef} className="bb-container">
       <Link to="/" className="bb-back">← 홈으로</Link>
 
       <div className="bb-game-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
         <div
+          ref={gameAreaRef}
           className="bb-game-area"
           style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
         >
@@ -501,7 +545,7 @@ function BrickBreaker() {
         </div>
       </div>
 
-      <div className="bb-instructions">← → 방향키로 패들을 움직이세요</div>
+      <div className="bb-instructions">← → 방향키 또는 터치로 패들을 움직이세요</div>
     </div>
   )
 }

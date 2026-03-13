@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
+import { useTouchLock } from '../hooks/useTouchLock'
 import './Suika.css'
 
 const GAME_W = 360
@@ -62,6 +63,8 @@ function clampVel(v) {
 
 function Suika() {
   const scale = useGameScale(LAYOUT_W, LAYOUT_H)
+  const containerRef = useRef(null)
+  useTouchLock(containerRef)
 
   const [gameState, setGameState] = useState('menu')
   const [renderTick, setRenderTick] = useState(0)
@@ -405,7 +408,7 @@ function Suika() {
   const dropDef = FRUITS[dropLevel]
 
   return (
-    <div className="sk-container">
+    <div ref={containerRef} className="sk-container">
       <Link to="/" className="sk-back">← 홈으로</Link>
 
       <div className="sk-game-wrapper" style={{ width: LAYOUT_W * scale, height: LAYOUT_H * scale }}>
