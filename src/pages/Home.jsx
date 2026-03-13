@@ -8,6 +8,7 @@ const TAGS = {
   new: { label: "NEW", color: "#22c55e" },
   puzzle: { label: "퍼즐", color: "#8b5cf6" },
   action: { label: "액션", color: "#f59e0b" },
+  edu: { label: "학습", color: "#3b82f6" },
 };
 
 function Home() {
@@ -81,6 +82,14 @@ function Home() {
       description: "명령어로 고양이를 별까지 데려가세요! 코딩 사고력 UP!",
       color: "#6366f1",
       tags: ["new", "puzzle"],
+    },
+    {
+      id: "word-puzzle",
+      title: "워드 퍼즐",
+      emoji: "🔤",
+      description: "이모지 힌트를 보고 영어 단어를 맞춰보세요!",
+      color: "#3b82f6",
+      tags: ["new", "edu"],
     },
   ];
 

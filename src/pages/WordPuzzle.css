@@ -1,0 +1,414 @@
+.wp-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(135deg, #0c2340 0%, #1a4a7a 50%, #0d3360 100%);
+  padding-top: 48px;
+  position: relative;
+}
+
+.wp-back-button {
+  position: fixed;
+  top: 12px;
+  left: 16px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 6px 14px;
+  border-radius: 999px;
+  z-index: 100;
+  transition: background 0.2s;
+}
+.wp-back-button:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.wp-wrapper {
+  position: relative;
+}
+
+.wp-area {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0f2b4a 0%, #1a3d6e 100%);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Menu ===== */
+.wp-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  text-align: center;
+}
+
+.wp-menu-emoji {
+  font-size: 72px;
+  animation: wp-bounce 1.5s ease-in-out infinite;
+}
+
+@keyframes wp-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+.wp-menu-title {
+  font-size: 32px;
+  color: #fff;
+  margin: 12px 0 8px;
+  text-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+}
+
+.wp-menu-desc {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.wp-menu-start {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  border: none;
+  padding: 14px 40px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+}
+.wp-menu-start:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+/* Level select */
+.wp-level-select {
+  margin-top: 20px;
+  width: 100%;
+}
+.wp-level-select-title {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.wp-level-btns {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  max-width: 280px;
+  margin: 0 auto;
+}
+.wp-level-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.wp-level-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+.wp-level-cleared {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.2);
+}
+.wp-level-locked {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ===== Complete ===== */
+.wp-complete .wp-menu-emoji {
+  font-size: 80px;
+}
+.wp-total-stars {
+  font-size: 24px;
+  color: #fbbf24;
+  margin: 16px 0 24px;
+  font-weight: 700;
+}
+
+/* ===== HUD ===== */
+.wp-hud {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 8px;
+}
+.wp-level-label {
+  background: #3b82f6;
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.wp-hearts {
+  flex: 1;
+  text-align: right;
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+.wp-heart-lost {
+  opacity: 0.2;
+}
+.wp-menu-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* ===== Hint area ===== */
+.wp-hint-area {
+  text-align: center;
+  padding: 12px 16px 8px;
+}
+.wp-hint-emoji {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 8px;
+  animation: wp-hint-pulse 2s ease-in-out infinite;
+}
+@keyframes wp-hint-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.wp-hint-text {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 15px;
+}
+
+/* ===== Word slots ===== */
+.wp-word-area {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  flex-wrap: wrap;
+}
+.wp-letter-slot {
+  width: 40px;
+  height: 50px;
+  border-bottom: 3px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  text-transform: uppercase;
+  transition: all 0.3s;
+}
+.wp-letter-revealed {
+  border-bottom-color: #22c55e;
+  animation: wp-letter-pop 0.4s ease;
+}
+@keyframes wp-letter-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ===== Keyboard ===== */
+.wp-keyboard {
+  padding: 8px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.wp-kb-row {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+.wp-kb-key {
+  width: 32px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+}
+.wp-kb-key:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.28);
+}
+.wp-kb-key:active:not(:disabled) {
+  transform: scale(0.92);
+}
+.wp-kb-key:disabled {
+  cursor: default;
+}
+.wp-keyboard .wp-kb-key.wp-kb-correct {
+  background: rgba(34, 197, 94, 0.5);
+  border: 1px solid #22c55e;
+}
+.wp-keyboard .wp-kb-key.wp-kb-wrong {
+  background: rgba(239, 68, 68, 0.35);
+  opacity: 0.5;
+}
+
+/* ===== Overlays ===== */
+.wp-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: wp-fade-in 0.3s ease;
+}
+
+@keyframes wp-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.wp-overlay-success {
+  background: rgba(34, 197, 94, 0.15);
+  backdrop-filter: blur(4px);
+}
+
+.wp-overlay-fail {
+  background: rgba(239, 68, 68, 0.15);
+  backdrop-filter: blur(4px);
+}
+
+.wp-overlay-content {
+  text-align: center;
+  background: rgba(10, 25, 50, 0.92);
+  padding: 28px 36px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.wp-overlay-emoji {
+  font-size: 56px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.wp-overlay-content h2 {
+  color: #fff;
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+
+.wp-overlay-word {
+  color: #fbbf24;
+  font-size: 28px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  margin: 8px 0 12px;
+}
+
+.wp-overlay-content p {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+.wp-stars-display {
+  margin-bottom: 16px;
+}
+.wp-star-icon {
+  font-size: 28px;
+  margin: 0 4px;
+  opacity: 0.2;
+  transition: all 0.3s;
+}
+.wp-star-earned {
+  opacity: 1;
+  animation: wp-star-pop 0.4s ease;
+}
+@keyframes wp-star-pop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.wp-overlay-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s;
+  margin: 0 4px;
+}
+.wp-overlay-btn:hover {
+  transform: scale(1.05);
+}
+.wp-overlay-btn-retry {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+.wp-overlay-btn-menu {
+  margin-left: 8px;
+}
+
+/* ===== Instructions ===== */
+.wp-instructions {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  text-align: center;
+  margin-top: 8px;
+  padding: 0 16px;
+}
+
+/* ===== Mobile ===== */
+@media (max-width: 480px) {
+  .wp-kb-key {
+    width: 30px;
+    height: 38px;
+    font-size: 14px;
+  }
+  .wp-letter-slot {
+    width: 36px;
+    height: 44px;
+    font-size: 24px;
+  }
+}
