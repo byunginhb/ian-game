@@ -6,6 +6,9 @@ import './MathSpell.css'
 
 const GAME_W = 400
 const GAME_H = 680
+const TICK = 16
+const BUBBLE_R = 44
+const QUESTIONS_PER_LEVEL = 5
 
 const NUMBER_WORDS = [
   'zero', 'one', 'two', 'three', 'four', 'five',
@@ -14,12 +17,19 @@ const NUMBER_WORDS = [
   'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty',
 ]
 
-const QUESTIONS_PER_LEVEL = 5
+const BUBBLE_COLORS = [
+  '#ef4444', '#f59e0b', '#22c55e', '#3b82f6',
+  '#a855f7', '#ec4899', '#14b8a6', '#f97316',
+]
+
 const TIER_NAMES = ['덧셈 기초', '뺄셈 기초', '큰 수 덧셈', '곱셈', '혼합 연산', '도전!']
-const TIER_EMOJIS = ['🐣', '🐥', '🐔', '🦅', '🦉', '🏆']
 
 function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function randFloat(min, max) {
+  return Math.random() * (max - min) + min
 }
 
 function randomMultiplicationPair() {
@@ -84,16 +94,12 @@ function generateChoices(answer) {
     if (!choices.has(fill) && fill !== answer) choices.add(fill)
     fill++
   }
-  return shuffle([...choices])
+  return [...choices]
 }
 
-function shuffle(arr) {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = randInt(0, i)
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
+function getBubbleSpeed(levelIdx) {
+  const tier = Math.floor(levelIdx / 5)
+  return [0.4, 0.5, 0.6, 0.7, 0.85, 1.0][tier] || 1.0
 }
 
 function getTimerSeconds(levelIdx) {
@@ -108,23 +114,57 @@ function calculateStars(correctCount) {
   return 0
 }
 
+// Create 4 bubbles with random positions & velocities
+function createBubbles(choices, speed) {
+  const pad = BUBBLE_R + 8
+  const positions = [
+    { x: GAME_W * 0.25, y: GAME_H * 0.42 },
+    { x: GAME_W * 0.75, y: GAME_H * 0.42 },
+    { x: GAME_W * 0.25, y: GAME_H * 0.62 },
+    { x: GAME_W * 0.75, y: GAME_H * 0.62 },
+  ]
+  // shuffle positions
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = randInt(0, i)
+    ;[positions[i], positions[j]] = [positions[j], positions[i]]
+  }
+
+  return choices.map((value, i) => ({
+    value,
+    x: positions[i].x + randFloat(-20, 20),
+    y: positions[i].y + randFloat(-15, 15),
+    vx: randFloat(-speed, speed) * (Math.random() < 0.5 ? 1 : -1),
+    vy: randFloat(-speed, speed) * (Math.random() < 0.5 ? 1 : -1),
+    color: BUBBLE_COLORS[randInt(0, BUBBLE_COLORS.length - 1)],
+    scale: 1,
+    popped: false,
+    popType: null, // 'correct' | 'wrong'
+  }))
+}
+
 function MathSpell() {
   const scale = useGameScale(GAME_W, GAME_H)
   const containerRef = useRef(null)
   useTouchLock(containerRef)
 
   const [gameState, setGameState] = useState('menu')
-  const [levelIdx, setLevelIdx] = useState(0)
-  const [questionIdx, setQuestionIdx] = useState(0)
-  const [problem, setProblem] = useState(null)
-  const [choices, setChoices] = useState([])
-  const [hearts, setHearts] = useState(3)
-  const [correctCount, setCorrectCount] = useState(0)
-  const [streak, setStreak] = useState(0)
-  const [feedback, setFeedback] = useState(null)
-  const [selectedChoice, setSelectedChoice] = useState(null)
-  const [showResult, setShowResult] = useState(null)
-  const [timeLeft, setTimeLeft] = useState(0)
+  const [renderTick, setRenderTick] = useState(0)
+
+  const levelIdxRef = useRef(0)
+  const questionIdxRef = useRef(0)
+  const problemRef = useRef(null)
+  const bubblesRef = useRef([])
+  const heartsRef = useRef(3)
+  const correctCountRef = useRef(0)
+  const streakRef = useRef(0)
+  const scoreRef = useRef(0)
+  const timeLeftRef = useRef(0)
+  const feedbackRef = useRef(null) // null | 'correct' | 'wrong'
+  const showResultRef = useRef(null)
+  const gameStateRef = useRef('menu')
+  const particlesRef = useRef([])
+  const comboTextRef = useRef(null)
+  const feedbackTimerRef = useRef(null)
 
   const [clearedLevels, setClearedLevels] = useState(() => {
     try {
@@ -145,8 +185,6 @@ function MathSpell() {
     } catch { return {} }
   })
 
-  const feedbackTimerRef = useRef(null)
-
   const saveClearedLevels = useCallback((cleared, stars) => {
     try {
       localStorage.setItem('ms2-cleared', JSON.stringify([...cleared]))
@@ -154,22 +192,32 @@ function MathSpell() {
     } catch { /* noop */ }
   }, [])
 
-  const spawnQuestion = useCallback((lvIdx, qIdx) => {
-    const prob = generateProblem(lvIdx)
-    setProblem(prob)
-    setChoices(generateChoices(prob.answer))
-    setFeedback(null)
-    setSelectedChoice(null)
-    setTimeLeft(getTimerSeconds(lvIdx))
-    setQuestionIdx(qIdx)
+  const spawnParticles = useCallback((x, y, color, count) => {
+    const ps = []
+    for (let i = 0; i < count; i++) {
+      ps.push({
+        id: Date.now() + i,
+        x, y,
+        vx: randFloat(-3, 3),
+        vy: randFloat(-4, -1),
+        size: randFloat(4, 10),
+        color,
+        life: 1,
+      })
+    }
+    particlesRef.current = [...particlesRef.current, ...ps]
   }, [])
 
-  const goToMenu = useCallback(() => {
-    if (feedbackTimerRef.current) {
-      clearTimeout(feedbackTimerRef.current)
-      feedbackTimerRef.current = null
-    }
-    setGameState('menu')
+  const spawnQuestion = useCallback((lvIdx, qIdx) => {
+    const prob = generateProblem(lvIdx)
+    const choices = generateChoices(prob.answer)
+    const speed = getBubbleSpeed(lvIdx)
+    problemRef.current = prob
+    bubblesRef.current = createBubbles(choices, speed)
+    feedbackRef.current = null
+    showResultRef.current = null
+    timeLeftRef.current = getTimerSeconds(lvIdx) * 60 // frames
+    questionIdxRef.current = qIdx
   }, [])
 
   const startFromLevel = useCallback((idx) => {
@@ -177,13 +225,18 @@ function MathSpell() {
       clearTimeout(feedbackTimerRef.current)
       feedbackTimerRef.current = null
     }
-    setLevelIdx(idx)
-    setHearts(3)
-    setCorrectCount(0)
-    setStreak(0)
-    setShowResult(null)
+    levelIdxRef.current = idx
+    heartsRef.current = 3
+    correctCountRef.current = 0
+    streakRef.current = 0
+    scoreRef.current = 0
+    showResultRef.current = null
+    particlesRef.current = []
+    comboTextRef.current = null
+    gameStateRef.current = 'playing'
     setGameState('playing')
     spawnQuestion(idx, 0)
+    setRenderTick((t) => t + 1)
   }, [spawnQuestion])
 
   const finishLevel = useCallback((correct, lvIdx) => {
@@ -198,15 +251,15 @@ function MathSpell() {
         })
         return newCleared
       })
-      setShowResult('success')
+      showResultRef.current = 'success'
     } else {
-      setShowResult('fail')
+      showResultRef.current = 'fail'
     }
   }, [saveClearedLevels])
 
   const advanceOrFinish = useCallback((newCorrect, newHearts, qIdx, lvIdx) => {
     if (newHearts <= 0) {
-      setShowResult('fail')
+      showResultRef.current = 'fail'
       return
     }
     if (qIdx + 1 >= QUESTIONS_PER_LEVEL) {
@@ -215,79 +268,175 @@ function MathSpell() {
     }
     feedbackTimerRef.current = setTimeout(() => {
       spawnQuestion(lvIdx, qIdx + 1)
-    }, 800)
+      setRenderTick((t) => t + 1)
+    }, 900)
   }, [finishLevel, spawnQuestion])
 
-  const handleChoice = useCallback((value) => {
-    if (feedback !== null || showResult !== null || !problem) return
+  const handleBubbleTap = useCallback((bubbleIdx) => {
+    if (feedbackRef.current !== null || showResultRef.current !== null) return
+    const bubble = bubblesRef.current[bubbleIdx]
+    if (!bubble || bubble.popped) return
 
-    setSelectedChoice(value)
-    if (value === problem.answer) {
-      setFeedback('correct')
-      const newCorrect = correctCount + 1
-      setCorrectCount(newCorrect)
-      setStreak((s) => s + 1)
-      advanceOrFinish(newCorrect, hearts, questionIdx, levelIdx)
+    const prob = problemRef.current
+    const lvIdx = levelIdxRef.current
+    const qIdx = questionIdxRef.current
+
+    if (bubble.value === prob.answer) {
+      // Correct!
+      bubble.popped = true
+      bubble.popType = 'correct'
+      feedbackRef.current = 'correct'
+      spawnParticles(bubble.x, bubble.y, bubble.color, 12)
+      const newCorrect = correctCountRef.current + 1
+      correctCountRef.current = newCorrect
+      streakRef.current++
+      const combo = streakRef.current
+      scoreRef.current += 100 * combo
+      if (combo >= 2) {
+        comboTextRef.current = { text: `${combo}x COMBO!`, born: Date.now() }
+      }
+      advanceOrFinish(newCorrect, heartsRef.current, qIdx, lvIdx)
     } else {
-      setFeedback('wrong')
-      const newHearts = hearts - 1
-      setHearts(newHearts)
-      setStreak(0)
-      advanceOrFinish(correctCount, newHearts, questionIdx, levelIdx)
+      // Wrong
+      bubble.popped = true
+      bubble.popType = 'wrong'
+      feedbackRef.current = 'wrong'
+      spawnParticles(bubble.x, bubble.y, '#ef4444', 6)
+      heartsRef.current--
+      streakRef.current = 0
+      comboTextRef.current = null
+      advanceOrFinish(correctCountRef.current, heartsRef.current, qIdx, lvIdx)
     }
-  }, [feedback, showResult, problem, correctCount, hearts, questionIdx, levelIdx, advanceOrFinish])
+    setRenderTick((t) => t + 1)
+  }, [advanceOrFinish, spawnParticles])
 
-  // Timer countdown only
-  useEffect(() => {
-    if (gameState !== 'playing' || feedback !== null || showResult !== null) return
-
-    const id = setInterval(() => {
-      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1))
-    }, 1000)
-
-    return () => clearInterval(id)
-  }, [gameState, feedback, showResult])
-
-  // Time-up handler (separate from timer)
-  useEffect(() => {
-    if (timeLeft === 0 && gameState === 'playing' && feedback === null && showResult === null && problem) {
-      setFeedback('wrong')
-      setSelectedChoice(-1)
-      const newHearts = hearts - 1
-      setHearts(newHearts)
-      setStreak(0)
-      advanceOrFinish(correctCount, newHearts, questionIdx, levelIdx)
+  const goToMenu = useCallback(() => {
+    if (feedbackTimerRef.current) {
+      clearTimeout(feedbackTimerRef.current)
+      feedbackTimerRef.current = null
     }
-  }, [timeLeft, gameState, feedback, showResult, problem, hearts, correctCount, questionIdx, levelIdx, advanceOrFinish])
+    gameStateRef.current = 'menu'
+    setGameState('menu')
+  }, [])
 
-  // Cleanup on unmount
+  // Game loop: animate bubbles & particles
+  useEffect(() => {
+    if (gameState !== 'playing') return
+
+    const loop = setInterval(() => {
+      if (gameStateRef.current !== 'playing') return
+
+      const bubbles = bubblesRef.current
+      const speed = getBubbleSpeed(levelIdxRef.current)
+      const pad = BUBBLE_R + 4
+
+      // Move bubbles
+      for (const b of bubbles) {
+        if (b.popped) continue
+        b.x += b.vx
+        b.y += b.vy
+
+        // Bounce off walls
+        if (b.x < pad) { b.x = pad; b.vx = Math.abs(b.vx) + randFloat(0, 0.2) }
+        if (b.x > GAME_W - pad) { b.x = GAME_W - pad; b.vx = -Math.abs(b.vx) - randFloat(0, 0.2) }
+        if (b.y < GAME_H * 0.3) { b.y = GAME_H * 0.3; b.vy = Math.abs(b.vy) + randFloat(0, 0.2) }
+        if (b.y > GAME_H - pad - 20) { b.y = GAME_H - pad - 20; b.vy = -Math.abs(b.vy) - randFloat(0, 0.2) }
+
+        // Slight random drift
+        b.vx += randFloat(-0.03, 0.03) * speed
+        b.vy += randFloat(-0.03, 0.03) * speed
+
+        // Clamp speed
+        const maxV = speed * 2.5
+        b.vx = Math.max(-maxV, Math.min(maxV, b.vx))
+        b.vy = Math.max(-maxV, Math.min(maxV, b.vy))
+      }
+
+      // Bubble-to-bubble collision (push apart)
+      for (let i = 0; i < bubbles.length; i++) {
+        for (let j = i + 1; j < bubbles.length; j++) {
+          const a = bubbles[i], bub = bubbles[j]
+          if (a.popped || bub.popped) continue
+          const dx = bub.x - a.x
+          const dy = bub.y - a.y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          const minDist = BUBBLE_R * 2 + 8
+          if (dist < minDist && dist > 0) {
+            const push = (minDist - dist) / 2
+            const nx = dx / dist
+            const ny = dy / dist
+            a.x -= nx * push
+            a.y -= ny * push
+            bub.x += nx * push
+            bub.y += ny * push
+            a.vx -= nx * 0.3
+            a.vy -= ny * 0.3
+            bub.vx += nx * 0.3
+            bub.vy += ny * 0.3
+          }
+        }
+      }
+
+      // Update particles
+      particlesRef.current = particlesRef.current
+        .map((p) => ({
+          ...p,
+          x: p.x + p.vx,
+          y: p.y + p.vy,
+          vy: p.vy + 0.15,
+          life: p.life - 0.025,
+        }))
+        .filter((p) => p.life > 0)
+
+      // Timer countdown
+      if (feedbackRef.current === null && showResultRef.current === null) {
+        timeLeftRef.current--
+        if (timeLeftRef.current <= 0) {
+          feedbackRef.current = 'wrong'
+          heartsRef.current--
+          streakRef.current = 0
+          comboTextRef.current = null
+          advanceOrFinish(correctCountRef.current, heartsRef.current, questionIdxRef.current, levelIdxRef.current)
+        }
+      }
+
+      // Expire combo text
+      if (comboTextRef.current && Date.now() - comboTextRef.current.born > 1200) {
+        comboTextRef.current = null
+      }
+
+      setRenderTick((t) => t + 1)
+    }, TICK)
+
+    return () => clearInterval(loop)
+  }, [gameState, advanceOrFinish])
+
+  // Cleanup
   useEffect(() => {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
     }
   }, [])
 
-  // Keyboard shortcuts (1-4)
-  useEffect(() => {
-    if (gameState !== 'playing') return
-
-    const onKey = (e) => {
-      if (feedback !== null || showResult !== null) return
-      const num = parseInt(e.key)
-      if (num >= 1 && num <= 4 && choices[num - 1] !== undefined) {
-        e.preventDefault()
-        handleChoice(choices[num - 1])
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [gameState, feedback, showResult, choices, handleChoice])
-
-  const totalStars = Object.values(levelStars).reduce((sum, s) => sum + s, 0)
-  const timerMax = problem ? getTimerSeconds(levelIdx) : 1
+  // Render data
+  const lvIdx = levelIdxRef.current
+  const prob = problemRef.current
+  const bubbles = bubblesRef.current
+  const hearts = heartsRef.current
+  const correctCount = correctCountRef.current
+  const score = scoreRef.current
+  const streak = streakRef.current
+  const fb = feedbackRef.current
+  const showResult = showResultRef.current
+  const timeLeft = timeLeftRef.current
+  const timerMax = getTimerSeconds(lvIdx) * 60
   const timerPercent = (timeLeft / timerMax) * 100
-  const tier = Math.floor(levelIdx / 5)
+  const tier = Math.floor(lvIdx / 5)
+  const particles = particlesRef.current
+  const combo = comboTextRef.current
+  const qIdx = questionIdxRef.current
   const earnedStars = showResult === 'success' ? calculateStars(correctCount) : 0
+  const totalStars = Object.values(levelStars).reduce((sum, s) => sum + s, 0)
 
   return (
     <div ref={containerRef} className="ms2-container">
@@ -304,7 +453,7 @@ function MathSpell() {
               <div className="ms2-menu-emoji">🧮</div>
               <h2 className="ms2-menu-title">Math Spell</h2>
               <p className="ms2-menu-desc">
-                수학 문제를 풀고<br />답을 영어로 맞춰보세요!
+                수학 문제를 풀고<br />정답 버블을 터뜨리세요!
               </p>
               <button className="ms2-menu-start" onClick={() => startFromLevel(0)}>
                 게임 시작
@@ -330,22 +479,23 @@ function MathSpell() {
           )}
 
           {/* Playing */}
-          {gameState === 'playing' && problem && (
+          {gameState === 'playing' && prob && (
             <>
+              {/* HUD */}
               <div className="ms2-hud">
-                <div className="ms2-level-label">Lv.{levelIdx + 1}</div>
+                <div className="ms2-level-label">Lv.{lvIdx + 1}</div>
                 <div className="ms2-progress">
-                  {TIER_EMOJIS[tier]} {TIER_NAMES[tier]} ({questionIdx + 1}/{QUESTIONS_PER_LEVEL})
+                  {TIER_NAMES[tier]} ({qIdx + 1}/{QUESTIONS_PER_LEVEL})
                 </div>
-                <div className="ms2-hearts">
-                  {Array.from({ length: 3 }, (_, i) => (
-                    <span key={i} className={i >= hearts ? 'ms2-heart-lost' : ''}>❤️</span>
-                  ))}
-                </div>
+                <div className="ms2-score-badge">{score}</div>
                 <button className="ms2-menu-btn" onClick={goToMenu}>☰</button>
               </div>
 
-              <div className="ms2-timer-wrap">
+              {/* Hearts row */}
+              <div className="ms2-hearts-row">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <span key={i} className={`ms2-heart ${i >= hearts ? 'ms2-heart-lost' : ''}`}>❤️</span>
+                ))}
                 <div className="ms2-timer-bar">
                   <div
                     className="ms2-timer-fill"
@@ -357,50 +507,89 @@ function MathSpell() {
                 </div>
               </div>
 
+              {/* Problem */}
               <div className="ms2-problem-area">
-                <div className="ms2-problem-label">이 문제의 답은 영어로?</div>
                 <div className="ms2-problem">
-                  {problem.a} {problem.op} {problem.b} = ?
+                  {prob.a} {prob.op} {prob.b} = ?
                 </div>
               </div>
 
-              {streak >= 2 && feedback === null && (
-                <div className="ms2-streak" key={streak}>🔥 {streak}연속 정답!</div>
+              {/* Bubbles */}
+              {bubbles.map((b, i) => {
+                if (b.popped && b.popType === 'correct') return null
+                let cls = 'ms2-bubble'
+                if (b.popped && b.popType === 'wrong') cls += ' ms2-bubble-wrong'
+                if (fb === 'correct' && !b.popped && b.value === prob.answer) cls += ' ms2-bubble-reveal'
+                return (
+                  <div
+                    key={`${qIdx}-${i}`}
+                    className={cls}
+                    style={{
+                      left: b.x - BUBBLE_R,
+                      top: b.y - BUBBLE_R,
+                      width: BUBBLE_R * 2,
+                      height: BUBBLE_R * 2,
+                      background: `radial-gradient(circle at 35% 35%, ${b.color}dd, ${b.color}88)`,
+                      borderColor: b.color,
+                    }}
+                    onClick={() => handleBubbleTap(i)}
+                  >
+                    <span className="ms2-bubble-text">{NUMBER_WORDS[b.value]}</span>
+                    <div className="ms2-bubble-shine" />
+                  </div>
+                )
+              })}
+
+              {/* Pop effect for correct */}
+              {bubbles.map((b, i) => (
+                b.popped && b.popType === 'correct' ? (
+                  <div
+                    key={`pop-${qIdx}-${i}`}
+                    className="ms2-pop-ring"
+                    style={{ left: b.x - 50, top: b.y - 50 }}
+                  />
+                ) : null
+              ))}
+
+              {/* Particles */}
+              {particles.map((p) => (
+                <div
+                  key={p.id}
+                  className="ms2-particle"
+                  style={{
+                    left: p.x,
+                    top: p.y,
+                    width: p.size,
+                    height: p.size,
+                    background: p.color,
+                    opacity: p.life,
+                  }}
+                />
+              ))}
+
+              {/* Combo text */}
+              {combo && (
+                <div className="ms2-combo" key={combo.born}>
+                  {combo.text}
+                </div>
               )}
 
-              <div className="ms2-feedback">
-                {feedback === 'correct' && (
-                  <span className="ms2-feedback-correct">
-                    ✅ 정답! {NUMBER_WORDS[problem.answer].toUpperCase()}
-                  </span>
-                )}
-                {feedback === 'wrong' && (
-                  <span className="ms2-feedback-wrong">
-                    ❌ 정답: {NUMBER_WORDS[problem.answer].toUpperCase()}
-                  </span>
-                )}
-              </div>
+              {/* Feedback text */}
+              {fb === 'correct' && (
+                <div className="ms2-fb ms2-fb-correct" key={`fb-${qIdx}`}>CORRECT!</div>
+              )}
+              {fb === 'wrong' && (
+                <div className="ms2-fb ms2-fb-wrong" key={`fb-${qIdx}`}>
+                  {NUMBER_WORDS[prob.answer].toUpperCase()}
+                </div>
+              )}
 
-              <div className="ms2-choices">
-                {choices.map((value, i) => {
-                  let cls = 'ms2-choice'
-                  if (feedback !== null) {
-                    if (value === problem.answer) cls += ' ms2-choice-correct'
-                    else if (value === selectedChoice) cls += ' ms2-choice-wrong'
-                  }
-                  return (
-                    <button
-                      key={`${questionIdx}-${i}`}
-                      className={cls}
-                      disabled={feedback !== null}
-                      onClick={() => handleChoice(value)}
-                    >
-                      {NUMBER_WORDS[value]}
-                    </button>
-                  )
-                })}
-              </div>
+              {/* Streak indicator */}
+              {streak >= 2 && fb === null && (
+                <div className="ms2-streak-badge">🔥 {streak}</div>
+              )}
 
+              {/* Success overlay */}
               {showResult === 'success' && (
                 <div className="ms2-overlay ms2-overlay-success">
                   <div className="ms2-overlay-content">
@@ -410,6 +599,10 @@ function MathSpell() {
                       <div className="ms2-score-item">
                         <div className="ms2-score-item-label">정답</div>
                         <div className="ms2-score-item-value">{correctCount}/{QUESTIONS_PER_LEVEL}</div>
+                      </div>
+                      <div className="ms2-score-item">
+                        <div className="ms2-score-item-label">점수</div>
+                        <div className="ms2-score-item-value">{score}</div>
                       </div>
                     </div>
                     <div className="ms2-stars-display">
@@ -422,23 +615,24 @@ function MathSpell() {
                       ))}
                     </div>
                     <button className="ms2-overlay-btn" onClick={() => {
-                      if (levelIdx + 1 >= 30) setGameState('complete')
-                      else startFromLevel(levelIdx + 1)
+                      if (lvIdx + 1 >= 30) { gameStateRef.current = 'complete'; setGameState('complete') }
+                      else startFromLevel(lvIdx + 1)
                     }}>
-                      {levelIdx + 1 >= 30 ? '완료!' : '다음 레벨 →'}
+                      {lvIdx + 1 >= 30 ? '완료!' : '다음 레벨 →'}
                     </button>
                   </div>
                 </div>
               )}
 
+              {/* Fail overlay */}
               {showResult === 'fail' && (
                 <div className="ms2-overlay ms2-overlay-fail">
                   <div className="ms2-overlay-content">
                     <span className="ms2-overlay-emoji">😢</span>
                     <h2>아쉬워요!</h2>
-                    <p>정답: {correctCount}/{QUESTIONS_PER_LEVEL}</p>
+                    <p>정답: {correctCount}/{QUESTIONS_PER_LEVEL} · 점수: {score}</p>
                     <div>
-                      <button className="ms2-overlay-btn ms2-overlay-btn-retry" onClick={() => startFromLevel(levelIdx)}>
+                      <button className="ms2-overlay-btn ms2-overlay-btn-retry" onClick={() => startFromLevel(lvIdx)}>
                         다시 도전
                       </button>
                       <button className="ms2-overlay-btn ms2-overlay-btn-menu" onClick={goToMenu}>
@@ -466,7 +660,7 @@ function MathSpell() {
         </div>
       </div>
 
-      <div className="ms2-instructions">보기에서 정답을 골라 터치하세요 (키보드: 1~4)</div>
+      <div className="ms2-instructions">떠다니는 버블 중 정답을 터치하세요!</div>
     </div>
   )
 }
