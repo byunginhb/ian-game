@@ -91,6 +91,14 @@ function Home() {
       color: "#3b82f6",
       tags: ["new", "edu"],
     },
+    {
+      id: "math-spell",
+      title: "매쓰 스펠",
+      emoji: "🧮",
+      description: "수학 문제를 풀고 답을 영어로 맞춰보세요!",
+      color: "#a855f7",
+      tags: ["new", "edu"],
+    },
   ];
 
   return (
