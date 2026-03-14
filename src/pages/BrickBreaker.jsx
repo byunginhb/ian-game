@@ -171,6 +171,7 @@ function BrickBreaker() {
     if (!area) return
 
     const handleTouch = (e) => {
+      if (gameStateRef.current !== 'playing') return
       e.preventDefault()
       const rect = area.getBoundingClientRect()
       const touchX = e.touches[0].clientX
