@@ -10,6 +10,7 @@ import StackTower from './pages/StackTower'
 import CodeAdventure from './pages/CodeAdventure'
 import WordPuzzle from './pages/WordPuzzle'
 import MathSpell from './pages/MathSpell'
+import MonsterDefense from './pages/MonsterDefense'
 import './App.css'
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
         <Route path="/game/code-adventure" element={<CodeAdventure />} />
         <Route path="/game/word-puzzle" element={<WordPuzzle />} />
         <Route path="/game/math-spell" element={<MathSpell />} />
+        <Route path="/game/monster-defense" element={<MonsterDefense />} />
       </Routes>
     </BrowserRouter>
   )

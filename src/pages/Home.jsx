@@ -20,6 +20,14 @@ function Home() {
 
   const games = [
     {
+      id: "monster-defense",
+      title: "몬스터 디펜스",
+      emoji: "🏰",
+      description: "사방에서 몰려오는 몬스터를 막아라! 무기 업그레이드!",
+      color: "#dc2626",
+      tags: ["new", "hot", "action"],
+    },
+    {
       id: "suika",
       title: "수박 게임",
       emoji: "🍉",
