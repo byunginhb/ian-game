@@ -2,319 +2,483 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import './Fortress.css'
 
+// ── 상수 ─────────────────────────────────────────────────────────────────
 const GW = 800
-const GH = 500
-const GRAVITY = 0.18
-const WIND_MAX = 0.06
-const TANK_W = 44
-const TANK_H = 22
-const BARREL_LEN = 26
+const GH = 460
+const GRAVITY = 0.22
+const MAX_WIND = 0.05
+const TANK_W = 38
+const TANK_H = 20
+const BARREL_L = 26
+const MOVE_BUDGET = 90     // 한 턴에 움직일 수 있는 최대 픽셀
+const MOVE_STEP = 3        // 키 한 번 눌렀을 때 이동 거리
+const ANGLE_STEP = 2       // 키 한 번 눌렀을 때 각도 변화
+const POWER_SPEED = 1.5    // 게이지 속도 (숫자 클수록 빠름)
+const P1X = 72
+const P2X = GW - 72
 
 const WEAPONS = [
-  { id: 'cannon',    name: '일반 포탄',   emoji: '💣', damage: 35, radius: 45, count: Infinity, desc: '기본 포탄, 무한 사용' },
-  { id: 'cluster',   name: '클러스터',    emoji: '💥', damage: 18, radius: 28, count: 3,        desc: '공중에서 5발로 분열' },
-  { id: 'banana',    name: '바나나 폭탄', emoji: '🍌', damage: 55, radius: 75, count: 2,        desc: '초강력 폭발 범위' },
-  { id: 'missile',   name: '유도 미사일', emoji: '🚀', damage: 40, radius: 50, count: 2,        desc: '목표를 향해 추적' },
-  { id: 'airstrike', name: '공중 폭격',   emoji: '✈️', damage: 45, radius: 55, count: 1,        desc: '지정 위치 낙하 폭격' },
+  { id: 'cannon',  name: '일반 포탄',   emoji: '💣', damage: 42, radius: 36, maxAmt: Infinity, desc: '기본 포탄 · 무제한' },
+  { id: 'cluster', name: '클러스터',    emoji: '💥', damage: 22, radius: 24, maxAmt: 3,        desc: '공중에서 5발 분열 · 3발' },
+  { id: 'banana',  name: '바나나 폭탄', emoji: '🍌', damage: 62, radius: 70, maxAmt: 2,        desc: '초강력 폭발 · 2발' },
+  { id: 'missile', name: '유도 미사일', emoji: '🚀', damage: 48, radius: 44, maxAmt: 2,        desc: '목표 추적 · 2발' },
+  { id: 'nuke',    name: '핵폭탄',      emoji: '☢️', damage: 85, radius: 98, maxAmt: 1,        desc: '전체 폭발 · 1발' },
 ]
 
-const COLORS = {
-  0: { tank: '#e74c3c', barrel: '#c0392b' },
-  1: { tank: '#3498db', barrel: '#2980b9' },
+function makeAmmo() {
+  const a = {}
+  WEAPONS.forEach(w => { a[w.id] = w.maxAmt })
+  return a
 }
 
-// ── 지형 생성 ──
-function buildTerrain() {
-  const t = new Array(GW).fill(0)
-  const seed = Math.random() * 9999
-  const r = (n) => Math.sin(n * 127.1 + seed) * 0.5 + 0.5
+// ── 지형 ─────────────────────────────────────────────────────────────────
+function genTerrain() {
+  const arr = new Float32Array(GW)
+  const seed = Math.random() * 100
   for (let x = 0; x < GW; x++) {
     const n = x / GW
-    const h = r(n * 1.3) * 80 + r(n * 2.7 + 1) * 50 + r(n * 5.1 + 2) * 30 + r(n * 0.4 + 3) * 100 + 200
-    t[x] = Math.max(180, Math.min(430, h))
+    arr[x] = Math.max(155, Math.min(405,
+      225 +
+      Math.sin(n * Math.PI * 2 * 1.4 + seed) * 80 +
+      Math.sin(n * Math.PI * 2 * 3.2 + seed * 1.8) * 42 +
+      Math.sin(n * Math.PI * 2 * 0.5 + seed * 2.5) * 88 +
+      Math.sin(n * Math.PI * 2 * 6.5 + seed * 0.8) * 16
+    ))
   }
-  // 양쪽 플랫폼 평탄화
-  const leftH = t[80]; const rightH = t[GW - 81]
-  for (let x = 0; x < 80; x++) t[x] = leftH
-  for (let x = GW - 80; x < GW; x++) t[x] = rightH
-  return t
+  const lh = arr[65], rh = arr[GW - 66]
+  for (let x = 0; x < 65; x++) arr[x] = lh
+  for (let x = GW - 65; x < GW; x++) arr[x] = rh
+  return arr
 }
 
-function getY(terrain, x) {
-  const xi = Math.max(0, Math.min(GW - 1, Math.round(x)))
-  return terrain[xi]
+function getH(terrain, x) {
+  return terrain[Math.max(0, Math.min(GW - 1, Math.round(x)))]
 }
 
-function blastTerrain(terrain, cx, cy, radius) {
-  const next = [...terrain]
-  for (let x = Math.max(0, cx - radius); x <= Math.min(GW - 1, cx + radius); x++) {
-    const dx = x - cx
-    const depth = Math.sqrt(Math.max(0, radius * radius - dx * dx))
-    const newBottom = cy + depth
-    if (newBottom > next[x]) next[x] = Math.min(GH - 10, newBottom)
+function applyBlast(terrain, cx, cy, r) {
+  const next = new Float32Array(terrain)
+  for (let x = Math.max(0, (cx - r) | 0); x <= Math.min(GW - 1, (cx + r) | 0); x++) {
+    const d = Math.sqrt(Math.max(0, r * r - (x - cx) ** 2))
+    const floor = cy + d
+    if (floor > next[x]) next[x] = Math.min(GH - 6, floor)
   }
   return next
 }
 
-// ── 초기 무기 세트 ──
-function initWeapons() {
-  return [
-    { cannon: Infinity, cluster: 3, banana: 2, missile: 2, airstrike: 1 },
-    { cannon: Infinity, cluster: 3, banana: 2, missile: 2, airstrike: 1 },
-  ]
+// ── AI 계산 ───────────────────────────────────────────────────────────────
+function aiCalc(fromX, fromY, toX, toY, windForce) {
+  // 0~85° 각도, P2는 왼쪽(-x)으로 발사
+  let bestAngle = 45, bestPower = 60, bestErr = Infinity
+  for (let a = 8; a <= 82; a += 4) {
+    for (let p = 35; p <= 95; p += 10) {
+      const rad = a * Math.PI / 180
+      const spd = p * 0.14
+      let x = 0, y = 0
+      let vx = Math.cos(rad) * spd   // 수평 거리만 시뮬레이션
+      let vy = -Math.sin(rad) * spd
+      for (let t = 0; t < 500; t++) {
+        x += vx; y += vy; vy += GRAVITY; vx -= windForce  // P2 기준 반전
+        if (y > 200 || x > Math.abs(toX - fromX) + 150) break
+      }
+      const err = Math.abs(x - Math.abs(toX - fromX)) + Math.abs(y - (toY - fromY)) * 0.4
+      if (err < bestErr) { bestErr = err; bestAngle = a; bestPower = p }
+    }
+  }
+  return {
+    angle: Math.max(10, Math.min(80, bestAngle + (Math.random() - 0.5) * 16)),
+    power: Math.max(30, Math.min(95, bestPower + (Math.random() - 0.5) * 12)),
+  }
+}
+
+// ── 포탄 물리 ─────────────────────────────────────────────────────────────
+function stepProj(p) {
+  return { ...p, x: p.x + p.vx, y: p.y + p.vy, vx: p.vx + p.wf, vy: p.vy + GRAVITY }
 }
 
 let uid = 0
 
+// ── 컴포넌트 ─────────────────────────────────────────────────────────────
 export default function Fortress() {
   const canvasRef = useRef(null)
-
-  // 게임 상태 (ref로 게임루프에서 접근)
-  const gameRef = useRef(null)
+  const gRef = useRef(null)           // 뮤터블 게임 데이터
 
   const [screen, setScreen] = useState('menu')
   const [mode, setMode] = useState('2p')
-  const [uiState, setUiState] = useState({ angle: 45, power: 60, turn: 0, phase: 'aim' })
+
+  // 턴 상태
+  const [turn, setTurn] = useState(0)
+  const [phase, setPhase] = useState('aim')  // aim | flying | banner
   const [hp, setHp] = useState([100, 100])
   const [wind, setWind] = useState(0)
-  const [weapons, setWeapons] = useState(initWeapons())
-  const [selectedWeapon, setSelectedWeapon] = useState(['cannon', 'cannon'])
-  const [message, setMessage] = useState('')
+  const [ammo, setAmmo] = useState([makeAmmo(), makeAmmo()])
+  const [selW, setSelW] = useState(['cannon', 'cannon'])
+  const [showWMenu, setShowWMenu] = useState(false)
   const [winner, setWinner] = useState(null)
-  const [airstrikeMode, setAirstrikeMode] = useState(false)
-  const [showWeaponMenu, setShowWeaponMenu] = useState(false)
+  const [banner, setBanner] = useState('')
+  const [dmgNums, setDmgNums] = useState([])
 
-  // 렌더용 스냅샷 (Canvas 그리기)
-  const [renderSnap, setRenderSnap] = useState(null)
+  // 조준 상태
+  const [angle, setAngle] = useState(45)     // 0~85° (0=수평, 85=수직)
+  const [moveBudget, setMoveBudget] = useState(MOVE_BUDGET)
+  const [powerOsc, setPowerOsc] = useState(0)  // 자동으로 왔다갔다 하는 파워 게이지
 
-  const triggerRender = useCallback(() => {
-    if (!gameRef.current) return
-    const g = gameRef.current
-    setRenderSnap({
-      terrain: g.terrain,
-      tanks: g.tanks,
-      projectiles: [...g.projectiles],
-      explosions: [...g.explosions],
-      trajectoryDots: [...g.trajectoryDots],
-    })
-  }, [])
+  // airMode
+  const [airMode, setAirMode] = useState(false)
 
-  // ── 초기화 ──
-  const initGame = useCallback((gameMode) => {
-    const terrain = buildTerrain()
-    const p1x = 80, p2x = GW - 80
-    const tanks = [
-      { x: p1x, y: getY(terrain, p1x) - TANK_H },
-      { x: p2x, y: getY(terrain, p2x) - TANK_H },
-    ]
-    const newWind = (Math.random() - 0.5) * WIND_MAX * 2
-    gameRef.current = { terrain, tanks, projectiles: [], explosions: [], trajectoryDots: [], endTurnQueued: false }
-    setWind(newWind)
-    setHp([100, 100])
-    setWeapons(initWeapons())
-    setSelectedWeapon(['cannon', 'cannon'])
-    setMessage('')
+  // refs (루프 내 최신 값 접근용)
+  const phaseRef = useRef('aim')
+  const turnRef = useRef(0)
+  const modeRef = useRef('2p')
+  const hpRef = useRef([100, 100])
+  const windRef = useRef(0)
+  const powerOscRef = useRef(0)
+  const angleRef = useRef(45)
+  const moveBudgetRef = useRef(MOVE_BUDGET)
+  const selWRef = useRef(['cannon', 'cannon'])
+  const ammoRef = useRef([makeAmmo(), makeAmmo()])
+  const powerDirRef = useRef(1)   // 파워 게이지 방향
+
+  useEffect(() => { phaseRef.current = phase }, [phase])
+  useEffect(() => { turnRef.current = turn }, [turn])
+  useEffect(() => { modeRef.current = mode }, [mode])
+  useEffect(() => { hpRef.current = hp }, [hp])
+  useEffect(() => { windRef.current = wind }, [wind])
+  useEffect(() => { powerOscRef.current = powerOsc }, [powerOsc])
+  useEffect(() => { angleRef.current = angle }, [angle])
+  useEffect(() => { moveBudgetRef.current = moveBudget }, [moveBudget])
+  useEffect(() => { selWRef.current = selW }, [selW])
+  useEffect(() => { ammoRef.current = ammo }, [ammo])
+
+  // 렌더 트리거
+  const [tick, setTick] = useState(0)
+  const redraw = useCallback(() => setTick(t => t + 1), [])
+
+  // ── 게임 초기화 ────────────────────────────────────────────────────────
+  const startGame = useCallback((gMode) => {
+    const terrain = genTerrain()
+    const newWind = (Math.random() - 0.5) * MAX_WIND * 2
+    gRef.current = {
+      terrain,
+      tanks: [
+        { x: P1X, y: getH(terrain, P1X) - TANK_H },
+        { x: P2X, y: getH(terrain, P2X) - TANK_H },
+      ],
+      projs: [], exps: [], endQueued: false,
+    }
+    setMode(gMode)
+    setTurn(0); turnRef.current = 0
+    setPhase('banner'); phaseRef.current = 'banner'
+    setAngle(45); angleRef.current = 45
+    setMoveBudget(MOVE_BUDGET); moveBudgetRef.current = MOVE_BUDGET
+    setPowerOsc(0); powerOscRef.current = 0
+    powerDirRef.current = 1
+    setHp([100, 100]); hpRef.current = [100, 100]
+    setWind(newWind); windRef.current = newWind
+    setAmmo([makeAmmo(), makeAmmo()])
+    setSelW(['cannon', 'cannon'])
     setWinner(null)
-    setAirstrikeMode(false)
-    setShowWeaponMenu(false)
-    setMode(gameMode)
-    setUiState({ angle: 45, power: 60, turn: 0, phase: 'aim' })
+    setDmgNums([])
+    setAirMode(false)
+    setShowWMenu(false)
+    setBanner('🔴 플레이어 1의 턴!')
     setScreen('game')
-    triggerRender()
-  }, [triggerRender])
+    redraw()
+    setTimeout(() => { setBanner(''); setPhase('aim'); phaseRef.current = 'aim' }, 1800)
+  }, [redraw])
 
-  // ── 궤적 미리보기 ──
+  // ── 턴 종료 ────────────────────────────────────────────────────────────
+  const doEndTurn = useCallback((curTurn, curMode) => {
+    if (!gRef.current) return
+    gRef.current.projs = []
+    gRef.current.endQueued = false
+
+    const nextTurn = 1 - curTurn
+    const newWind = (Math.random() - 0.5) * MAX_WIND * 2
+
+    setWind(newWind); windRef.current = newWind
+    setTurn(nextTurn); turnRef.current = nextTurn
+    setAngle(45); angleRef.current = 45
+    setMoveBudget(MOVE_BUDGET); moveBudgetRef.current = MOVE_BUDGET
+    setPowerOsc(0); powerOscRef.current = 0
+    powerDirRef.current = 1
+    setAirMode(false)
+    setShowWMenu(false)
+
+    const bText = nextTurn === 0
+      ? '🔴 플레이어 1의 턴!'
+      : (curMode === 'ai' ? '🤖 AI의 턴!' : '🔵 플레이어 2의 턴!')
+    setBanner(bText)
+    setPhase('banner'); phaseRef.current = 'banner'
+    setTimeout(() => {
+      setBanner('')
+      setPhase('aim'); phaseRef.current = 'aim'
+
+      // AI 자동 실행
+      if (curMode === 'ai' && nextTurn === 1) {
+        setTimeout(() => {
+          const g = gRef.current
+          if (!g) return
+          const { angle: aiAngle, power: aiPower } = aiCalc(
+            g.tanks[1].x, g.tanks[1].y,
+            g.tanks[0].x, g.tanks[0].y,
+            newWind,
+          )
+          setAngle(aiAngle); angleRef.current = aiAngle
+          setTimeout(() => {
+            if (phaseRef.current !== 'aim') return
+            const g2 = gRef.current
+            if (!g2) return
+            const rad = aiAngle * Math.PI / 180
+            const spd = aiPower * 0.14
+            const proj = {
+              id: uid++,
+              x: g2.tanks[1].x - Math.cos(rad) * BARREL_L,
+              y: g2.tanks[1].y - TANK_H / 2 - Math.sin(rad) * BARREL_L,
+              vx: -Math.cos(rad) * spd,
+              vy: -Math.sin(rad) * spd,
+              wf: newWind,
+              weaponId: 'cannon',
+              owner: 1,
+            }
+            g2.projs = [proj]
+            setPhase('flying'); phaseRef.current = 'flying'
+            redraw()
+          }, 1000)
+        }, 500)
+      }
+    }, 1800)
+  }, [redraw])
+
+  // ── 파워 게이지 자동 진동 ─────────────────────────────────────────────
   useEffect(() => {
-    if (!gameRef.current) return
-    const { turn, phase, angle, power } = uiState
-    if (phase !== 'aim') { gameRef.current.trajectoryDots = []; triggerRender(); return }
-    const tank = gameRef.current.tanks[turn]
-    if (!tank) return
-    const rad = (angle * Math.PI) / 180
-    const dir = turn === 0 ? 1 : -1
-    let vx = dir * Math.cos(rad) * power * 0.12
-    let vy = -Math.sin(rad) * power * 0.12
-    let x = tank.x, y = tank.y - TANK_H / 2
-    const dots = []
-    const terrain = gameRef.current.terrain
-    for (let i = 0; i < 90; i++) {
-      x += vx; y += vy; vy += GRAVITY; vx += wind
-      if (i % 3 === 0) dots.push({ x, y })
-      if (y > GH || x < -20 || x > GW + 20 || y >= getY(terrain, x)) break
-    }
-    gameRef.current.trajectoryDots = dots
-    triggerRender()
-  }, [uiState, wind, triggerRender])
+    if (screen !== 'game') return
+    const isHuman = modeRef.current === '2p' || turnRef.current === 0
+    if (!isHuman) return
 
-  // ── endTurn ──
-  const doEndTurn = useCallback((currentTurn, currentMode, currentWind, currentWeapons) => {
-    if (!gameRef.current) return
-    gameRef.current.projectiles = []
-    gameRef.current.endTurnQueued = false
+    const interval = setInterval(() => {
+      if (phaseRef.current !== 'aim') return
+      setPowerOsc(prev => {
+        const next = prev + powerDirRef.current * POWER_SPEED
+        if (next >= 100) { powerDirRef.current = -1; return 100 }
+        if (next <= 0)   { powerDirRef.current = 1;  return 0 }
+        return next
+      })
+    }, 16)
+    return () => clearInterval(interval)
+  }, [screen, turn])
 
-    const nextTurn = 1 - currentTurn
-    const newWind = (Math.random() - 0.5) * WIND_MAX * 2
-    setWind(newWind)
-    setShowWeaponMenu(false)
-    setMessage('')
+  // ── 실제 발사 ─────────────────────────────────────────────────────────
+  const fireProjectile = useCallback(() => {
+    const g = gRef.current
+    if (!g || phaseRef.current !== 'aim') return
+    const t = turnRef.current
+    const weaponId = selWRef.current[t]
+    const curAmmo = ammoRef.current[t][weaponId]
+    if (curAmmo !== Infinity && curAmmo <= 0) return
 
-    setUiState(prev => ({ ...prev, turn: nextTurn, phase: 'aim' }))
-
-    // AI 턴
-    if (currentMode === 'ai' && nextTurn === 1) {
-      const g = gameRef.current
-      const aiTank = g.tanks[1]
-      const targetTank = g.tanks[0]
-      if (!aiTank || !targetTank) return
-
-      const dx = targetTank.x - aiTank.x
-      const basePower = Math.min(95, Math.max(35, Math.abs(dx) * 0.09 + 45))
-      const baseAngle = dx > 0 ? 42 : 138
-      const noisyAngle = Math.max(10, Math.min(170, baseAngle + (Math.random() - 0.5) * 28))
-      const noisyPower = Math.max(25, Math.min(100, basePower + (Math.random() - 0.5) * 15))
-
-      setUiState(prev => ({ ...prev, angle: noisyAngle, power: noisyPower }))
-
-      setTimeout(() => {
-        if (!gameRef.current) return
-        const g2 = gameRef.current
-        const rad = (noisyAngle * Math.PI) / 180
-        const vx = -Math.cos(rad) * noisyPower * 0.12 // AI는 왼쪽으로
-        const vy = -Math.sin(rad) * noisyPower * 0.12
-        const proj = { id: uid++, x: g2.tanks[1].x, y: g2.tanks[1].y - TANK_H / 2, vx, vy, wind: newWind, weaponId: 'cannon', owner: 1 }
-        g2.projectiles = [proj]
-        // AI 무기 소모 없음(cannon은 무한)
-        setUiState(prev => ({ ...prev, phase: 'flying' }))
-        triggerRender()
-      }, 1500)
-    }
-  }, [triggerRender])
-
-  // ── 발사 ──
-  const handleFire = useCallback(() => {
-    if (!gameRef.current) return
-    const { turn, phase, angle, power } = uiState
-    if (phase !== 'aim') return
-    const weaponId = selectedWeapon[turn]
-    if (weapons[turn][weaponId] !== Infinity && weapons[turn][weaponId] <= 0) {
-      setMessage('탄약이 없어요! 다른 무기를 선택하세요.')
-      return
-    }
     if (weaponId === 'airstrike') {
-      setAirstrikeMode(true)
-      setMessage('캔버스를 클릭해 폭격 위치를 선택하세요!')
+      setAirMode(true)
       return
     }
-    const g = gameRef.current
-    const tank = g.tanks[turn]
-    const rad = (angle * Math.PI) / 180
-    const dir = turn === 0 ? 1 : -1
-    const vx = dir * Math.cos(rad) * power * 0.12
-    const vy = -Math.sin(rad) * power * 0.12
-    const proj = { id: uid++, x: tank.x, y: tank.y - TANK_H / 2, vx, vy, wind, weaponId, owner: turn }
-    g.projectiles = [proj]
-    if (weapons[turn][weaponId] !== Infinity) {
-      setWeapons(prev => prev.map((ws, i) => i === turn ? { ...ws, [weaponId]: ws[weaponId] - 1 } : ws))
+
+    const tank = g.tanks[t]
+    const curAngle = angleRef.current
+    const curPower = powerOscRef.current
+    const rad = curAngle * Math.PI / 180
+    const spd = curPower * 0.14
+    const dir = t === 0 ? 1 : -1  // P1=오른쪽, P2=왼쪽
+
+    const proj = {
+      id: uid++,
+      x: tank.x + dir * Math.cos(rad) * BARREL_L,
+      y: tank.y - TANK_H / 2 - Math.sin(rad) * BARREL_L,
+      vx: dir * Math.cos(rad) * spd,
+      vy: -Math.sin(rad) * spd,
+      wf: windRef.current,
+      weaponId,
+      owner: t,
     }
-    setUiState(prev => ({ ...prev, phase: 'flying' }))
-    setMessage('')
-    setShowWeaponMenu(false)
-    triggerRender()
-  }, [uiState, selectedWeapon, weapons, wind, triggerRender])
+    g.projs = [proj]
 
-  const handleAirstrikeClick = useCallback((e) => {
-    if (!airstrikeMode || !canvasRef.current || !gameRef.current) return
+    if (curAmmo !== Infinity) {
+      setAmmo(prev => prev.map((a, i) => i === t ? { ...a, [weaponId]: a[weaponId] - 1 } : a))
+    }
+    setPhase('flying'); phaseRef.current = 'flying'
+    setShowWMenu(false)
+    redraw()
+  }, [redraw])
+
+  // ── 탱크 이동 ─────────────────────────────────────────────────────────
+  const moveTank = useCallback((dir) => {
+    if (phaseRef.current !== 'aim') return
+    const g = gRef.current
+    if (!g) return
+    const t = turnRef.current
+    const budget = moveBudgetRef.current
+    if (budget <= 0) return
+
+    const tank = g.tanks[t]
+    const newX = Math.max(15, Math.min(GW - 15, tank.x + dir * MOVE_STEP))
+    const newY = getH(g.terrain, newX) - TANK_H
+    const spent = Math.abs(newX - tank.x)
+    g.tanks = g.tanks.map((tk, i) => i === t ? { ...tk, x: newX, y: newY } : tk)
+    const newBudget = Math.max(0, budget - spent)
+    setMoveBudget(newBudget)
+    moveBudgetRef.current = newBudget
+    redraw()
+  }, [redraw])
+
+  // ── 키보드 이벤트 ─────────────────────────────────────────────────────
+  const keysRef = useRef(new Set())
+  useEffect(() => {
+    if (screen !== 'game') return
+    const isHuman = () => modeRef.current === '2p' || turnRef.current === 0
+
+    const onKeyDown = (e) => {
+      if (!isHuman() || phaseRef.current !== 'aim') return
+
+      // 방향키는 기본 스크롤 막기
+      if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) {
+        e.preventDefault()
+      }
+
+      if (keysRef.current.has(e.key)) return  // 반복 입력 방지 (한 번만)
+      keysRef.current.add(e.key)
+
+      switch (e.key) {
+        case 'ArrowLeft':  moveTank(-1); break
+        case 'ArrowRight': moveTank(1);  break
+        case 'ArrowUp':
+          setAngle(prev => { const v = Math.min(85, prev + ANGLE_STEP); angleRef.current = v; return v })
+          break
+        case 'ArrowDown':
+          setAngle(prev => { const v = Math.max(0, prev - ANGLE_STEP); angleRef.current = v; return v })
+          break
+        case ' ':
+        case 'Enter':
+          fireProjectile()
+          break
+        default: break
+      }
+    }
+
+    // 키 누르고 있으면 연속 이동
+    const holdInterval = setInterval(() => {
+      if (!isHuman() || phaseRef.current !== 'aim') return
+      if (keysRef.current.has('ArrowLeft'))  moveTank(-1)
+      if (keysRef.current.has('ArrowRight')) moveTank(1)
+      if (keysRef.current.has('ArrowUp'))
+        setAngle(prev => { const v = Math.min(85, prev + ANGLE_STEP); angleRef.current = v; return v })
+      if (keysRef.current.has('ArrowDown'))
+        setAngle(prev => { const v = Math.max(0, prev - ANGLE_STEP); angleRef.current = v; return v })
+    }, 80)
+
+    const onKeyUp = (e) => keysRef.current.delete(e.key)
+
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      clearInterval(holdInterval)
+      keysRef.current.clear()
+    }
+  }, [screen, moveTank, fireProjectile])
+
+  // ── 에어스트라이크 클릭 ───────────────────────────────────────────────
+  const handleCanvasClick = useCallback((e) => {
+    if (!airMode || !canvasRef.current || !gRef.current) return
     const rect = canvasRef.current.getBoundingClientRect()
-    const tx = (e.clientX - rect.left) * (GW / rect.width)
-    setAirstrikeMode(false)
-    const { turn } = uiState
-    setWeapons(prev => prev.map((ws, i) => i === turn ? { ...ws, airstrike: Math.max(0, ws.airstrike - 1) } : ws))
-    const proj = { id: uid++, x: tx, y: -30, vx: 0, vy: 4.5, wind: 0, weaponId: 'airstrike', owner: turn }
-    gameRef.current.projectiles = [proj]
-    setUiState(prev => ({ ...prev, phase: 'flying' }))
-    setMessage('')
-    triggerRender()
-  }, [airstrikeMode, uiState, triggerRender])
+    const clickX = (e.clientX - rect.left) * (GW / rect.width)
+    const g = gRef.current
+    const t = turnRef.current
+    const proj = {
+      id: uid++,
+      x: clickX, y: -40, vx: 0, vy: 5.5, wf: 0,
+      weaponId: 'airstrike', owner: t,
+    }
+    g.projs = [proj]
+    setAmmo(prev => prev.map((a, i) => i === t ? { ...a, airstrike: Math.max(0, a.airstrike - 1) } : a))
+    setAirMode(false)
+    setPhase('flying'); phaseRef.current = 'flying'
+    redraw()
+  }, [airMode, redraw])
 
-  // ── 게임 루프 ──
+  // ── 게임 루프 (포탄 물리) ────────────────────────────────────────────
   useEffect(() => {
     if (screen !== 'game') return
     const interval = setInterval(() => {
-      const g = gameRef.current
-      if (!g || uiState.phase !== 'flying') return
+      if (phaseRef.current !== 'flying') return
+      const g = gRef.current
+      if (!g) return
 
-      const { turn } = uiState
       let terrain = g.terrain
-      let tanks = g.tanks
-      const newExplosions = []
+      const tanks = g.tanks
       const surviving = []
-      const newSubProjs = []
-      let hpChanges = [0, 0]
+      const newExps = []
+      const newSubs = []
+      const dmgMap = [0, 0]
 
-      for (const p of g.projectiles) {
-        // 물리 스텝
-        let nx = p.x + p.vx
-        let ny = p.y + p.vy
-        let nvx = p.vx + p.wind
-        let nvy = p.vy + GRAVITY
+      for (const p of g.projs) {
+        let np = stepProj(p)
 
         // 유도 미사일
-        if (p.weaponId === 'missile') {
-          const target = tanks[1 - p.owner]
+        if (np.weaponId === 'missile') {
+          const target = tanks[1 - np.owner]
           if (target) {
-            const dx = target.x - nx
-            const dy = (target.y - TANK_H) - ny
-            const dist = Math.sqrt(dx * dx + dy * dy)
-            if (dist > 5) {
-              nvx += (dx / dist) * 0.14
-              nvy += (dy / dist) * 0.14
-            }
+            const dx = target.x - np.x, dy = (target.y - TANK_H / 2) - np.y
+            const d = Math.sqrt(dx * dx + dy * dy)
+            if (d > 8) { np = { ...np, vx: np.vx + (dx / d) * 0.13, vy: np.vy + (dy / d) * 0.13 } }
           }
         }
 
-        const np = { ...p, x: nx, y: ny, vx: nvx, vy: nvy }
-
         // 클러스터 분열
-        if (np.weaponId === 'cluster' && np.y > GH * 0.42 && np.vy > 0) {
-          const wDef = WEAPONS.find(w => w.id === 'cluster')
+        if (np.weaponId === 'cluster' && np.y > GH * 0.43 && np.vy > 0) {
           for (let i = 0; i < 5; i++) {
-            const a = 15 + i * 35
-            const rad = (a * Math.PI) / 180
-            const sv = 2.8
-            newSubProjs.push({
+            const a = -25 + i * 12
+            const rad = a * Math.PI / 180
+            newSubs.push({
               id: uid++, x: np.x, y: np.y,
-              vx: Math.cos(rad) * sv * (i % 2 === 0 ? 1 : -1),
-              vy: -Math.sin(rad) * sv * 0.5,
-              wind: np.wind, weaponId: 'sub', owner: np.owner,
-              subDamage: wDef.damage, subRadius: wDef.radius,
+              vx: Math.cos(rad + 0.3) * 3.2 * (i % 2 === 0 ? 1 : -0.7),
+              vy: -Math.sin(rad) * 1.5 + 0.5,
+              wf: np.wf, weaponId: 'sub', owner: np.owner,
+              subDmg: 22, subR: 24,
             })
           }
           continue
         }
 
-        // 범위 밖 제거
-        if (np.x < -80 || np.x > GW + 80 || np.y > GH + 80) continue
+        // 범위 밖
+        if (np.x < -120 || np.x > GW + 120 || np.y > GH + 80) continue
 
-        // 지형 충돌
-        const terrainHit = np.y >= getY(terrain, np.x)
-        // 탱크 충돌
-        const t0Hit = Math.abs(np.x - tanks[0].x) < TANK_W / 2 + 6 && np.y > tanks[0].y - TANK_H - 4 && np.y < tanks[0].y + 8
-        const t1Hit = Math.abs(np.x - tanks[1].x) < TANK_W / 2 + 6 && np.y > tanks[1].y - TANK_H - 4 && np.y < tanks[1].y + 8
+        // 충돌 감지
+        const ty = getH(terrain, np.x)
+        const hitGround = np.y >= ty
+        let hitTankIdx = -1
+        for (let ti = 0; ti < 2; ti++) {
+          const tk = tanks[ti]
+          if (Math.abs(np.x - tk.x) < TANK_W / 2 + 4 &&
+              np.y >= tk.y - TANK_H - 2 && np.y <= tk.y + 5) {
+            hitTankIdx = ti; break
+          }
+        }
 
-        if (terrainHit || t0Hit || t1Hit) {
-          const wDef = WEAPONS.find(w => w.id === np.weaponId) || { damage: np.subDamage || 20, radius: np.subRadius || 35 }
-          const ex = Math.max(1, Math.min(GW - 1, np.x))
-          const ey = terrainHit ? getY(terrain, np.x) : np.y
-          newExplosions.push({ id: uid++, x: ex, y: ey, r: wDef.radius, t: 0 })
-          terrain = blastTerrain(terrain, ex, ey, wDef.radius)
+        if (hitGround || hitTankIdx >= 0) {
+          const wDef = WEAPONS.find(w => w.id === np.weaponId) ||
+            { damage: np.subDmg || 22, radius: np.subR || 24 }
+          const ex = Math.max(2, Math.min(GW - 2, np.x))
+          const ey = hitGround ? ty : np.y
+          newExps.push({ id: uid++, x: ex, y: ey, r: wDef.radius, t: 0 })
+          terrain = applyBlast(terrain, ex, ey, wDef.radius)
 
-          // 데미지
-          for (let pi = 0; pi < 2; pi++) {
-            const tk = tanks[pi]
+          // 상대 탱크 데미지 (자기 자신 제외)
+          for (let ti = 0; ti < 2; ti++) {
+            if (ti === np.owner) continue
+            const tk = tanks[ti]
             const dist = Math.sqrt((tk.x - ex) ** 2 + ((tk.y - TANK_H / 2) - ey) ** 2)
-            if (dist < wDef.radius + 22) {
-              const dmg = Math.round(wDef.damage * (1.2 - dist / (wDef.radius + 22)))
-              hpChanges[pi] += Math.max(0, dmg)
+            if (dist < wDef.radius + 14) {
+              const factor = Math.max(0, 1.1 - dist / (wDef.radius + 14))
+              dmgMap[ti] += Math.round(wDef.damage * factor)
             }
           }
         } else {
@@ -322,212 +486,277 @@ export default function Fortress() {
         }
       }
 
-      // 서브 포탄 추가
-      g.projectiles = [...surviving, ...newSubProjs]
-      g.terrain = terrain
+      g.projs = [...surviving, ...newSubs]
 
-      // 탱크 지형 위로 갱신
-      g.tanks = tanks.map(tk => ({ ...tk, y: getY(terrain, tk.x) - TANK_H }))
+      if (newExps.length > 0) {
+        g.exps = [...g.exps, ...newExps]
+        g.terrain = terrain
+        g.tanks = tanks.map(tk => ({ ...tk, y: getH(terrain, tk.x) - TANK_H }))
 
-      // 폭발 추가
-      if (newExplosions.length > 0) {
-        g.explosions = [...g.explosions, ...newExplosions]
+        if (dmgMap[0] > 0 || dmgMap[1] > 0) {
+          const prev = hpRef.current
+          const next = [Math.max(0, prev[0] - dmgMap[0]), Math.max(0, prev[1] - dmgMap[1])]
+          setHp(next); hpRef.current = next
+          const nums = []
+          for (let ti = 0; ti < 2; ti++) {
+            if (dmgMap[ti] > 0) {
+              nums.push({ id: uid++, x: tanks[ti].x, y: tanks[ti].y - TANK_H - 8, val: dmgMap[ti], t: 0 })
+            }
+          }
+          if (nums.length > 0) setDmgNums(p => [...p, ...nums])
+          if (next[0] <= 0) setTimeout(() => { setWinner(1); setScreen('over') }, 800)
+          if (next[1] <= 0) setTimeout(() => { setWinner(0); setScreen('over') }, 800)
+        }
       }
 
-      // 폭발 애니메이션 진행
-      g.explosions = g.explosions.map(e => ({ ...e, t: e.t + 1 })).filter(e => e.t < 28)
+      g.exps = g.exps.map(e => ({ ...e, t: e.t + 1 })).filter(e => e.t < 34)
+      redraw()
 
-      triggerRender()
-
-      // HP 업데이트
-      if (hpChanges[0] > 0 || hpChanges[1] > 0) {
-        setHp(prev => {
-          const next = [Math.max(0, prev[0] - hpChanges[0]), Math.max(0, prev[1] - hpChanges[1])]
-          if (next[0] <= 0) { setTimeout(() => { setWinner(1); setScreen('over') }, 500) }
-          if (next[1] <= 0) { setTimeout(() => { setWinner(0); setScreen('over') }, 500) }
-          return next
-        })
-      }
-
-      // 모든 포탄 소진 → 턴 종료
-      if (g.projectiles.length === 0 && !g.endTurnQueued) {
-        g.endTurnQueued = true
-        setTimeout(() => {
-          setUiState(prev => {
-            doEndTurn(prev.turn, mode, wind, weapons)
-            return prev
-          })
-        }, 600)
+      if (g.projs.length === 0 && !g.endQueued) {
+        g.endQueued = true
+        const ct = turnRef.current, cm = modeRef.current
+        setTimeout(() => doEndTurn(ct, cm), 750)
       }
     }, 16)
-
     return () => clearInterval(interval)
-  }, [screen, uiState.phase, mode, wind, weapons, doEndTurn, triggerRender])
+  }, [screen, doEndTurn, redraw])
 
-  // ── Canvas 렌더링 ──
+  // 플로팅 데미지
+  useEffect(() => {
+    if (dmgNums.length === 0) return
+    const t = setInterval(() => {
+      setDmgNums(p => p.map(n => ({ ...n, t: n.t + 1, y: n.y - 1.2 })).filter(n => n.t < 48))
+    }, 30)
+    return () => clearInterval(t)
+  }, [dmgNums.length])
+
+  // ── Canvas 렌더링 ─────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !renderSnap) return
-    const { terrain, tanks, projectiles, explosions, trajectoryDots } = renderSnap
+    if (!canvas || !gRef.current) return
+    const g = gRef.current
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, GW, GH)
 
     // 하늘
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, GH)
-    skyGrad.addColorStop(0, '#0d0d2b')
-    skyGrad.addColorStop(0.7, '#1a0a3e')
-    skyGrad.addColorStop(1, '#2d1060')
-    ctx.fillStyle = skyGrad
-    ctx.fillRect(0, 0, GW, GH)
+    const sky = ctx.createLinearGradient(0, 0, 0, GH)
+    sky.addColorStop(0, '#09090e')
+    sky.addColorStop(0.55, '#10103a')
+    sky.addColorStop(1, '#1a0e38')
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, GW, GH)
 
     // 별
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'
-    for (let i = 0; i < 60; i++) {
-      const sx = (i * 137.5) % GW
-      const sy = (i * 79.3) % (GH * 0.55)
-      ctx.beginPath(); ctx.arc(sx, sy, 0.8 + (i % 3) * 0.4, 0, Math.PI * 2); ctx.fill()
+    for (let i = 0; i < 90; i++) {
+      const sx = (i * 137.5) % GW, sy = (i * 79.3) % (GH * 0.52)
+      ctx.fillStyle = `rgba(255,255,255,${0.35 + (i % 5) * 0.1})`
+      ctx.beginPath(); ctx.arc(sx, sy, 0.7 + (i % 3) * 0.35, 0, Math.PI * 2); ctx.fill()
     }
 
     // 지형
-    ctx.beginPath()
-    ctx.moveTo(0, GH)
+    const terrain = g.terrain
+    ctx.beginPath(); ctx.moveTo(0, GH)
     for (let x = 0; x < GW; x++) ctx.lineTo(x, terrain[x])
-    ctx.lineTo(GW, GH)
-    ctx.closePath()
-    const tGrad = ctx.createLinearGradient(0, 200, 0, GH)
-    tGrad.addColorStop(0, '#6d4c41')
-    tGrad.addColorStop(0.25, '#4caf50')
-    tGrad.addColorStop(1, '#1b5e20')
-    ctx.fillStyle = tGrad; ctx.fill()
-    ctx.strokeStyle = '#81c784'; ctx.lineWidth = 2; ctx.stroke()
-
-    // 궤적
-    ctx.globalAlpha = 0.55
-    for (let i = 0; i < trajectoryDots.length; i++) {
-      const d = trajectoryDots[i]
-      ctx.fillStyle = `rgba(255,235,59,${0.7 - (i / trajectoryDots.length) * 0.6})`
-      ctx.beginPath(); ctx.arc(d.x, d.y, 2.5, 0, Math.PI * 2); ctx.fill()
+    ctx.lineTo(GW, GH); ctx.closePath()
+    const tg = ctx.createLinearGradient(0, 155, 0, GH)
+    tg.addColorStop(0, '#5d4037')
+    tg.addColorStop(0.15, '#388e3c')
+    tg.addColorStop(0.5, '#2e7d32')
+    tg.addColorStop(1, '#1b5e20')
+    ctx.fillStyle = tg; ctx.fill()
+    ctx.strokeStyle = '#66bb6a'; ctx.lineWidth = 2
+    ctx.beginPath()
+    for (let x = 0; x < GW; x++) {
+      if (x === 0) ctx.moveTo(0, terrain[0]); else ctx.lineTo(x, terrain[x])
     }
-    ctx.globalAlpha = 1
+    ctx.stroke()
+
+    // 바람 표시 (상단 중앙)
+    {
+      const cx = GW / 2, cy = 22
+      const mag = Math.abs(wind) / MAX_WIND
+      const dir = wind > 0 ? 1 : -1
+      const len = 20 + mag * 60
+      ctx.save()
+      ctx.strokeStyle = `rgba(100,210,255,${0.5 + mag * 0.4})`
+      ctx.lineWidth = 2.5; ctx.lineCap = 'round'
+      ctx.beginPath(); ctx.moveTo(cx - dir * len / 2, cy); ctx.lineTo(cx + dir * len / 2, cy); ctx.stroke()
+      const ax = cx + dir * len / 2
+      ctx.beginPath()
+      ctx.moveTo(ax, cy); ctx.lineTo(ax - dir * 9, cy - 5)
+      ctx.moveTo(ax, cy); ctx.lineTo(ax - dir * 9, cy + 5)
+      ctx.stroke()
+      ctx.fillStyle = 'rgba(150,230,255,0.8)'
+      ctx.font = '10px Arial'; ctx.textAlign = 'center'
+      ctx.fillText(`🌬️ ${wind > 0 ? '→' : '←'} ${(mag * 100).toFixed(0)}%`, cx, cy + 15)
+      ctx.restore()
+    }
+
+    // 궤적 미리보기
+    if (phaseRef.current === 'aim') {
+      const t = turnRef.current
+      const tank = g.tanks[t]
+      if (tank) {
+        const rad = angleRef.current * Math.PI / 180
+        const spd = powerOsc * 0.14
+        const dir = t === 0 ? 1 : -1
+        let x = tank.x + dir * Math.cos(rad) * BARREL_L
+        let y = tank.y - TANK_H / 2 - Math.sin(rad) * BARREL_L
+        let vx = dir * Math.cos(rad) * spd
+        let vy = -Math.sin(rad) * spd
+        let wi = windRef.current
+        for (let i = 0; i < 110; i++) {
+          x += vx; y += vy; vy += GRAVITY; vx += wi
+          if (i % 4 === 0) {
+            const a = Math.max(0, 0.6 - i / 110)
+            ctx.fillStyle = `rgba(255,230,60,${a})`
+            ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill()
+          }
+          if (y > GH || x < -40 || x > GW + 40 || y >= getH(terrain, x)) break
+        }
+      }
+    }
 
     // 탱크
-    const { turn, angle, phase } = uiState
-    tanks.forEach((tank, idx) => {
-      const col = COLORS[idx]
-      if (turn === idx && phase === 'aim') { ctx.shadowColor = col.tank; ctx.shadowBlur = 14 }
-      // 본체
-      ctx.fillStyle = col.tank
-      ctx.beginPath()
-      ctx.rect(tank.x - TANK_W / 2, tank.y - TANK_H, TANK_W, TANK_H)
-      ctx.fill()
-      ctx.shadowBlur = 0
-      // 바퀴
-      ctx.fillStyle = '#222'
+    g.tanks.forEach((tank, idx) => {
+      const tc = idx === 0 ? '#e74c3c' : '#3498db'
+      const dc = idx === 0 ? '#c0392b' : '#2980b9'
+      const isCur = idx === turnRef.current && phaseRef.current === 'aim'
+
+      if (isCur) { ctx.shadowColor = tc; ctx.shadowBlur = 20 }
+
+      // 트랙
+      ctx.fillStyle = '#2a2a2a'
+      ctx.fillRect(tank.x - TANK_W / 2 - 2, tank.y - 7, TANK_W + 4, 9)
+      ctx.fillStyle = '#111'
       for (let w = 0; w < 4; w++) {
-        ctx.beginPath()
-        ctx.arc(tank.x - TANK_W / 2 + 6 + w * 10, tank.y, 5, 0, Math.PI * 2)
-        ctx.fill()
+        ctx.beginPath(); ctx.arc(tank.x - TANK_W / 2 + 5 + w * 9, tank.y + 1, 4.5, 0, Math.PI * 2); ctx.fill()
       }
+      // 포탑
+      ctx.fillStyle = tc
+      ctx.fillRect(tank.x - TANK_W / 2, tank.y - TANK_H, TANK_W, TANK_H * 0.85)
+      ctx.beginPath(); ctx.arc(tank.x, tank.y - TANK_H + 1, TANK_H * 0.65, Math.PI, 0); ctx.fill()
+
+      ctx.shadowBlur = 0
+
       // 포신
-      const rad = (angle * Math.PI) / 180
+      const rad = angleRef.current * Math.PI / 180
       const dir = idx === 0 ? 1 : -1
-      const bx = tank.x + dir * Math.cos(rad) * BARREL_LEN
-      const by = (tank.y - TANK_H / 2) - Math.sin(rad) * BARREL_LEN
-      ctx.strokeStyle = col.barrel; ctx.lineWidth = 6; ctx.lineCap = 'round'
-      ctx.beginPath(); ctx.moveTo(tank.x, tank.y - TANK_H / 2); ctx.lineTo(bx, by); ctx.stroke()
+      const bx = tank.x + dir * Math.cos(rad) * BARREL_L
+      const by = tank.y - TANK_H + 1 - Math.sin(rad) * BARREL_L
+      ctx.strokeStyle = dc; ctx.lineWidth = 7; ctx.lineCap = 'round'
+      ctx.beginPath(); ctx.moveTo(tank.x, tank.y - TANK_H + 1); ctx.lineTo(bx, by); ctx.stroke()
+      ctx.strokeStyle = '#aaa'; ctx.lineWidth = 3
+      ctx.beginPath(); ctx.moveTo(tank.x, tank.y - TANK_H + 1); ctx.lineTo(bx, by); ctx.stroke()
 
       // HP 바
-      const barW = 50, barX = tank.x - 25, barY = tank.y - TANK_H - 16
-      ctx.fillStyle = '#222'; ctx.fillRect(barX - 1, barY - 1, barW + 2, 10)
-      const ratio = hp[idx] / 100
+      const bw = 52, bx0 = tank.x - 26, by0 = tank.y - TANK_H - 20
+      ctx.fillStyle = '#111'; ctx.fillRect(bx0 - 1, by0 - 1, bw + 2, 11)
+      const ratio = hpRef.current[idx] / 100
       ctx.fillStyle = ratio > 0.5 ? '#4caf50' : ratio > 0.25 ? '#ff9800' : '#f44336'
-      ctx.fillRect(barX, barY, barW * ratio, 8)
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'
-      ctx.fillText(`${hp[idx]}`, tank.x, barY - 3)
+      ctx.fillRect(bx0, by0, bw * ratio, 9)
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center'
+      ctx.fillText(`HP ${hpRef.current[idx]}`, tank.x, by0 - 3)
+      ctx.fillText(idx === 0 ? 'P1' : (modeRef.current === 'ai' ? 'AI' : 'P2'), tank.x, by0 - 14)
     })
 
     // 포탄
-    projectiles.forEach(p => {
+    g.projs.forEach(p => {
       ctx.save()
       if (p.weaponId === 'banana') {
-        ctx.font = '16px serif'; ctx.textAlign = 'center'; ctx.fillText('🍌', p.x, p.y)
+        ctx.font = '18px serif'; ctx.textAlign = 'center'; ctx.fillText('🍌', p.x, p.y)
       } else if (p.weaponId === 'missile') {
-        ctx.font = '16px serif'; ctx.textAlign = 'center'; ctx.fillText('🚀', p.x, p.y)
+        const ang = Math.atan2(p.vy, p.vx)
+        ctx.translate(p.x, p.y); ctx.rotate(ang)
+        ctx.font = '18px serif'; ctx.textAlign = 'center'; ctx.fillText('🚀', 0, 0)
       } else if (p.weaponId === 'airstrike') {
-        ctx.font = '18px serif'; ctx.textAlign = 'center'; ctx.fillText('✈️', p.x, p.y)
+        ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.fillText('✈️', p.x, p.y)
+      } else if (p.weaponId === 'nuke') {
+        ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.fillText('☢️', p.x, p.y)
       } else {
         ctx.fillStyle = '#ffeb3b'; ctx.shadowColor = '#ff9800'; ctx.shadowBlur = 10
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.weaponId === 'sub' ? 3.5 : 5, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.weaponId === 'sub' ? 3 : 5.5, 0, Math.PI * 2); ctx.fill()
       }
       ctx.restore()
     })
 
     // 폭발
-    explosions.forEach(ex => {
-      const progress = ex.t / 28
-      const r = ex.r * (0.25 + progress * 0.75)
-      ctx.save()
-      ctx.globalAlpha = Math.max(0, 1 - progress)
-      const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r)
-      grad.addColorStop(0, '#fff')
-      grad.addColorStop(0.2, '#ffeb3b')
-      grad.addColorStop(0.5, '#ff5722')
-      grad.addColorStop(1, 'transparent')
-      ctx.fillStyle = grad
+    g.exps.forEach(ex => {
+      const prog = ex.t / 34
+      const r = ex.r * (0.15 + prog * 0.85)
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - prog * prog)
+      const eg = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r)
+      eg.addColorStop(0, '#fff')
+      eg.addColorStop(0.18, '#fffde7')
+      eg.addColorStop(0.45, '#ff9800')
+      eg.addColorStop(0.75, '#e53935')
+      eg.addColorStop(1, 'rgba(80,0,0,0)')
+      ctx.fillStyle = eg
       ctx.beginPath(); ctx.arc(ex.x, ex.y, r, 0, Math.PI * 2); ctx.fill()
       ctx.restore()
     })
 
+    // 플로팅 데미지 숫자
+    dmgNums.forEach(n => {
+      ctx.save()
+      ctx.globalAlpha = Math.max(0, 1 - n.t / 48)
+      ctx.font = `bold ${13 + Math.min(n.val / 5, 9)}px Arial`
+      ctx.textAlign = 'center'
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 3
+      ctx.strokeText(`-${n.val}`, n.x, n.y)
+      ctx.fillStyle = '#ff5252'; ctx.fillText(`-${n.val}`, n.x, n.y)
+      ctx.restore()
+    })
+
     ctx.textAlign = 'left'
-  }, [renderSnap, uiState, hp])
+  }, [tick, powerOsc, angle, dmgNums])
 
-  const { turn, phase, angle, power } = uiState
+  // ── 파생 값 ──────────────────────────────────────────────────────────
   const isHumanTurn = mode === '2p' || (mode === 'ai' && turn === 0)
-  const currentLabel = turn === 0 ? '🔴 플레이어 1' : (mode === 'ai' ? '🤖 AI' : '🔵 플레이어 2')
-  const currentColor = turn === 0 ? '#e74c3c' : '#3498db'
+  const curColor = turn === 0 ? '#e74c3c' : '#3498db'
+  const curLabel = turn === 0 ? '🔴 플레이어 1' : (mode === 'ai' ? '🤖 AI' : '🔵 플레이어 2')
+  const curWeapon = WEAPONS.find(w => w.id === selW[turn])
+  const curAmmoCount = ammo[turn][selW[turn]]
 
-  // ── 메뉴 ──
+  // ── 메뉴 화면 ─────────────────────────────────────────────────────────
   if (screen === 'menu') {
     return (
       <div className="ft-screen ft-menu">
         <Link to="/" className="ft-back">← 홈으로</Link>
         <div className="ft-menu-box">
           <div className="ft-menu-title">
-            <span>🚀</span>
-            <h1>삐리삐리 날라갑니다</h1>
-            <span>💥</span>
+            <span>🚀</span><h1>삐리삐리 날라갑니다</h1><span>💥</span>
           </div>
-          <p className="ft-menu-sub">각도와 파워로 포탄을 쏴 상대 탱크를 격파하세요!</p>
+          <p className="ft-menu-sub">각도·파워를 맞춰 상대 탱크를 격파하세요!</p>
           <div className="ft-menu-weapons">
             {WEAPONS.map(w => <span key={w.id} title={w.name}>{w.emoji}</span>)}
           </div>
           <div className="ft-menu-btns">
-            <button className="ft-btn ft-btn-2p" onClick={() => initGame('2p')}>👥 2인 대전</button>
-            <button className="ft-btn ft-btn-ai" onClick={() => initGame('ai')}>🤖 AI 대전</button>
+            <button className="ft-btn ft-btn-2p" onClick={() => startGame('2p')}>👥 2인 대전</button>
+            <button className="ft-btn ft-btn-ai" onClick={() => startGame('ai')}>🤖 AI 대전</button>
           </div>
           <div className="ft-menu-guide">
-            <p>🎯 슬라이더로 각도/파워 조절 → 발사!</p>
-            <p>💣 다양한 무기를 전략적으로 선택</p>
-            <p>🌬️ 바람 방향에 주의하세요</p>
+            <div>⬅ ➡ 방향키 : 탱크 이동 (한 턴에 제한)</div>
+            <div>⬆ ⬇ 방향키 : 각도 조절</div>
+            <div>⎵ Space / 🔥 발사 버튼 : 파워 게이지 타이밍에 발사!</div>
+            <div>💣 무기를 골라 전략적으로 공격!</div>
           </div>
         </div>
       </div>
     )
   }
 
-  // ── 게임 오버 ──
+  // ── 게임 오버 ─────────────────────────────────────────────────────────
   if (screen === 'over') {
-    const winLabel = winner === 0 ? '🔴 플레이어 1' : (mode === 'ai' ? '🤖 AI' : '🔵 플레이어 2')
-    const isHumanWin = winner === 0 || (winner === 1 && mode === '2p')
+    const wLabel = winner === 0 ? '🔴 플레이어 1' : (mode === 'ai' ? '🤖 AI' : '🔵 플레이어 2')
     return (
       <div className="ft-screen ft-over">
         <div className="ft-over-box">
-          <div className="ft-over-icon">{isHumanWin ? '🏆' : '💀'}</div>
-          <h2>{winLabel} 승리!</h2>
-          <p>{winner === 0 ? '완벽한 포격이었어요!' : mode === 'ai' ? 'AI에게 졌네요! 다시 도전!' : '멋진 승리!'}</p>
+          <div className="ft-over-icon">{winner === 0 || (winner === 1 && mode === '2p') ? '🏆' : '💀'}</div>
+          <h2>{wLabel} 승리!</h2>
+          <p>{winner === 0 ? '완벽한 포격!' : mode === 'ai' ? 'AI에게 졌어요. 다시 도전!' : '멋진 대전!'}</p>
           <div className="ft-over-btns">
-            <button className="ft-btn ft-btn-2p" onClick={() => initGame(mode)}>다시 시작</button>
-            <button className="ft-btn ft-btn-ai" onClick={() => setScreen('menu')}>메뉴로</button>
+            <button className="ft-btn ft-btn-2p" onClick={() => startGame(mode)}>다시 시작</button>
+            <button className="ft-btn" onClick={() => setScreen('menu')}>모드 선택</button>
             <Link to="/" className="ft-btn ft-btn-home">홈으로</Link>
           </div>
         </div>
@@ -535,93 +764,136 @@ export default function Fortress() {
     )
   }
 
-  // ── 게임 ──
+  // ── 게임 화면 ─────────────────────────────────────────────────────────
   return (
     <div className="ft-container">
       <Link to="/" className="ft-back">← 홈으로</Link>
 
       {/* HUD */}
-      <div className="ft-hud-top">
-        <div className="ft-hud-player">
-          <span className="ft-hud-tank">🔴 P1</span>
-          <div className="ft-hud-hp-bar"><div style={{ width: `${hp[0]}%`, background: '#e74c3c' }} /></div>
-          <span className="ft-hud-hp-num">{hp[0]}</span>
+      <div className="ft-hud">
+        <div className="ft-hud-side">
+          <span className="ft-hud-name" style={{ color: '#e74c3c' }}>🔴 {mode === '2p' ? 'P1' : '나'}</span>
+          <div className="ft-hpbar"><div className="ft-hpfill" style={{ width: `${hp[0]}%`, background: '#e74c3c' }} /></div>
+          <span className="ft-hpnum">{hp[0]}</span>
         </div>
-        <div className="ft-hud-center">
-          <div className="ft-hud-turn" style={{ color: currentColor }}>{currentLabel}의 턴</div>
-          <div className="ft-hud-wind">🌬️ {wind > 0 ? '→' : '←'} {Math.abs(wind * 200).toFixed(1)}</div>
+        <div className="ft-hud-mid">
+          <div className="ft-turn-tag" style={{ color: curColor }}>{curLabel}의 턴</div>
         </div>
-        <div className="ft-hud-player" style={{ justifyContent: 'flex-end' }}>
-          <span className="ft-hud-hp-num">{hp[1]}</span>
-          <div className="ft-hud-hp-bar"><div style={{ width: `${hp[1]}%`, background: '#3498db' }} /></div>
-          <span className="ft-hud-tank">{mode === 'ai' ? '🤖 AI' : '🔵 P2'}</span>
+        <div className="ft-hud-side" style={{ justifyContent: 'flex-end' }}>
+          <span className="ft-hpnum">{hp[1]}</span>
+          <div className="ft-hpbar"><div className="ft-hpfill" style={{ width: `${hp[1]}%`, background: '#3498db' }} /></div>
+          <span className="ft-hud-name" style={{ color: '#3498db' }}>{mode === 'ai' ? '🤖 AI' : '🔵 P2'}</span>
         </div>
       </div>
 
       {/* 캔버스 */}
-      <div className="ft-canvas-wrap">
-        <canvas
-          ref={canvasRef}
-          width={GW}
-          height={GH}
-          className="ft-canvas"
-          onClick={airstrikeMode ? handleAirstrikeClick : undefined}
-          style={{ cursor: airstrikeMode ? 'crosshair' : 'default' }}
-        />
-        {airstrikeMode && <div className="ft-airstrike-hint">✈️ 클릭해서 폭격 위치 선택!</div>}
+      <div className="ft-cw">
+        <canvas ref={canvasRef} width={GW} height={GH} className="ft-canvas"
+          onClick={airMode ? handleCanvasClick : undefined}
+          style={{ cursor: airMode ? 'crosshair' : 'default' }} />
+        {banner && <div className="ft-banner"><span>{banner}</span></div>}
+        {airMode && <div className="ft-air-hint">✈️ 클릭해서 폭격 위치 지정!</div>}
       </div>
 
-      {/* 컨트롤 */}
-      {isHumanTurn && phase === 'aim' && (
-        <div className="ft-controls">
-          <div className="ft-controls-row">
-            <div className="ft-ctrl-group">
-              <label>🎯 각도 <strong>{Math.round(angle)}°</strong></label>
-              <input type="range" min="5" max="175" value={angle} className="ft-slider ft-slider-angle"
-                onChange={e => setUiState(prev => ({ ...prev, angle: Number(e.target.value) }))} />
+      {/* 컨트롤 (내 턴 + aim 상태) */}
+      {isHumanTurn && phase === 'aim' && !banner && (
+        <div className="ft-ctrl">
+
+          {/* 파워 게이지 (핵심!) */}
+          <div className="ft-power-section">
+            <div className="ft-power-label">
+              <span>💪 파워</span>
+              <strong style={{ color: `hsl(${120 - powerOsc * 1.2},100%,55%)` }}>
+                {Math.round(powerOsc)}%
+              </strong>
             </div>
-            <div className="ft-ctrl-group">
-              <label>💪 파워 <strong>{Math.round(power)}%</strong></label>
-              <input type="range" min="10" max="100" value={power} className="ft-slider ft-slider-power"
-                onChange={e => setUiState(prev => ({ ...prev, power: Number(e.target.value) }))} />
+            <div className="ft-powerbar">
+              <div className="ft-powerbar-fill"
+                style={{
+                  width: `${powerOsc}%`,
+                  background: `linear-gradient(90deg, #4caf50, hsl(${120 - powerOsc * 1.2},100%,45%))`
+                }}
+              />
+              <div className="ft-powerbar-cursor" style={{ left: `${powerOsc}%` }} />
+            </div>
+            <div className="ft-power-hint">Space 또는 🔥 발사 버튼으로 고정!</div>
+          </div>
+
+          {/* 이동 예산 */}
+          <div className="ft-move-section">
+            <div className="ft-move-label">
+              <span>🚶 이동</span>
+              <span className="ft-move-remain">{Math.round(moveBudget / MOVE_BUDGET * 100)}% 남음</span>
+            </div>
+            <div className="ft-movebar">
+              <div className="ft-movebar-fill" style={{ width: `${moveBudget / MOVE_BUDGET * 100}%` }} />
             </div>
           </div>
-          <div className="ft-controls-row ft-controls-actions">
-            <div className="ft-weapon-select">
-              <button className="ft-weapon-btn" onClick={() => setShowWeaponMenu(v => !v)}>
-                {WEAPONS.find(w => w.id === selectedWeapon[turn])?.emoji}
-                {' '}{WEAPONS.find(w => w.id === selectedWeapon[turn])?.name}
-                <span className="ft-weapon-count">
-                  {weapons[turn][selectedWeapon[turn]] === Infinity ? '∞' : weapons[turn][selectedWeapon[turn]]}
-                </span>
-                {' ▼'}
+
+          {/* 각도 + 이동 버튼 */}
+          <div className="ft-ctrl-row">
+            {/* 이동 버튼 */}
+            <div className="ft-move-btns">
+              <button className="ft-move-btn" onPointerDown={() => moveTank(-1)}
+                disabled={moveBudget <= 0}>◀</button>
+              <span className="ft-angle-disp">
+                🎯 {Math.round(angle)}°
+              </span>
+              <button className="ft-move-btn" onPointerDown={() => moveTank(1)}
+                disabled={moveBudget <= 0}>▶</button>
+            </div>
+
+            {/* 각도 버튼 */}
+            <div className="ft-angle-btns">
+              <button className="ft-angle-btn" onPointerDown={() => setAngle(a => { const v = Math.max(0, a - ANGLE_STEP); angleRef.current = v; return v })}>
+                ↓ 수평
               </button>
-              {showWeaponMenu && (
-                <div className="ft-weapon-menu">
-                  {WEAPONS.map(w => (
-                    <button key={w.id}
-                      className={`ft-weapon-option ${selectedWeapon[turn] === w.id ? 'active' : ''} ${weapons[turn][w.id] === 0 ? 'empty' : ''}`}
-                      disabled={weapons[turn][w.id] === 0}
-                      onClick={() => { setSelectedWeapon(prev => prev.map((s, i) => i === turn ? w.id : s)); setShowWeaponMenu(false) }}>
-                      <span className="ft-wo-emoji">{w.emoji}</span>
-                      <span className="ft-wo-info">
-                        <span className="ft-wo-name">{w.name}</span>
-                        <span className="ft-wo-desc">{w.desc}</span>
-                      </span>
-                      <span className="ft-wo-count">{weapons[turn][w.id] === Infinity ? '∞' : weapons[turn][w.id]}</span>
-                    </button>
-                  ))}
+              <button className="ft-angle-btn" onPointerDown={() => setAngle(a => { const v = Math.min(85, a + ANGLE_STEP); angleRef.current = v; return v })}>
+                ↑ 수직
+              </button>
+            </div>
+
+            {/* 무기 선택 */}
+            <div className="ft-wsect">
+              <button className="ft-wbtn" onClick={() => setShowWMenu(v => !v)}>
+                {curWeapon?.emoji} {curWeapon?.name}
+                <span className="ft-wammo">{curAmmoCount === Infinity ? '∞' : curAmmoCount}</span>
+                ▼
+              </button>
+              {showWMenu && (
+                <div className="ft-wmenu">
+                  {WEAPONS.map(w => {
+                    const a = ammo[turn][w.id]
+                    return (
+                      <button key={w.id}
+                        className={`ft-wopt ${selW[turn] === w.id ? 'active' : ''} ${a === 0 ? 'empty' : ''}`}
+                        disabled={a === 0}
+                        onClick={() => { setSelW(p => p.map((s, i) => i === turn ? w.id : s)); setShowWMenu(false) }}>
+                        <span>{w.emoji}</span>
+                        <span className="ft-wopt-info">
+                          <span className="ft-wopt-name">{w.name}</span>
+                          <span className="ft-wopt-desc">{w.desc}</span>
+                        </span>
+                        <span className="ft-wopt-amt">{a === Infinity ? '∞' : a}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>
-            <button className="ft-fire-btn" onClick={handleFire}>🔥 발사!</button>
           </div>
-          {message && <div className="ft-message">{message}</div>}
+
+          {/* 발사 버튼 */}
+          <button className="ft-fire" onClick={fireProjectile}>
+            🔥 발사! (Space)
+          </button>
         </div>
       )}
 
-      {phase === 'flying' && <div className="ft-flying-hint">💨 포탄 비행 중...</div>}
-      {mode === 'ai' && turn === 1 && phase === 'aim' && <div className="ft-ai-thinking">🤖 AI 조준 중...</div>}
+      {phase === 'flying' && <div className="ft-status">💨 포탄 비행 중...</div>}
+      {mode === 'ai' && turn === 1 && phase === 'aim' && !banner && (
+        <div className="ft-status">🤖 AI 조준 중...</div>
+      )}
     </div>
   )
 }
