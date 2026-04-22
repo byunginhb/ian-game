@@ -1,0 +1,409 @@
+/* ── 전체 레이아웃 ── */
+.ft-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  background: #0d0d1a;
+  color: #fff;
+  font-family: 'Segoe UI', sans-serif;
+  padding-bottom: 16px;
+  position: relative;
+}
+
+.ft-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0d0d1a 0%, #1a0a2e 50%, #0d1a0d 100%);
+  color: #fff;
+}
+
+.ft-back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.1);
+  transition: background 0.2s;
+  z-index: 100;
+}
+.ft-back:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+/* ── 메뉴 ── */
+.ft-menu { position: relative; }
+
+.ft-menu-box {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 40px 50px;
+  text-align: center;
+  max-width: 480px;
+  backdrop-filter: blur(10px);
+}
+
+.ft-menu-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.ft-menu-title h1 {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bceff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+.ft-menu-rocket { font-size: 28px; }
+
+.ft-menu-sub {
+  color: rgba(255,255,255,0.7);
+  font-size: 15px;
+  margin-bottom: 24px;
+}
+
+.ft-menu-weapons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 28px;
+  font-size: 28px;
+}
+.ft-menu-weapon-icon { cursor: default; }
+
+.ft-menu-btns {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.ft-btn {
+  padding: 12px 28px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+  transition: all 0.2s;
+}
+.ft-btn:hover { background: rgba(255,255,255,0.25); transform: translateY(-2px); }
+.ft-btn-2p { background: linear-gradient(135deg, #e74c3c, #c0392b); border-color: #e74c3c; }
+.ft-btn-2p:hover { background: linear-gradient(135deg, #ff6b6b, #e74c3c); }
+.ft-btn-ai { background: linear-gradient(135deg, #3498db, #2980b9); border-color: #3498db; }
+.ft-btn-ai:hover { background: linear-gradient(135deg, #5dade2, #3498db); }
+.ft-btn-home { background: rgba(255,255,255,0.1); text-decoration: none; display: inline-block; text-align: center; }
+
+.ft-menu-guide {
+  text-align: left;
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.ft-menu-guide p { margin: 4px 0; font-size: 13px; color: rgba(255,255,255,0.7); }
+
+/* ── HUD 상단 ── */
+.ft-hud-top {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 800px;
+  padding: 10px 16px;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.ft-hud-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.ft-hud-player:last-child { flex-direction: row-reverse; }
+
+.ft-hud-tank { font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+.ft-hud-hp-bar {
+  flex: 1;
+  height: 10px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 5px;
+  overflow: hidden;
+  min-width: 60px;
+}
+.ft-hud-hp-bar div {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.4s ease;
+}
+
+.ft-hud-hp-num {
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
+}
+
+.ft-hud-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 120px;
+}
+.ft-hud-turn { font-size: 13px; font-weight: 700; }
+.ft-hud-wind { font-size: 12px; color: rgba(255,255,255,0.7); }
+
+/* ── 캔버스 ── */
+.ft-canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+}
+
+.ft-canvas {
+  width: 100%;
+  display: block;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.1);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+
+.ft-airstrike-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.8);
+  color: #ffd93d;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  pointer-events: none;
+  border: 2px solid #ffd93d;
+}
+
+/* ── 컨트롤 ── */
+.ft-controls {
+  width: 100%;
+  max-width: 800px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.04);
+  border-radius: 0 0 12px 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-top: none;
+}
+
+.ft-controls-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.ft-controls-row:last-child { margin-bottom: 0; }
+
+.ft-ctrl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.ft-ctrl-group label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.8);
+}
+.ft-ctrl-group strong { color: #ffd93d; }
+
+.ft-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+.ft-slider-angle {
+  background: linear-gradient(90deg, #3498db, #e74c3c);
+}
+.ft-slider-power {
+  background: linear-gradient(90deg, #2ecc71, #e67e22, #e74c3c);
+}
+.ft-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0,0,0,0.3);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.ft-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+
+/* 액션 컨트롤 */
+.ft-controls-actions { align-items: flex-start; gap: 12px; }
+
+.ft-weapon-select { position: relative; flex: 1; }
+
+.ft-weapon-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+.ft-weapon-btn:hover { background: rgba(255,255,255,0.18); }
+
+.ft-weapon-count {
+  margin-left: auto;
+  background: rgba(255,215,0,0.3);
+  color: #ffd93d;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.ft-weapon-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #1a1a2e;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 -8px 30px rgba(0,0,0,0.6);
+}
+
+.ft-weapon-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+.ft-weapon-option:hover { background: rgba(255,255,255,0.1); }
+.ft-weapon-option.active { background: rgba(255,215,0,0.15); }
+.ft-weapon-option.empty { opacity: 0.35; cursor: not-allowed; }
+
+.ft-wo-emoji { font-size: 22px; min-width: 28px; text-align: center; }
+.ft-wo-info { display: flex; flex-direction: column; flex: 1; }
+.ft-wo-name { font-size: 14px; font-weight: 700; }
+.ft-wo-desc { font-size: 11px; color: rgba(255,255,255,0.55); }
+.ft-wo-count {
+  background: rgba(255,255,255,0.12);
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 24px;
+  text-align: center;
+}
+
+.ft-fire-btn {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(231,76,60,0.5);
+}
+.ft-fire-btn:hover { background: linear-gradient(135deg, #ff6b6b, #e74c3c); transform: scale(1.05); }
+.ft-fire-btn:active { transform: scale(0.97); }
+
+.ft-message {
+  color: #ffd93d;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 6px;
+}
+
+.ft-flying-hint,
+.ft-ai-thinking {
+  margin-top: 10px;
+  font-size: 15px;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+  animation: pulse 1s infinite;
+}
+
+/* ── 게임 오버 ── */
+.ft-over { position: relative; }
+
+.ft-over-box {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 50px 60px;
+  text-align: center;
+  max-width: 400px;
+  backdrop-filter: blur(10px);
+}
+.ft-over-icon { font-size: 64px; margin-bottom: 12px; }
+.ft-over-box h2 { font-size: 28px; font-weight: 800; margin: 0 0 10px; }
+.ft-over-box p { color: rgba(255,255,255,0.7); margin-bottom: 28px; }
+.ft-over-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* ── 애니메이션 ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── 모바일 반응형 ── */
+@media (max-width: 600px) {
+  .ft-menu-box { padding: 28px 22px; margin: 20px; }
+  .ft-menu-title h1 { font-size: 22px; }
+  .ft-controls { padding: 10px 12px; }
+  .ft-controls-row { gap: 10px; }
+  .ft-fire-btn { padding: 10px 16px; font-size: 14px; }
+  .ft-hud-top { padding: 8px 10px; gap: 8px; }
+  .ft-over-box { padding: 34px 24px; margin: 20px; }
+}

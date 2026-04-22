@@ -20,6 +20,14 @@ function Home() {
 
   const games = [
     {
+      id: "fortress",
+      title: "삐리삐리 날라갑니다",
+      emoji: "💥",
+      description: "각도와 파워로 포탄을 쏴 상대 탱크를 격파! 2인 대전 또는 AI와 대결!",
+      color: "#e74c3c",
+      tags: ["new", "hot", "action"],
+    },
+    {
       id: "monster-defense",
       title: "몬스터 디펜스",
       emoji: "🏰",
