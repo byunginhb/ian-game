@@ -538,60 +538,112 @@ export default function Fortress() {
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, GW, GH)
 
-    // 하늘
+    // ── 배경: 딥 스페이스 그라데이션
     const sky = ctx.createLinearGradient(0, 0, 0, GH)
-    sky.addColorStop(0, '#09090e')
-    sky.addColorStop(0.55, '#10103a')
-    sky.addColorStop(1, '#1a0e38')
+    sky.addColorStop(0,   '#050508')
+    sky.addColorStop(0.4, '#0a0820')
+    sky.addColorStop(1,   '#12082e')
     ctx.fillStyle = sky; ctx.fillRect(0, 0, GW, GH)
 
-    // 별
-    for (let i = 0; i < 90; i++) {
-      const sx = (i * 137.5) % GW, sy = (i * 79.3) % (GH * 0.52)
-      ctx.fillStyle = `rgba(255,255,255,${0.35 + (i % 5) * 0.1})`
-      ctx.beginPath(); ctx.arc(sx, sy, 0.7 + (i % 3) * 0.35, 0, Math.PI * 2); ctx.fill()
-    }
+    // ── 네뷸라 glow (배경 분위기)
+    const nebula1 = ctx.createRadialGradient(160, 80, 0, 160, 80, 220)
+    nebula1.addColorStop(0, 'rgba(255,59,92,0.06)')
+    nebula1.addColorStop(1, 'transparent')
+    ctx.fillStyle = nebula1; ctx.fillRect(0, 0, GW, GH)
 
-    // 지형
+    const nebula2 = ctx.createRadialGradient(GW - 160, 60, 0, GW - 160, 60, 200)
+    nebula2.addColorStop(0, 'rgba(0,200,255,0.07)')
+    nebula2.addColorStop(1, 'transparent')
+    ctx.fillStyle = nebula2; ctx.fillRect(0, 0, GW, GH)
+
+    // ── 별 (크기·밝기 다양하게)
+    for (let i = 0; i < 120; i++) {
+      const sx = (i * 137.5 + 50) % GW
+      const sy = (i * 79.3 + 10) % (GH * 0.55)
+      const r  = 0.5 + (i % 4) * 0.35
+      const a  = 0.2 + (i % 7) * 0.1
+      ctx.fillStyle = `rgba(255,255,255,${a})`
+      ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill()
+    }
+    // 밝은 별 몇 개
+    const brightStars = [[120,35],[400,18],[650,42],[720,22]]
+    brightStars.forEach(([sx, sy]) => {
+      ctx.save()
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'
+      ctx.shadowColor = '#fff'; ctx.shadowBlur = 6
+      ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
+    })
+
+    // ── 원경 산 실루엣
+    ctx.save()
+    ctx.fillStyle = 'rgba(15,10,35,0.85)'
+    ctx.beginPath(); ctx.moveTo(0, GH)
+    const mtnPts = [0,GH*0.6, 80,GH*0.38, 160,GH*0.55, 260,GH*0.30, 360,GH*0.48, 460,GH*0.28, 560,GH*0.45, 650,GH*0.32, 740,GH*0.50, 800,GH*0.42, GW,GH]
+    for (let i = 0; i < mtnPts.length; i += 2) ctx.lineTo(mtnPts[i], mtnPts[i+1])
+    ctx.closePath(); ctx.fill()
+    ctx.restore()
+
+    // ── 지형
     const terrain = g.terrain
+
+    // 지형 그림자
+    ctx.save()
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'
+    ctx.beginPath(); ctx.moveTo(0, GH)
+    for (let x = 0; x < GW; x++) ctx.lineTo(x, terrain[x] + 6)
+    ctx.lineTo(GW, GH); ctx.closePath(); ctx.fill()
+    ctx.restore()
+
+    // 지형 본체
     ctx.beginPath(); ctx.moveTo(0, GH)
     for (let x = 0; x < GW; x++) ctx.lineTo(x, terrain[x])
     ctx.lineTo(GW, GH); ctx.closePath()
-    const tg = ctx.createLinearGradient(0, 155, 0, GH)
-    tg.addColorStop(0, '#5d4037')
-    tg.addColorStop(0.15, '#388e3c')
-    tg.addColorStop(0.5, '#2e7d32')
-    tg.addColorStop(1, '#1b5e20')
+    const tg = ctx.createLinearGradient(0, 140, 0, GH)
+    tg.addColorStop(0,    '#4a3728')
+    tg.addColorStop(0.12, '#2d6a30')
+    tg.addColorStop(0.35, '#1e5c22')
+    tg.addColorStop(1,    '#0f3314')
     ctx.fillStyle = tg; ctx.fill()
-    ctx.strokeStyle = '#66bb6a'; ctx.lineWidth = 2
+
+    // 지형 상단 엣지 (밝은 선)
+    ctx.strokeStyle = '#4caf50'; ctx.lineWidth = 1.5
+    ctx.shadowColor = '#4caf50'; ctx.shadowBlur = 6
     ctx.beginPath()
     for (let x = 0; x < GW; x++) {
       if (x === 0) ctx.moveTo(0, terrain[0]); else ctx.lineTo(x, terrain[x])
     }
     ctx.stroke()
+    ctx.shadowBlur = 0
 
-    // 바람 표시 (상단 중앙)
+    // ── 바람 표시
     {
-      const cx = GW / 2, cy = 22
+      const cx = GW / 2, cy = 20
       const mag = Math.abs(wind) / MAX_WIND
       const dir = wind > 0 ? 1 : -1
-      const len = 20 + mag * 60
+      const len = 18 + mag * 55
       ctx.save()
-      ctx.strokeStyle = `rgba(100,210,255,${0.5 + mag * 0.4})`
-      ctx.lineWidth = 2.5; ctx.lineCap = 'round'
-      ctx.beginPath(); ctx.moveTo(cx - dir * len / 2, cy); ctx.lineTo(cx + dir * len / 2, cy); ctx.stroke()
+      // 화살표
+      const wAlpha = 0.4 + mag * 0.55
+      ctx.strokeStyle = `rgba(0,200,255,${wAlpha})`
+      ctx.shadowColor = `rgba(0,200,255,${wAlpha})`
+      ctx.shadowBlur = mag > 0.5 ? 8 : 3
+      ctx.lineWidth = 2; ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(cx - dir * len / 2, cy); ctx.lineTo(cx + dir * len / 2, cy); ctx.stroke()
       const ax = cx + dir * len / 2
       ctx.beginPath()
-      ctx.moveTo(ax, cy); ctx.lineTo(ax - dir * 9, cy - 5)
-      ctx.moveTo(ax, cy); ctx.lineTo(ax - dir * 9, cy + 5)
+      ctx.moveTo(ax, cy); ctx.lineTo(ax - dir * 8, cy - 5)
+      ctx.moveTo(ax, cy); ctx.lineTo(ax - dir * 8, cy + 5)
       ctx.stroke()
-      ctx.fillStyle = 'rgba(150,230,255,0.8)'
-      ctx.font = '10px Arial'; ctx.textAlign = 'center'
-      ctx.fillText(`🌬️ ${wind > 0 ? '→' : '←'} ${(mag * 100).toFixed(0)}%`, cx, cy + 15)
+      ctx.shadowBlur = 0
+      ctx.fillStyle = `rgba(100,220,255,${wAlpha})`
+      ctx.font = '500 10px system-ui'; ctx.textAlign = 'center'
+      ctx.fillText(`WIND  ${wind > 0 ? '▶' : '◀'}  ${(mag * 100).toFixed(0)}%`, cx, cy + 14)
       ctx.restore()
     }
 
-    // 궤적 미리보기
+    // ── 궤적 미리보기 (현재 파워 기반)
     if (phaseRef.current === 'aim') {
       const t = turnRef.current
       const tank = g.tanks[t]
@@ -603,63 +655,140 @@ export default function Fortress() {
         let y = tank.y - TANK_H / 2 - Math.sin(rad) * BARREL_L
         let vx = dir * Math.cos(rad) * spd
         let vy = -Math.sin(rad) * spd
-        let wi = windRef.current
-        for (let i = 0; i < 110; i++) {
+        const wi = windRef.current
+        for (let i = 0; i < 120; i++) {
           x += vx; y += vy; vy += GRAVITY; vx += wi
-          if (i % 4 === 0) {
-            const a = Math.max(0, 0.6 - i / 110)
-            ctx.fillStyle = `rgba(255,230,60,${a})`
-            ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill()
+          if (i % 5 === 0) {
+            const alpha = Math.max(0, 0.55 - i / 120 * 0.5)
+            const size = Math.max(1.5, 3 - i / 120 * 1.5)
+            ctx.fillStyle = `rgba(255,220,30,${alpha})`
+            ctx.shadowColor = 'rgba(255,200,0,0.4)'; ctx.shadowBlur = 4
+            ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill()
           }
           if (y > GH || x < -40 || x > GW + 40 || y >= getH(terrain, x)) break
         }
+        ctx.shadowBlur = 0
       }
     }
 
-    // 탱크
+    // ── 탱크
+    const P1C = '#ff3b5c', P2C = '#00c8ff'
+    const P1D = '#c0392b', P2D = '#0099cc'
+
     g.tanks.forEach((tank, idx) => {
-      const tc = idx === 0 ? '#e74c3c' : '#3498db'
-      const dc = idx === 0 ? '#c0392b' : '#2980b9'
+      const tc = idx === 0 ? P1C : P2C
+      const dc = idx === 0 ? P1D : P2D
       const isCur = idx === turnRef.current && phaseRef.current === 'aim'
+      const rad = angleRef.current * Math.PI / 180
+      const dir = idx === 0 ? 1 : -1
 
-      if (isCur) { ctx.shadowColor = tc; ctx.shadowBlur = 20 }
+      ctx.save()
 
-      // 트랙
-      ctx.fillStyle = '#2a2a2a'
-      ctx.fillRect(tank.x - TANK_W / 2 - 2, tank.y - 7, TANK_W + 4, 9)
-      ctx.fillStyle = '#111'
-      for (let w = 0; w < 4; w++) {
-        ctx.beginPath(); ctx.arc(tank.x - TANK_W / 2 + 5 + w * 9, tank.y + 1, 4.5, 0, Math.PI * 2); ctx.fill()
+      // 선택된 탱크 외부 링 (플레이어 인디케이터)
+      if (isCur) {
+        ctx.strokeStyle = tc; ctx.lineWidth = 1.5
+        ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 400) * 0.15
+        ctx.shadowColor = tc; ctx.shadowBlur = 16
+        ctx.beginPath()
+        ctx.arc(tank.x, tank.y - TANK_H / 2, TANK_W * 0.85, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0
       }
-      // 포탑
-      ctx.fillStyle = tc
-      ctx.fillRect(tank.x - TANK_W / 2, tank.y - TANK_H, TANK_W, TANK_H * 0.85)
-      ctx.beginPath(); ctx.arc(tank.x, tank.y - TANK_H + 1, TANK_H * 0.65, Math.PI, 0); ctx.fill()
+
+      // 트랙 (그림자)
+      ctx.fillStyle = 'rgba(0,0,0,0.4)'
+      ctx.beginPath()
+      ctx.ellipse(tank.x, tank.y + 3, TANK_W / 2 + 2, 5, 0, 0, Math.PI * 2)
+      ctx.fill()
+
+      // 트랙 본체
+      const trackGrad = ctx.createLinearGradient(tank.x - TANK_W / 2, 0, tank.x + TANK_W / 2, 0)
+      trackGrad.addColorStop(0, '#1a1a1a')
+      trackGrad.addColorStop(0.5, '#333')
+      trackGrad.addColorStop(1, '#1a1a1a')
+      ctx.fillStyle = trackGrad
+      ctx.beginPath()
+      ctx.roundRect(tank.x - TANK_W / 2 - 2, tank.y - 8, TANK_W + 4, 10, 4)
+      ctx.fill()
+
+      // 바퀴
+      for (let w = 0; w < 4; w++) {
+        const wx = tank.x - TANK_W / 2 + 4 + w * 9
+        ctx.fillStyle = '#111'
+        ctx.beginPath(); ctx.arc(wx, tank.y, 5, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = '#444'
+        ctx.beginPath(); ctx.arc(wx, tank.y, 2.5, 0, Math.PI * 2); ctx.fill()
+      }
+
+      // 포탑 본체
+      if (isCur) { ctx.shadowColor = tc; ctx.shadowBlur = 18 }
+      const turrGrad = ctx.createLinearGradient(tank.x - TANK_W / 2, tank.y - TANK_H, tank.x + TANK_W / 2, tank.y)
+      turrGrad.addColorStop(0, tc)
+      turrGrad.addColorStop(1, dc)
+      ctx.fillStyle = turrGrad
+      ctx.beginPath()
+      ctx.roundRect(tank.x - TANK_W / 2, tank.y - TANK_H, TANK_W, TANK_H * 0.9, [4, 4, 0, 0])
+      ctx.fill()
+
+      // 포탑 돔
+      ctx.beginPath()
+      ctx.ellipse(tank.x, tank.y - TANK_H + 1, TANK_W * 0.38, TANK_H * 0.5, 0, Math.PI, 0)
+      ctx.fill()
+
+      // 포탑 하이라이트
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'
+      ctx.beginPath()
+      ctx.ellipse(tank.x - 3, tank.y - TANK_H + 1, TANK_W * 0.22, TANK_H * 0.28, -0.3, Math.PI, 0)
+      ctx.fill()
 
       ctx.shadowBlur = 0
 
       // 포신
-      const rad = angleRef.current * Math.PI / 180
-      const dir = idx === 0 ? 1 : -1
       const bx = tank.x + dir * Math.cos(rad) * BARREL_L
       const by = tank.y - TANK_H + 1 - Math.sin(rad) * BARREL_L
-      ctx.strokeStyle = dc; ctx.lineWidth = 7; ctx.lineCap = 'round'
+      // 포신 그림자
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 9; ctx.lineCap = 'round'
+      ctx.beginPath(); ctx.moveTo(tank.x + 1, tank.y - TANK_H + 2); ctx.lineTo(bx + 1, by + 2); ctx.stroke()
+      // 포신 본체
+      ctx.strokeStyle = dc; ctx.lineWidth = 8
       ctx.beginPath(); ctx.moveTo(tank.x, tank.y - TANK_H + 1); ctx.lineTo(bx, by); ctx.stroke()
-      ctx.strokeStyle = '#aaa'; ctx.lineWidth = 3
+      // 포신 하이라이트
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 3
       ctx.beginPath(); ctx.moveTo(tank.x, tank.y - TANK_H + 1); ctx.lineTo(bx, by); ctx.stroke()
+      // 포신 끝 원
+      ctx.fillStyle = dc
+      ctx.beginPath(); ctx.arc(bx, by, 4, 0, Math.PI * 2); ctx.fill()
 
       // HP 바
-      const bw = 52, bx0 = tank.x - 26, by0 = tank.y - TANK_H - 20
-      ctx.fillStyle = '#111'; ctx.fillRect(bx0 - 1, by0 - 1, bw + 2, 11)
+      const bw = 56, bx0 = tank.x - bw / 2, by0 = tank.y - TANK_H - 24
+      // 배경
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'
+      ctx.beginPath(); ctx.roundRect(bx0 - 1, by0 - 1, bw + 2, 11, 5); ctx.fill()
+      // HP fill
       const ratio = hpRef.current[idx] / 100
-      ctx.fillStyle = ratio > 0.5 ? '#4caf50' : ratio > 0.25 ? '#ff9800' : '#f44336'
-      ctx.fillRect(bx0, by0, bw * ratio, 9)
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center'
-      ctx.fillText(`HP ${hpRef.current[idx]}`, tank.x, by0 - 3)
-      ctx.fillText(idx === 0 ? 'P1' : (modeRef.current === 'ai' ? 'AI' : 'P2'), tank.x, by0 - 14)
+      const hpG = ctx.createLinearGradient(bx0, 0, bx0 + bw, 0)
+      if (ratio > 0.5) { hpG.addColorStop(0, '#2ecc71'); hpG.addColorStop(1, '#27ae60') }
+      else if (ratio > 0.25) { hpG.addColorStop(0, '#f39c12'); hpG.addColorStop(1, '#e67e22') }
+      else { hpG.addColorStop(0, '#ff3b5c'); hpG.addColorStop(1, '#c0392b') }
+      ctx.fillStyle = hpG
+      ctx.shadowColor = ratio > 0.5 ? '#2ecc71' : ratio > 0.25 ? '#f39c12' : '#ff3b5c'
+      ctx.shadowBlur = 4
+      ctx.beginPath(); ctx.roundRect(bx0, by0, bw * ratio, 9, [4, ratio > 0.9 ? 4 : 0, ratio > 0.9 ? 4 : 0, 4]); ctx.fill()
+      ctx.shadowBlur = 0
+
+      // HP 텍스트
+      ctx.fillStyle = '#fff'
+      ctx.font = '700 9px system-ui'; ctx.textAlign = 'center'
+      ctx.fillText(`HP ${hpRef.current[idx]}`, tank.x, by0 - 4)
+      // 플레이어 레이블
+      ctx.fillStyle = tc
+      ctx.font = '800 10px system-ui'
+      ctx.fillText(idx === 0 ? 'P1' : (modeRef.current === 'ai' ? 'AI' : 'P2'), tank.x, by0 - 15)
+
+      ctx.restore()
     })
 
-    // 포탄
+    // ── 포탄
     g.projs.forEach(p => {
       ctx.save()
       if (p.weaponId === 'banana') {
@@ -671,39 +800,78 @@ export default function Fortress() {
       } else if (p.weaponId === 'airstrike') {
         ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.fillText('✈️', p.x, p.y)
       } else if (p.weaponId === 'nuke') {
-        ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.fillText('☢️', p.x, p.y)
+        // 핵폭탄 - 네온 초록 빛남
+        ctx.shadowColor = '#39ff14'; ctx.shadowBlur = 16
+        ctx.fillStyle = '#39ff14'
+        ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill()
       } else {
-        ctx.fillStyle = '#ffeb3b'; ctx.shadowColor = '#ff9800'; ctx.shadowBlur = 10
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.weaponId === 'sub' ? 3 : 5.5, 0, Math.PI * 2); ctx.fill()
+        // 일반/서브 포탄 - 주황 불꽃 느낌
+        ctx.shadowColor = '#ff9800'; ctx.shadowBlur = 14
+        const pg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.weaponId === 'sub' ? 3.5 : 6)
+        pg.addColorStop(0, '#fff')
+        pg.addColorStop(0.4, '#ffeb3b')
+        pg.addColorStop(1, '#ff6600')
+        ctx.fillStyle = pg
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.weaponId === 'sub' ? 3.5 : 6, 0, Math.PI * 2); ctx.fill()
       }
       ctx.restore()
     })
 
-    // 폭발
+    // ── 폭발 (다층 렌더링)
     g.exps.forEach(ex => {
       const prog = ex.t / 34
-      const r = ex.r * (0.15 + prog * 0.85)
-      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - prog * prog)
-      const eg = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r)
-      eg.addColorStop(0, '#fff')
-      eg.addColorStop(0.18, '#fffde7')
-      eg.addColorStop(0.45, '#ff9800')
-      eg.addColorStop(0.75, '#e53935')
-      eg.addColorStop(1, 'rgba(80,0,0,0)')
-      ctx.fillStyle = eg
-      ctx.beginPath(); ctx.arc(ex.x, ex.y, r, 0, Math.PI * 2); ctx.fill()
+      ctx.save()
+
+      // 외곽 연기
+      const smokeAlpha = Math.max(0, (1 - prog) * 0.3)
+      const smokeR = ex.r * (0.5 + prog * 1.2)
+      ctx.globalAlpha = smokeAlpha
+      ctx.fillStyle = '#555'
+      ctx.beginPath(); ctx.arc(ex.x, ex.y, smokeR, 0, Math.PI * 2); ctx.fill()
+
+      // 화염 본체
+      ctx.globalAlpha = Math.max(0, 1 - prog * prog * 1.2)
+      const fireR = ex.r * (0.2 + prog * 0.8)
+      const fg = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, fireR)
+      fg.addColorStop(0,    '#ffffff')
+      fg.addColorStop(0.1,  '#ffffcc')
+      fg.addColorStop(0.3,  '#ffeb3b')
+      fg.addColorStop(0.55, '#ff6600')
+      fg.addColorStop(0.8,  '#c62828')
+      fg.addColorStop(1,    'transparent')
+      ctx.fillStyle = fg
+      ctx.beginPath(); ctx.arc(ex.x, ex.y, fireR, 0, Math.PI * 2); ctx.fill()
+
+      // 중심 섬광
+      if (prog < 0.25) {
+        ctx.globalAlpha = (0.25 - prog) / 0.25
+        ctx.fillStyle = '#fff'
+        ctx.shadowColor = '#fff'; ctx.shadowBlur = 20
+        ctx.beginPath(); ctx.arc(ex.x, ex.y, ex.r * 0.15, 0, Math.PI * 2); ctx.fill()
+      }
       ctx.restore()
     })
 
-    // 플로팅 데미지 숫자
+    // ── 플로팅 데미지
     dmgNums.forEach(n => {
       ctx.save()
-      ctx.globalAlpha = Math.max(0, 1 - n.t / 48)
-      ctx.font = `bold ${13 + Math.min(n.val / 5, 9)}px Arial`
+      const alpha = Math.max(0, 1 - n.t / 48)
+      ctx.globalAlpha = alpha
+      const fontSize = 13 + Math.min(n.val / 6, 8)
+      ctx.font = `900 ${fontSize}px system-ui`
       ctx.textAlign = 'center'
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 3
+      // 외곽선
+      ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 4
       ctx.strokeText(`-${n.val}`, n.x, n.y)
-      ctx.fillStyle = '#ff5252'; ctx.fillText(`-${n.val}`, n.x, n.y)
+      // 텍스트
+      const dg = ctx.createLinearGradient(n.x - 20, n.y - fontSize, n.x + 20, n.y)
+      dg.addColorStop(0, '#ff6b6b')
+      dg.addColorStop(1, '#ff3b5c')
+      ctx.fillStyle = dg
+      ctx.shadowColor = '#ff3b5c'; ctx.shadowBlur = 8
+      ctx.fillText(`-${n.val}`, n.x, n.y)
       ctx.restore()
     })
 
