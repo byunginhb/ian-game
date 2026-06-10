@@ -12,6 +12,7 @@ import WordPuzzle from './pages/WordPuzzle'
 import MathSpell from './pages/MathSpell'
 import MonsterDefense from './pages/MonsterDefense'
 import Fortress from './pages/Fortress'
+import HelpMe from './pages/HelpMe'
 import './App.css'
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
         <Route path="/game/math-spell" element={<MathSpell />} />
         <Route path="/game/monster-defense" element={<MonsterDefense />} />
         <Route path="/game/fortress" element={<Fortress />} />
+        <Route path="/game/help-me" element={<HelpMe />} />
       </Routes>
     </BrowserRouter>
   )

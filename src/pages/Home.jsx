@@ -11,6 +11,14 @@ const TAGS = {
   edu: { label: "학습", color: "#3b82f6" },
 };
 
+const BG_PARTICLES = Array.from({ length: 20 }, (_, i) => ({
+  left: `${(i * 37 + 11) % 100}%`,
+  animationDelay: `${((i * 19) % 80) / 10}s`,
+  animationDuration: `${6 + ((i * 13) % 80) / 10}s`,
+  size: 4 + ((i * 7) % 6),
+  opacity: 0.15 + ((i * 9) % 20) / 100,
+}));
+
 function Home() {
   const [loaded, setLoaded] = useState(false);
 
@@ -19,6 +27,14 @@ function Home() {
   }, []);
 
   const games = [
+    {
+      id: "help-me",
+      title: "도와줘",
+      emoji: "🧼",
+      description: "비누로 손바닥 위 세균을 시간 안에 모두 없애세요!",
+      color: "#10b981",
+      tags: ["new", "edu", "action"],
+    },
     {
       id: "fortress",
       title: "삐리삐리 날라갑니다",
@@ -121,17 +137,17 @@ function Home() {
     <div className={`home-container${loaded ? " home-loaded" : ""}`}>
       {/* animated bg particles */}
       <div className="home-bg-particles">
-        {Array.from({ length: 20 }, (_, i) => (
+        {BG_PARTICLES.map((particle, i) => (
           <div
             key={i}
             className="home-bg-particle"
             style={{
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 8}s`,
-              animationDuration: `${6 + Math.random() * 8}s`,
-              width: 4 + Math.random() * 6,
-              height: 4 + Math.random() * 6,
-              opacity: 0.15 + Math.random() * 0.2,
+              left: particle.left,
+              animationDelay: particle.animationDelay,
+              animationDuration: particle.animationDuration,
+              width: particle.size,
+              height: particle.size,
+              opacity: particle.opacity,
             }}
           />
         ))}
