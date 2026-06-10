@@ -30,6 +30,44 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
 }
 
+function isInsideEllipse(x, y, cx, cy, rx, ry) {
+  return ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1
+}
+
+function isInsideRotatedEllipse(x, y, cx, cy, rx, ry, angle) {
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  const dx = x - cx
+  const dy = y - cy
+  const localX = dx * cos + dy * sin
+  const localY = -dx * sin + dy * cos
+
+  return (localX / rx) ** 2 + (localY / ry) ** 2 <= 1
+}
+
+function isInsideHandArea(x, y, radius = 0) {
+  const inset = radius * 0.32
+  const palm = isInsideEllipse(x, y, 210, 410, Math.max(28, 138 - inset), Math.max(28, 128 - inset))
+  const middleFinger = isInsideEllipse(x, y, 208, 252, Math.max(18, 40 - inset), Math.max(34, 150 - inset))
+  const indexFinger = isInsideRotatedEllipse(x, y, 154, 285, Math.max(18, 38 - inset), Math.max(32, 128 - inset), -0.2)
+  const ringFinger = isInsideRotatedEllipse(x, y, 270, 285, Math.max(18, 37 - inset), Math.max(32, 126 - inset), 0.14)
+  const littleFinger = isInsideRotatedEllipse(x, y, 102, 355, Math.max(18, 39 - inset), Math.max(32, 98 - inset), -0.55)
+  const thumb = isInsideRotatedEllipse(x, y, 324, 362, Math.max(30, 88 - inset), Math.max(18, 42 - inset), -0.3)
+
+  return palm || middleFinger || indexFinger || ringFinger || littleFinger || thumb
+}
+
+function randomHandPoint(radius) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const x = rand(HAND_BOUNDS.left + radius, HAND_BOUNDS.right - radius)
+    const y = rand(HAND_BOUNDS.top + radius, HAND_BOUNDS.bottom - radius)
+
+    if (isInsideHandArea(x, y, radius)) return { x, y }
+  }
+
+  return { x: 210, y: 390 }
+}
+
 function getLevelConfig(level) {
   const hasBoss = level % 3 === 0
   const baseCount = Math.min(34, 6 + Math.floor(level * 1.7))
@@ -47,14 +85,14 @@ function createGerm(id, config, existing = []) {
   const angle = rand(0, Math.PI * 2)
   const speed = config.speed * rand(0.78, 1.28)
   const size = config.germSize * rand(0.82, 1.18)
-  let x = rand(HAND_BOUNDS.left + 24, HAND_BOUNDS.right - 24)
-  let y = rand(HAND_BOUNDS.top + 28, HAND_BOUNDS.bottom - 30)
+  let { x, y } = randomHandPoint(size / 2)
 
-  for (let attempt = 0; attempt < 24; attempt += 1) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
     const crowded = existing.some((germ) => Math.hypot(germ.x - x, germ.y - y) < (germ.size + size) * 0.64)
-    if (!crowded) break
-    x = rand(HAND_BOUNDS.left + 24, HAND_BOUNDS.right - 24)
-    y = rand(HAND_BOUNDS.top + 28, HAND_BOUNDS.bottom - 30)
+    if (!crowded && isInsideHandArea(x, y, size / 2)) break
+    const nextPoint = randomHandPoint(size / 2)
+    x = nextPoint.x
+    y = nextPoint.y
   }
 
   return {
@@ -87,8 +125,8 @@ function createLevelGerms(level) {
     const bossSpeed = config.speed * 0.58
     germs.push({
       id: `boss-${level}`,
-      x: rand(HAND_BOUNDS.left + 82, HAND_BOUNDS.right - 76),
-      y: rand(HAND_BOUNDS.top + 100, HAND_BOUNDS.bottom - 105),
+      x: 210,
+      y: rand(312, 420),
       vx: Math.cos(angle) * bossSpeed,
       vy: Math.sin(angle) * bossSpeed,
       size: Math.max(50, config.germSize * 1.7),
@@ -108,10 +146,10 @@ function createLevelGerms(level) {
 function moveGerm(germ, delta) {
   const next = { ...germ }
   const scale = Math.min(2.2, delta / 16)
+  const radius = next.size / 2
   next.x += next.vx * scale
   next.y += next.vy * scale
 
-  const radius = next.size / 2
   if (next.x < HAND_BOUNDS.left + radius) {
     next.x = HAND_BOUNDS.left + radius
     next.vx = Math.abs(next.vx)
@@ -127,6 +165,13 @@ function moveGerm(germ, delta) {
   if (next.y > HAND_BOUNDS.bottom - radius) {
     next.y = HAND_BOUNDS.bottom - radius
     next.vy = -Math.abs(next.vy)
+  }
+
+  if (!isInsideHandArea(next.x, next.y, radius)) {
+    next.x = germ.x
+    next.y = germ.y
+    next.vx = -next.vx
+    next.vy = -next.vy
   }
 
   next.rotate += next.vx * 0.35
@@ -472,78 +517,7 @@ function HelpMe() {
               <div className="hm-time">{Math.ceil(timeLeft)}</div>
             </div>
 
-            <svg className="hm-hand-svg" viewBox="0 0 320 500" aria-hidden="true">
-              <defs>
-                <linearGradient id="hmSkin" x1="64" y1="30" x2="250" y2="470" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="#ffe1c2" />
-                  <stop offset="0.48" stopColor="#f3ab7b" />
-                  <stop offset="1" stopColor="#dd7f61" />
-                </linearGradient>
-                <linearGradient id="hmSkinSoft" x1="75" y1="0" x2="270" y2="360" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="#ffe8cf" />
-                  <stop offset="1" stopColor="#efa071" />
-                </linearGradient>
-                <radialGradient id="hmPalmGlow" cx="39%" cy="34%" r="68%">
-                  <stop offset="0" stopColor="#fff1df" stopOpacity="0.7" />
-                  <stop offset="0.54" stopColor="#ffd4aa" stopOpacity="0.14" />
-                  <stop offset="1" stopColor="#b95842" stopOpacity="0.16" />
-                </radialGradient>
-                <filter id="hmHandShadow" x="-20%" y="-16%" width="140%" height="138%">
-                  <feDropShadow dx="0" dy="18" stdDeviation="12" floodColor="#8e5238" floodOpacity="0.24" />
-                </filter>
-              </defs>
-
-              <g filter="url(#hmHandShadow)">
-                <path
-                  className="hm-hand-part"
-                  d="M79 181 C68 168 69 145 72 119 L80 52 C83 26 99 11 120 14 C141 17 153 36 151 61 L144 178 Z"
-                  fill="url(#hmSkinSoft)"
-                />
-                <path
-                  className="hm-hand-part"
-                  d="M132 177 L134 42 C135 17 151 1 173 2 C196 3 211 22 209 48 L200 180 Z"
-                  fill="url(#hmSkinSoft)"
-                />
-                <path
-                  className="hm-hand-part"
-                  d="M191 183 L198 61 C200 36 216 21 237 24 C258 27 270 47 266 72 L251 197 Z"
-                  fill="url(#hmSkinSoft)"
-                />
-                <path
-                  className="hm-hand-part"
-                  d="M244 215 L268 104 C273 82 288 71 304 77 C321 83 327 101 321 123 L289 256 Z"
-                  fill="url(#hmSkinSoft)"
-                />
-
-                <path
-                  className="hm-thumb-shape"
-                  d="M70 261 C43 271 15 295 14 323 C13 348 34 366 63 360 C84 356 105 341 120 322 C127 312 124 298 113 292 C96 283 88 268 70 261 Z"
-                  fill="url(#hmSkinSoft)"
-                />
-
-                <path
-                  className="hm-palm-shape"
-                  d="M84 170 C119 157 185 157 230 179 C269 198 293 236 295 288 C298 358 284 429 236 466 C202 493 131 493 91 467 C55 443 39 402 39 348 L39 290 C39 267 54 251 73 254 C89 257 99 269 103 287 L110 319 L98 204 C96 185 72 176 84 170 Z"
-                  fill="url(#hmSkin)"
-                />
-                <path
-                  className="hm-palm-glow"
-                  d="M84 170 C119 157 185 157 230 179 C269 198 293 236 295 288 C298 358 284 429 236 466 C202 493 131 493 91 467 C55 443 39 402 39 348 L39 290 C39 267 54 251 73 254 C89 257 99 269 103 287 L110 319 L98 204 C96 185 72 176 84 170 Z"
-                  fill="url(#hmPalmGlow)"
-                />
-
-                <path className="hm-hand-line" d="M112 255 C145 267 184 273 235 258" />
-                <path className="hm-hand-line" d="M112 319 C154 304 202 306 252 329" />
-                <path className="hm-hand-line" d="M126 385 C158 373 198 375 232 393" />
-                <path className="hm-hand-line hm-hand-line-soft" d="M86 205 C91 232 94 257 103 287" />
-                <path className="hm-hand-line hm-hand-line-soft" d="M135 190 C151 198 173 199 193 191" />
-
-                <ellipse className="hm-fingernail" cx="111" cy="42" rx="18" ry="10" />
-                <ellipse className="hm-fingernail" cx="173" cy="29" rx="19" ry="10" />
-                <ellipse className="hm-fingernail" cx="235" cy="51" rx="17" ry="9" />
-                <ellipse className="hm-fingernail" cx="300" cy="103" rx="13" ry="8" transform="rotate(12 300 103)" />
-              </g>
-            </svg>
+            <div className="hm-hand-emoji" aria-hidden="true">🖐🏻</div>
 
             {germs.map((germ) => (
               <button

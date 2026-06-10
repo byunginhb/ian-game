@@ -360,45 +360,26 @@
   box-shadow: 0 6px 14px rgba(20, 54, 78, 0.22);
 }
 
-.hm-hand-svg {
+.hm-hand-emoji {
   position: absolute;
-  left: 36px;
-  top: 70px;
-  width: 312px;
-  height: 516px;
+  left: 13px;
+  top: 94px;
+  width: 328px;
+  height: 456px;
   z-index: 4;
+  display: grid;
+  place-items: center;
+  color: #f3b183;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 370px;
+  line-height: 1;
+  text-align: center;
+  text-shadow:
+    0 18px 28px rgba(141, 78, 48, 0.22),
+    0 0 42px rgba(255, 241, 210, 0.52);
   pointer-events: none;
-}
-
-.hm-hand-part,
-.hm-palm-shape,
-.hm-thumb-shape {
-  stroke: rgba(142, 76, 54, 0.18);
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-
-.hm-palm-glow {
-  mix-blend-mode: soft-light;
-}
-
-.hm-hand-line {
-  fill: none;
-  stroke: rgba(129, 67, 54, 0.28);
-  stroke-width: 3.4;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.hm-hand-line-soft {
-  stroke-width: 2.4;
-  opacity: 0.55;
-}
-
-.hm-fingernail {
-  fill: rgba(255, 242, 224, 0.68);
-  stroke: rgba(173, 101, 74, 0.15);
-  stroke-width: 1.4;
+  transform: rotate(-2deg);
+  user-select: none;
 }
 
 .hm-germ {
