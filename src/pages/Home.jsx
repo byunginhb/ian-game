@@ -28,6 +28,14 @@ function Home() {
 
   const games = [
     {
+      id: "dream-delivery",
+      title: "꿈방울 배달",
+      emoji: "☁️",
+      description: "구름 배달부가 색깔 꿈방울을 같은 둥지로 옮기는 밤하늘 게임!",
+      color: "#38bdf8",
+      tags: ["new", "action", "puzzle"],
+    },
+    {
       id: "help-me",
       title: "도와줘",
       emoji: "🧼",
