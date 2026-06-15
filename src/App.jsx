@@ -13,7 +13,7 @@ import MathSpell from './pages/MathSpell'
 import MonsterDefense from './pages/MonsterDefense'
 import Fortress from './pages/Fortress'
 import HelpMe from './pages/HelpMe'
-import DreamDelivery from './pages/DreamDelivery'
+import StarRescue from './pages/StarRescue'
 import './App.css'
 
 function App() {
@@ -34,7 +34,7 @@ function App() {
         <Route path="/game/monster-defense" element={<MonsterDefense />} />
         <Route path="/game/fortress" element={<Fortress />} />
         <Route path="/game/help-me" element={<HelpMe />} />
-        <Route path="/game/dream-delivery" element={<DreamDelivery />} />
+        <Route path="/game/star-rescue" element={<StarRescue />} />
       </Routes>
     </BrowserRouter>
   )

@@ -28,12 +28,12 @@ function Home() {
 
   const games = [
     {
-      id: "dream-delivery",
-      title: "꿈방울 배달",
-      emoji: "☁️",
-      description: "구름 배달부가 색깔 꿈방울을 같은 둥지로 옮기는 밤하늘 게임!",
-      color: "#38bdf8",
-      tags: ["new", "action", "puzzle"],
+      id: "star-rescue",
+      title: "별빛 구조대",
+      emoji: "🚀",
+      description: "그림자 몬스터를 쏘고 별을 구조하는 웨이브 액션 게임!",
+      color: "#f59e0b",
+      tags: ["new", "hot", "action"],
     },
     {
       id: "help-me",
