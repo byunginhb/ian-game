@@ -29,9 +29,9 @@ function Home() {
   const games = [
     {
       id: "fruit-slash",
-      title: "과일 검객",
+      title: "과일 닌자",
       emoji: "🍉",
-      description: "30초 동안 날아오는 과일을 베고 콤보 점수를 노리는 슬래시 게임!",
+      description: "30초 동안 날아오는 과일을 베고 마지막 러시까지 점수를 폭발시키세요!",
       color: "#22c55e",
       tags: ["new", "hot", "action"],
     },

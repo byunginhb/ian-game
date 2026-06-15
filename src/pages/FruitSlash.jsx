@@ -12,6 +12,8 @@ const TRAIL_LIFE = 180
 const GRAVITY = 0.105
 const PARTICLE_LIFE = 640
 const SPLIT_LIFE = 720
+const EXPLOSION_LIFE = 760
+const RUSH_SECONDS = 5
 
 const FRUITS = [
   { emoji: '🍉', color: '#ef4444', juice: '#f87171', score: 10, size: 42 },
@@ -51,21 +53,22 @@ function distPointToSegment(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + dx * t), py - (ay + dy * t))
 }
 
-function createFruit(id, elapsedRatio) {
-  const isBomb = Math.random() < Math.min(0.22, 0.08 + elapsedRatio * 0.18)
-  const isGolden = !isBomb && Math.random() < 0.08
+function createFruit(id, elapsedRatio, options = {}) {
+  const isBomb = !options.forceFruit && Math.random() < Math.min(0.22, 0.08 + elapsedRatio * 0.18)
+  const isGolden = !isBomb && Math.random() < (options.goldenChance ?? 0.08)
   const fruit = FRUITS[Math.floor(rand(0, FRUITS.length))]
   const size = isBomb ? rand(36, 44) : isGolden ? 48 : fruit.size + rand(-4, 5)
   const startX = rand(42, GAME_W - 42)
   const targetX = rand(80, GAME_W - 80)
-  const flight = rand(54, 82)
+  const flight = options.rush ? rand(44, 70) : rand(54, 82)
+  const rushBoost = options.rush ? 1.14 : 1
 
   return {
     id: `slice-${id}`,
     x: startX,
     y: GAME_H + size,
     vx: (targetX - startX) / flight,
-    vy: -rand(8.4, 11.4 + elapsedRatio * 1.4),
+    vy: -rand(8.4, 11.4 + elapsedRatio * 1.4) * rushBoost,
     size,
     spin: rand(-8, 8),
     rotate: rand(-35, 35),
@@ -125,6 +128,17 @@ function createSplit(idRef, item, slashAngle) {
   ]
 }
 
+function createExplosion(idRef, x, y, now) {
+  idRef.current += 1
+
+  return {
+    id: `boom-${idRef.current}`,
+    x,
+    y,
+    born: now,
+  }
+}
+
 function FruitSlash() {
   const scale = useGameScale(GAME_W, GAME_H, { reservedH: 74 })
   const containerRef = useRef(null)
@@ -140,10 +154,12 @@ function FruitSlash() {
     items: [],
     particles: [],
     splits: [],
+    explosions: [],
     trail: [],
     blade: { x: 210, y: 310, active: false },
     flash: null,
     comboPop: null,
+    rush: false,
     now: 0,
   })
 
@@ -159,14 +175,17 @@ function FruitSlash() {
   const itemIdRef = useRef(0)
   const particleIdRef = useRef(0)
   const splitIdRef = useRef(0)
+  const explosionIdRef = useRef(0)
   const itemsRef = useRef([])
   const particlesRef = useRef([])
   const splitsRef = useRef([])
+  const explosionsRef = useRef([])
   const trailRef = useRef([])
   const comboPopRef = useRef(null)
   const bladeRef = useRef({ x: 210, y: 310, active: false, pointerUntil: 0 })
   const keysRef = useRef(new Set())
   const pointerDownRef = useRef(false)
+  const rushActivatedRef = useRef(false)
 
   useEffect(() => {
     try {
@@ -200,9 +219,11 @@ function FruitSlash() {
     itemsRef.current = []
     particlesRef.current = []
     splitsRef.current = []
+    explosionsRef.current = []
     trailRef.current = []
     comboPopRef.current = null
     pointerDownRef.current = false
+    rushActivatedRef.current = false
     bladeRef.current = { x: 210, y: 310, active: false, pointerUntil: 0 }
     deadlineRef.current = performance.now() + ROUND_SECONDS * 1000
     spawnAtRef.current = performance.now() + 260
@@ -215,10 +236,12 @@ function FruitSlash() {
       items: [],
       particles: [],
       splits: [],
+      explosions: [],
       trail: [],
       blade: { x: 210, y: 310, active: false },
       flash: null,
       comboPop: null,
+      rush: false,
       now: performance.now(),
     })
   }, [])
@@ -354,7 +377,12 @@ function FruitSlash() {
         comboRef.current = 0
         setScore(scoreRef.current)
         setCombo(0)
-        particlesRef.current = [...particlesRef.current, ...createParticles(particleIdRef, item.x, item.y, item.juice, 24)]
+        particlesRef.current = [
+          ...particlesRef.current,
+          ...createParticles(particleIdRef, item.x, item.y, '#fb7185', 28),
+          ...createParticles(particleIdRef, item.x, item.y, '#fde047', 18),
+        ]
+        explosionsRef.current = [...explosionsRef.current, createExplosion(explosionIdRef, item.x, item.y, now)]
         return { flash: 'bomb', comboPop: null }
       }
 
@@ -405,14 +433,31 @@ function FruitSlash() {
       }
 
       const elapsedRatio = 1 - secondsLeft / ROUND_SECONDS
+      const finalRush = secondsLeft <= RUSH_SECONDS
+      let flash = null
+      let comboPop = comboPopRef.current && now - comboPopRef.current.born < 620 ? comboPopRef.current : null
+
+      if (finalRush && !rushActivatedRef.current) {
+        rushActivatedRef.current = true
+        itemsRef.current = itemsRef.current.filter((item) => item.kind === 'fruit')
+        comboPop = { text: '과일 폭주!', x: GAME_W / 2, y: 132, born: now }
+        spawnAtRef.current = now
+      }
+
       if (now >= spawnAtRef.current) {
-        const burst = Math.random() < 0.28 + elapsedRatio * 0.16 ? 2 + Math.floor(rand(0, 2)) : 1
+        const burst = finalRush
+          ? 4 + Math.floor(rand(0, 4))
+          : Math.random() < 0.28 + elapsedRatio * 0.16 ? 2 + Math.floor(rand(0, 2)) : 1
         const nextItems = Array.from({ length: burst }, () => {
           itemIdRef.current += 1
-          return createFruit(itemIdRef.current, elapsedRatio)
+          return createFruit(itemIdRef.current, elapsedRatio, {
+            forceFruit: finalRush,
+            goldenChance: finalRush ? 0 : 0.08,
+            rush: finalRush,
+          })
         })
         itemsRef.current = [...itemsRef.current, ...nextItems]
-        spawnAtRef.current = now + rand(330, Math.max(360, 780 - elapsedRatio * 260))
+        spawnAtRef.current = finalRush ? now + rand(90, 135) : now + rand(330, Math.max(360, 780 - elapsedRatio * 260))
       }
 
       let items = itemsRef.current
@@ -427,8 +472,6 @@ function FruitSlash() {
 
       const trail = trailRef.current.filter((point) => now - point.t < TRAIL_LIFE)
       trailRef.current = trail
-      let flash = null
-      let comboPop = comboPopRef.current && now - comboPopRef.current.born < 620 ? comboPopRef.current : null
       const slicedIds = new Set()
 
       if (blade.active && trail.length >= 2) {
@@ -456,16 +499,19 @@ function FruitSlash() {
       comboPopRef.current = comboPop
       particlesRef.current = particlesRef.current.filter((particle) => now - particle.born < PARTICLE_LIFE)
       splitsRef.current = splitsRef.current.filter((split) => now - split.born < SPLIT_LIFE)
+      explosionsRef.current = explosionsRef.current.filter((explosion) => now - explosion.born < EXPLOSION_LIFE)
       itemsRef.current = items
 
       setView({
         items,
         particles: particlesRef.current,
         splits: splitsRef.current,
+        explosions: explosionsRef.current,
         trail,
         blade: { x: blade.x, y: blade.y, active: blade.active },
         flash,
         comboPop,
+        rush: finalRush,
         now,
       })
 
@@ -483,7 +529,7 @@ function FruitSlash() {
       <div className="fs-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
         <div
           ref={areaRef}
-          className={`fs-area fs-${phase}${view.flash ? ` fs-flash-${view.flash}` : ''}`}
+          className={`fs-area fs-${phase}${view.flash ? ` fs-flash-${view.flash}` : ''}${view.rush ? ' fs-rush' : ''}`}
           style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
         >
           <div className="fs-kitchen">
@@ -567,6 +613,16 @@ function FruitSlash() {
             />
           ))}
 
+          {view.explosions.map((explosion) => (
+            <div key={explosion.id} className="fs-explosion" style={{ left: explosion.x, top: explosion.y }}>
+              <span className="fs-explosion-core" />
+              <span className="fs-explosion-ring fs-explosion-ring-1" />
+              <span className="fs-explosion-ring fs-explosion-ring-2" />
+              <span className="fs-explosion-ring fs-explosion-ring-3" />
+              <span className="fs-explosion-score">-25</span>
+            </div>
+          ))}
+
           {view.trail.length > 1 && (
             <svg className="fs-blade-svg" viewBox={`0 0 ${GAME_W} ${GAME_H}`} aria-hidden="true">
               <polyline points={view.trail.map((point) => `${point.x},${point.y}`).join(' ')} />
@@ -579,13 +635,14 @@ function FruitSlash() {
           />
 
           {combo >= 3 && phase === 'playing' && <div className="fs-combo">COMBO {combo}</div>}
+          {view.rush && phase === 'playing' && <div className="fs-rush-badge">과일 폭주!</div>}
           {view.comboPop && <div className="fs-combo-pop" style={{ left: view.comboPop.x, top: view.comboPop.y }}>{view.comboPop.text}</div>}
 
           {phase !== 'playing' && (
             <div className="fs-overlay">
               <div className="fs-modal">
                 <div className="fs-modal-icon">{phase === 'ended' ? '🏆' : '🍉'}</div>
-                <h1>{phase === 'ended' ? '시간 종료!' : '과일 검객'}</h1>
+                <h1>{phase === 'ended' ? '시간 종료!' : '과일 닌자'}</h1>
                 <p>{phase === 'ended' ? `점수 ${score} · 최고 ${best}` : '30초 점수전'}</p>
                 <button type="button" className="fs-primary-button" onClick={resetRound}>
                   {phase === 'ended' ? '다시 베기' : '시작'}
