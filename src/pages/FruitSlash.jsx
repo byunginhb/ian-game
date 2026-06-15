@@ -14,6 +14,8 @@ const PARTICLE_LIFE = 640
 const SPLIT_LIFE = 720
 const EXPLOSION_LIFE = 760
 const RUSH_SECONDS = 5
+const RUSH_SPAWN_INTERVAL = 100
+const RUSH_FRUITS_PER_SPAWN = 2
 
 const FRUITS = [
   { emoji: '🍉', color: '#ef4444', juice: '#f87171', score: 10, size: 42 },
@@ -446,7 +448,7 @@ function FruitSlash() {
 
       if (now >= spawnAtRef.current) {
         const burst = finalRush
-          ? 4 + Math.floor(rand(0, 4))
+          ? RUSH_FRUITS_PER_SPAWN
           : Math.random() < 0.28 + elapsedRatio * 0.16 ? 2 + Math.floor(rand(0, 2)) : 1
         const nextItems = Array.from({ length: burst }, () => {
           itemIdRef.current += 1
@@ -457,7 +459,7 @@ function FruitSlash() {
           })
         })
         itemsRef.current = [...itemsRef.current, ...nextItems]
-        spawnAtRef.current = finalRush ? now + rand(90, 135) : now + rand(330, Math.max(360, 780 - elapsedRatio * 260))
+        spawnAtRef.current = finalRush ? now + RUSH_SPAWN_INTERVAL : now + rand(330, Math.max(360, 780 - elapsedRatio * 260))
       }
 
       let items = itemsRef.current
