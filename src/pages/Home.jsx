@@ -28,6 +28,14 @@ function Home() {
 
   const games = [
     {
+      id: "fruit-slash",
+      title: "과일 검객",
+      emoji: "🍉",
+      description: "30초 동안 날아오는 과일을 베고 콤보 점수를 노리는 슬래시 게임!",
+      color: "#22c55e",
+      tags: ["new", "hot", "action"],
+    },
+    {
       id: "star-rescue",
       title: "별빛 구조대",
       emoji: "🚀",
