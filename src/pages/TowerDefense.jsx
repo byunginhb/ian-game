@@ -13,19 +13,20 @@ const GAME_H = ROWS * CELL // 504
 const TOP_H = 52
 const BOT_H = 96
 const STAGE_H = TOP_H + GAME_H + BOT_H
-const START_GOLD = 90
-const START_LIVES = 12
+const START_GOLD = 80
+const START_LIVES = 10
 const PARTICLE_CAP = 90
 const PREP_TIME = 3000
-const INTER_TIME = 8000
-const INTER_TIME_LATE = 6000
-const BOSS_INTER_EXTRA = 2000
+const INTER_TIME = 3000
 const COMBO_WINDOW = 1200
-const METEOR_CD = 25000
-const METEOR_DMG = 120
-const METEOR_R = 70
-const FREEZE_CD = 35000
-const FREEZE_DUR = 2500
+const METEOR_CD = 32000
+const METEOR_DMG = 85
+const METEOR_R = 62
+const FREEZE_CD = 48000
+const FREEZE_DUR = 1600
+const RAGE_CD = 45000
+const RAGE_DUR = 6000
+const RAGE_MUL = 0.55
 
 // ── 경로(serpentine) waypoint: [col,row] ──
 const WAY = [
@@ -90,11 +91,11 @@ const TOWER_ORDER = ['arrow', 'frost', 'cannon', 'bolt']
 
 // ── 적 5종 ──────────────────────────────────────────
 const ENEMIES = {
-  basic: { name: '콩알이', emoji: '🟢', color: '#7CC36E', hp: 34, speed: 55, gold: 4, dmg: 1, r: 13 },
-  fast: { name: '쌩쌩이', emoji: '💨', color: '#59B6E8', hp: 18, speed: 118, gold: 5, dmg: 1, r: 11 },
-  tank: { name: '둥글탱', emoji: '🛡️', color: '#B5793A', hp: 150, speed: 34, gold: 9, dmg: 3, r: 17 },
-  swarm: { name: '옹기종', emoji: '🐤', color: '#F4D03F', hp: 14, speed: 70, gold: 2, dmg: 1, r: 10 },
-  boss: { name: '왕방울', emoji: '👑', color: '#9B59B6', hp: 820, speed: 30, gold: 55, dmg: 6, r: 24 },
+  basic: { name: '콩알이', emoji: '🟢', color: '#7CC36E', hp: 38, speed: 55, gold: 4, dmg: 1, r: 13 },
+  fast: { name: '쌩쌩이', emoji: '💨', color: '#59B6E8', hp: 20, speed: 122, gold: 5, dmg: 1, r: 11 },
+  tank: { name: '둥글탱', emoji: '🛡️', color: '#B5793A', hp: 180, speed: 34, gold: 9, dmg: 3, r: 17 },
+  swarm: { name: '옹기종', emoji: '🐤', color: '#F4D03F', hp: 16, speed: 72, gold: 2, dmg: 1, r: 10 },
+  boss: { name: '왕방울', emoji: '👑', color: '#9B59B6', hp: 980, speed: 30, gold: 55, dmg: 6, r: 24 },
 }
 
 // ── 15웨이브 (강화) ─────────────────────────────────
@@ -107,22 +108,22 @@ const WAVES = [
   { bonus: 38, gap: 780, groups: [['tank', 4], ['fast', 8]] },
   { bonus: 42, gap: 560, groups: [['swarm', 20], ['basic', 8]] },
   { bonus: 45, gap: 720, groups: [['tank', 5], ['fast', 10]] },
-  { bonus: 48, gap: 680, groups: [['basic', 12], ['tank', 4], ['fast', 8]] },
-  { bonus: 75, gap: 640, groups: [['boss', 1], ['tank', 4], ['swarm', 14]] },
-  { bonus: 52, gap: 620, groups: [['tank', 7], ['fast', 12]] },
-  { bonus: 55, gap: 450, groups: [['swarm', 30], ['tank', 5]] },
-  { bonus: 58, gap: 580, groups: [['tank', 8], ['fast', 14], ['basic', 12]] },
-  { bonus: 62, gap: 480, groups: [['tank', 9], ['swarm', 24], ['fast', 10]] },
-  { bonus: 90, gap: 520, groups: [['boss', 2], ['tank', 7], ['fast', 14], ['swarm', 10]] },
+  { bonus: 48, gap: 680, groups: [['basic', 14], ['tank', 5], ['fast', 8]] },
+  { bonus: 75, gap: 620, groups: [['boss', 1], ['tank', 5], ['swarm', 16]] },
+  { bonus: 52, gap: 600, groups: [['tank', 8], ['fast', 14]] },
+  { bonus: 55, gap: 430, groups: [['swarm', 34], ['tank', 6]] },
+  { bonus: 58, gap: 560, groups: [['tank', 10], ['fast', 16], ['basic', 14]] },
+  { bonus: 62, gap: 460, groups: [['tank', 11], ['swarm', 28], ['fast', 12]] },
+  { bonus: 90, gap: 500, groups: [['boss', 2], ['tank', 9], ['fast', 16], ['swarm', 14]] },
 ]
 
 function waveHp(type, wave, bossSeen) {
   const base = ENEMIES[type].hp
-  if (type === 'boss') return Math.round(base * (1 + 0.55 * (bossSeen - 1)))
-  return Math.round(base * (1 + 0.18 * (wave - 1)))
+  if (type === 'boss') return Math.round(base * (1 + 0.7 * (bossSeen - 1)))
+  return Math.round(base * (1 + 0.22 * (wave - 1)))
 }
 function waveSpeed(type, wave) {
-  return ENEMIES[type].speed * Math.min(1.4, 1 + 0.025 * (wave - 1))
+  return ENEMIES[type].speed * Math.min(1.45, 1 + 0.028 * (wave - 1))
 }
 function buildQueue(waveIdx) {
   const w = WAVES[waveIdx]
@@ -151,7 +152,7 @@ function TowerDefense() {
   const [best, setBest] = useState(0)
   const [inter, setInter] = useState(null) // {sec, bonus, total}
   const [streak, setStreak] = useState(0)
-  const [skill, setSkill] = useState({ meteor: 0, freeze: 0, aiming: false })
+  const [skill, setSkill] = useState({ meteor: 0, freeze: 0, rage: 0, aiming: false })
 
   const G = useRef(null)
   if (G.current === null) {
@@ -290,6 +291,12 @@ function TowerDefense() {
         g.freezeTintUntil = now + 320
         g.freezeCd = FREEZE_CD
       }
+      if (g.rageReq) {
+        g.rageReq = false
+        g.rageUntil = now + RAGE_DUR
+        g.rageTintUntil = now + 300
+        g.rageCd = RAGE_CD
+      }
 
       // 스폰
       if (g.queue.length > 0) {
@@ -330,7 +337,8 @@ function TowerDefense() {
       // 타워 발사
       for (const tw of g.towers) {
         const st = mergeStats(tw.key, tw.level)
-        if (now - tw.last < st.cd) continue
+        const cd = now < g.rageUntil ? st.cd * RAGE_MUL : st.cd
+        if (now - tw.last < cd) continue
         const kind = TOWERS[tw.key].kind
         const rng2 = st.range * st.range
         let target = null, bestProg = -1
@@ -438,7 +446,6 @@ function TowerDefense() {
         const streakBonus = Math.min(g.streak, 5) * 10
         g.gold += w.bonus + streakBonus
         g.score += 100
-        const wasBoss = w.groups.some(([t]) => t === 'boss')
         g.waveIdx += 1
         if (g.waveIdx >= WAVES.length) {
           g.score += g.lives * 50 + g.gold + (g.lives >= START_LIVES ? 500 : 0)
@@ -448,8 +455,8 @@ function TowerDefense() {
         } else {
           g.phase = 'intermission'
           setPhase('intermission')
-          g.interTimer = (g.waveIdx >= 10 ? INTER_TIME_LATE : INTER_TIME) + (wasBoss ? BOSS_INTER_EXTRA : 0)
-          g.interTotal = g.interTimer
+          g.interTimer = INTER_TIME
+          g.interTotal = INTER_TIME
         }
         setStreak(g.streak)
         pushHud()
@@ -482,8 +489,14 @@ function TowerDefense() {
       }
 
       // 타워
+      const raging = now < g.rageUntil
       for (const tw of g.towers) {
         const tdef = TOWERS[tw.key]
+        if (raging) {
+          ctx.strokeStyle = 'rgba(255,205,70,0.85)'
+          ctx.lineWidth = 2.5
+          ctx.beginPath(); ctx.arc(tw.x, tw.y, 18, 0, Math.PI * 2); ctx.stroke()
+        }
         ctx.fillStyle = 'rgba(0,0,0,0.16)'
         ctx.beginPath(); ctx.ellipse(tw.x, tw.y + 12, 13, 5, 0, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = tdef.color
@@ -593,6 +606,9 @@ function TowerDefense() {
       // 빙결 틴트
       const ft = (g.freezeTintUntil - now) / 320
       if (ft > 0) { ctx.fillStyle = 'rgba(120,212,248,' + (ft * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
+      // 광폭화 틴트
+      const rt = (g.rageTintUntil - now) / 300
+      if (rt > 0) { ctx.fillStyle = 'rgba(255,205,70,' + (rt * 0.35) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
     }
 
     const loop = (now) => {
@@ -604,9 +620,11 @@ function TowerDefense() {
       if (g.phase === 'wave' || g.phase === 'intermission') {
         if (g.meteorCd > 0) g.meteorCd = Math.max(0, g.meteorCd - dt * 1000)
         if (g.freezeCd > 0) g.freezeCd = Math.max(0, g.freezeCd - dt * 1000)
+        if (g.rageCd > 0) g.rageCd = Math.max(0, g.rageCd - dt * 1000)
         setSkill((p) => {
-          const m = Math.ceil(g.meteorCd / 1000), f = Math.ceil(g.freezeCd / 1000)
-          return (p.meteor === m && p.freeze === f && p.aiming === g.aiming) ? p : { meteor: m, freeze: f, aiming: g.aiming }
+          const m = Math.ceil(g.meteorCd / 1000), f = Math.ceil(g.freezeCd / 1000), rg = Math.ceil(g.rageCd / 1000)
+          return (p.meteor === m && p.freeze === f && p.rage === rg && p.aiming === g.aiming)
+            ? p : { meteor: m, freeze: f, rage: rg, aiming: g.aiming }
         })
       }
 
@@ -694,7 +712,7 @@ function TowerDefense() {
     g.interTimer = PREP_TIME
     g.interTotal = PREP_TIME
     setSelected(null); setInspect(null); setSpeed(1); setStreak(0)
-    setSkill({ meteor: 0, freeze: 0, aiming: false })
+    setSkill({ meteor: 0, freeze: 0, rage: 0, aiming: false })
     setPhase('intermission')
     pushHud()
   }, [pushHud])
@@ -721,6 +739,12 @@ function TowerDefense() {
     const g = G.current
     if (g.phase !== 'wave' || g.freezeCd > 0) return
     g.freezeReq = true
+  }, [])
+
+  const castRage = useCallback(() => {
+    const g = G.current
+    if (g.phase !== 'wave' || g.rageCd > 0) return
+    g.rageReq = true
   }, [])
 
   const upgrade = useCallback(() => {
@@ -805,6 +829,9 @@ function TowerDefense() {
                 <button className="td-skill" disabled={phase !== 'wave' || skill.freeze > 0} onClick={castFreeze}>
                   <span>❄️</span>{skill.freeze > 0 && <em>{skill.freeze}</em>}
                 </button>
+                <button className="td-skill" disabled={phase !== 'wave' || skill.rage > 0} onClick={castRage}>
+                  <span>🥁</span>{skill.rage > 0 && <em>{skill.rage}</em>}
+                </button>
               </div>
             )}
 
@@ -861,7 +888,7 @@ function TowerDefense() {
                   <>
                     <h1>으악! 오지마</h1>
                     <p>길을 따라 몰려오는 젤리몽을<br />타워를 세워 막아내세요!</p>
-                    <p className="td-tip">웨이브는 자동 진행 · ☄️❄️ 스킬로 위기 탈출 · 15웨이브 사수</p>
+                    <p className="td-tip">웨이브 자동 진행 · ☄️❄️🥁 스킬로 위기 탈출 · 15웨이브 사수</p>
                   </>
                 )}
                 {phase === 'won' && (
@@ -899,8 +926,9 @@ function freshState() {
     phase: 'menu', speed: 1, selected: null, hover: null, inspectId: null,
     interTimer: 0, interTotal: PREP_TIME, livesAtWave: START_LIVES, streak: 0,
     combo: 0, lastKill: 0,
-    meteorCd: 0, freezeCd: 0, aiming: false, meteorReq: null, freezeReq: false,
-    flashUntil: 0, freezeTintUntil: 0,
+    meteorCd: 0, freezeCd: 0, rageCd: 0, aiming: false,
+    meteorReq: null, freezeReq: false, rageReq: false,
+    rageUntil: 0, flashUntil: 0, freezeTintUntil: 0, rageTintUntil: 0,
   }
 }
 
