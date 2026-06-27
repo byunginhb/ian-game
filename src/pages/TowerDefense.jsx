@@ -13,18 +13,27 @@ const GAME_H = ROWS * CELL // 504
 const TOP_H = 52
 const BOT_H = 96
 const STAGE_H = TOP_H + GAME_H + BOT_H
-const START_GOLD = 100
-const START_LIVES = 20
+const START_GOLD = 90
+const START_LIVES = 12
 const PARTICLE_CAP = 90
+const PREP_TIME = 3000
+const INTER_TIME = 8000
+const INTER_TIME_LATE = 6000
+const BOSS_INTER_EXTRA = 2000
+const COMBO_WINDOW = 1200
+const METEOR_CD = 25000
+const METEOR_DMG = 120
+const METEOR_R = 70
+const FREEZE_CD = 35000
+const FREEZE_DUR = 2500
 
-// ── 경로(serpentine) waypoint: [col,row], 적은 이 점들을 따라 이동 ──
+// ── 경로(serpentine) waypoint: [col,row] ──
 const WAY = [
   [-1, 0], [8, 0], [8, 2], [1, 2], [1, 4], [8, 4],
   [8, 6], [1, 6], [1, 8], [8, 8], [8, 10], [1, 10], [1, 12],
 ]
 const PATH = WAY.map(([c, r]) => ({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2 }))
 
-// 경로가 지나는 셀 집합(건설 불가)
 const PATH_CELLS = (() => {
   const set = new Set()
   for (let i = 0; i < WAY.length - 1; i++) {
@@ -81,48 +90,44 @@ const TOWER_ORDER = ['arrow', 'frost', 'cannon', 'bolt']
 
 // ── 적 5종 ──────────────────────────────────────────
 const ENEMIES = {
-  basic: { name: '콩알이', emoji: '🟢', color: '#7CC36E', hp: 30, speed: 55, gold: 5, dmg: 1, r: 13 },
-  fast: { name: '쌩쌩이', emoji: '💨', color: '#59B6E8', hp: 18, speed: 110, gold: 7, dmg: 1, r: 11 },
-  tank: { name: '둥글탱', emoji: '🛡️', color: '#B5793A', hp: 120, speed: 32, gold: 14, dmg: 2, r: 17 },
-  swarm: { name: '옹기종', emoji: '🐤', color: '#F4D03F', hp: 12, speed: 65, gold: 3, dmg: 1, r: 10 },
-  boss: { name: '왕방울', emoji: '👑', color: '#9B59B6', hp: 700, speed: 28, gold: 80, dmg: 5, r: 24 },
+  basic: { name: '콩알이', emoji: '🟢', color: '#7CC36E', hp: 34, speed: 55, gold: 4, dmg: 1, r: 13 },
+  fast: { name: '쌩쌩이', emoji: '💨', color: '#59B6E8', hp: 18, speed: 118, gold: 5, dmg: 1, r: 11 },
+  tank: { name: '둥글탱', emoji: '🛡️', color: '#B5793A', hp: 150, speed: 34, gold: 9, dmg: 3, r: 17 },
+  swarm: { name: '옹기종', emoji: '🐤', color: '#F4D03F', hp: 14, speed: 70, gold: 2, dmg: 1, r: 10 },
+  boss: { name: '왕방울', emoji: '👑', color: '#9B59B6', hp: 820, speed: 30, gold: 55, dmg: 6, r: 24 },
 }
 
-// ── 15웨이브 ────────────────────────────────────────
+// ── 15웨이브 (강화) ─────────────────────────────────
 const WAVES = [
-  { bonus: 30, gap: 1100, groups: [['basic', 6]] },
-  { bonus: 35, gap: 1000, groups: [['basic', 8], ['fast', 2]] },
-  { bonus: 40, gap: 850, groups: [['basic', 6], ['swarm', 8]] },
-  { bonus: 45, gap: 900, groups: [['basic', 8], ['fast', 4], ['tank', 1]] },
-  { bonus: 70, gap: 800, groups: [['boss', 1], ['basic', 8]] },
-  { bonus: 55, gap: 800, groups: [['tank', 3], ['fast', 6]] },
-  { bonus: 60, gap: 600, groups: [['swarm', 16], ['basic', 6]] },
-  { bonus: 65, gap: 750, groups: [['tank', 4], ['fast', 8]] },
-  { bonus: 70, gap: 700, groups: [['basic', 10], ['tank', 3], ['fast', 6]] },
-  { bonus: 110, gap: 650, groups: [['boss', 1], ['tank', 3], ['swarm', 10]] },
-  { bonus: 80, gap: 650, groups: [['tank', 6], ['fast', 10]] },
-  { bonus: 85, gap: 480, groups: [['swarm', 24], ['tank', 4]] },
-  { bonus: 90, gap: 600, groups: [['tank', 6], ['fast', 12], ['basic', 10]] },
-  { bonus: 100, gap: 500, groups: [['tank', 8], ['swarm', 20], ['fast', 8]] },
-  { bonus: 150, gap: 550, groups: [['boss', 2], ['tank', 5], ['fast', 10]] },
+  { bonus: 25, gap: 1100, groups: [['basic', 6]] },
+  { bonus: 28, gap: 1000, groups: [['basic', 8], ['fast', 3]] },
+  { bonus: 30, gap: 850, groups: [['basic', 6], ['swarm', 12]] },
+  { bonus: 33, gap: 880, groups: [['basic', 8], ['fast', 5], ['tank', 2]] },
+  { bonus: 50, gap: 780, groups: [['boss', 1], ['basic', 10], ['fast', 4]] },
+  { bonus: 38, gap: 780, groups: [['tank', 4], ['fast', 8]] },
+  { bonus: 42, gap: 560, groups: [['swarm', 20], ['basic', 8]] },
+  { bonus: 45, gap: 720, groups: [['tank', 5], ['fast', 10]] },
+  { bonus: 48, gap: 680, groups: [['basic', 12], ['tank', 4], ['fast', 8]] },
+  { bonus: 75, gap: 640, groups: [['boss', 1], ['tank', 4], ['swarm', 14]] },
+  { bonus: 52, gap: 620, groups: [['tank', 7], ['fast', 12]] },
+  { bonus: 55, gap: 450, groups: [['swarm', 30], ['tank', 5]] },
+  { bonus: 58, gap: 580, groups: [['tank', 8], ['fast', 14], ['basic', 12]] },
+  { bonus: 62, gap: 480, groups: [['tank', 9], ['swarm', 24], ['fast', 10]] },
+  { bonus: 90, gap: 520, groups: [['boss', 2], ['tank', 7], ['fast', 14], ['swarm', 10]] },
 ]
 
 function waveHp(type, wave, bossSeen) {
   const base = ENEMIES[type].hp
-  if (type === 'boss') return Math.round(base * (1 + 0.35 * (bossSeen - 1)))
-  return Math.round(base * (1 + 0.12 * (wave - 1)))
+  if (type === 'boss') return Math.round(base * (1 + 0.55 * (bossSeen - 1)))
+  return Math.round(base * (1 + 0.18 * (wave - 1)))
 }
 function waveSpeed(type, wave) {
-  return ENEMIES[type].speed * Math.min(1.3, 1 + 0.02 * (wave - 1))
+  return ENEMIES[type].speed * Math.min(1.4, 1 + 0.025 * (wave - 1))
 }
-
-// 웨이브 적 스폰 큐 생성 (그룹 순서대로, 보스 먼저)
 function buildQueue(waveIdx) {
   const w = WAVES[waveIdx]
   const q = []
-  for (const [type, n] of w.groups) {
-    for (let i = 0; i < n; i++) q.push(type)
-  }
+  for (const [type, n] of w.groups) for (let i = 0; i < n; i++) q.push(type)
   return q
 }
 
@@ -138,34 +143,30 @@ function TowerDefense() {
   const bgRef = useRef(null)
   useTouchLock(containerRef)
 
-  const [phase, setPhase] = useState('menu') // menu | building | wave | won | lost
+  const [phase, setPhase] = useState('menu') // menu | intermission | wave | won | lost
   const [hud, setHud] = useState({ gold: START_GOLD, lives: START_LIVES, wave: 1, score: 0 })
-  const [selected, setSelected] = useState(null) // 건설용 선택 타워 key
+  const [selected, setSelected] = useState(null)
   const [speed, setSpeed] = useState(1)
-  const [inspect, setInspect] = useState(null) // 선택된 설치 타워 {col,row,...} 스냅샷
+  const [inspect, setInspect] = useState(null)
   const [best, setBest] = useState(0)
+  const [inter, setInter] = useState(null) // {sec, bonus, total}
+  const [streak, setStreak] = useState(0)
+  const [skill, setSkill] = useState({ meteor: 0, freeze: 0, aiming: false })
 
-  // 게임 상태(루프에서 변형, 리렌더 X)
   const G = useRef(null)
   if (G.current === null) {
-    G.current = {
-      gold: START_GOLD, lives: START_LIVES, score: 0, waveIdx: 0, bossSeen: 0,
-      towers: [], enemies: [], shots: [], bolts: [], parts: [],
-      queue: [], spawnTimer: 0, ids: 0,
-      phase: 'menu', speed: 1, selected: null, hover: null, inspectId: null,
-    }
+    G.current = freshState()
   }
 
   useEffect(() => {
     try { setBest(Number(localStorage.getItem('tower-defense-best')) || 0) } catch { /* ignore */ }
   }, [])
 
-  // refs 동기화 (React state → 루프 ref)
   useEffect(() => { G.current.phase = phase }, [phase])
   useEffect(() => { G.current.speed = speed }, [speed])
-  useEffect(() => { G.current.selected = selected; if (selected) setInspect(null) }, [selected])
+  useEffect(() => { G.current.selected = selected; if (selected) { setInspect(null); G.current.aiming = false; setSkill((s) => ({ ...s, aiming: false })) } }, [selected])
 
-  // ── 배경(잔디+길) 오프스크린 캔버스 1회 렌더 ──
+  // 배경(잔디+길) 오프스크린 1회 렌더
   useEffect(() => {
     const bg = document.createElement('canvas')
     bg.width = GAME_W
@@ -184,15 +185,14 @@ function TowerDefense() {
     bgRef.current = bg
   }, [])
 
-  // ── 캔버스 DPR 세팅 ──
+  // 캔버스 DPR
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     canvas.width = GAME_W * dpr
     canvas.height = GAME_H * dpr
-    const ctx = canvas.getContext('2d')
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0)
   }, [])
 
   const pushHud = useCallback(() => {
@@ -206,6 +206,20 @@ function TowerDefense() {
       try { localStorage.setItem('tower-defense-best', String(s)) } catch { /* ignore */ }
       return s
     })
+  }, [])
+
+  // 다음 웨이브 시작 (자동/early)
+  const startWave = useCallback(() => {
+    const g = G.current
+    g.queue = buildQueue(g.waveIdx)
+    g.spawnTimer = 0
+    g.livesAtWave = g.lives
+    g.combo = 0
+    g.inspectId = null
+    setInspect(null)
+    setInter(null)
+    g.phase = 'wave'
+    setPhase('wave')
   }, [])
 
   // ── 게임 루프 ──
@@ -223,22 +237,59 @@ function TowerDefense() {
         const sp = (opt.spread || 60) * (0.4 + Math.random() * 0.6)
         g.parts.push({
           x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (opt.up || 0),
-          life: opt.life || 0.4, max: opt.life || 0.4,
-          size: opt.size || 3, color, grav: opt.grav ?? 120,
+          life: opt.life || 0.4, max: opt.life || 0.4, size: opt.size || 3, color, grav: opt.grav ?? 120,
         })
       }
+    }
+    const pushFloater = (x, y, text, color) => {
+      const g = G.current
+      if (g.floaters.length > 30) return
+      g.floaters.push({ x, y, text, color, born: performance.now() })
     }
 
     const killEnemy = (e) => {
       const g = G.current
-      g.gold += e.gold
-      g.score += 10
-      spawnParts(e.x, e.y, e.color, e.type === 'boss' ? 12 : 5, { life: e.type === 'boss' ? 0.7 : 0.45, size: e.type === 'boss' ? 6 : 4 })
+      const now = performance.now()
+      let gain = e.gold
+      g.combo = (now - g.lastKill < COMBO_WINDOW) ? g.combo + 1 : 1
+      g.lastKill = now
+      g.score += Math.round(10 * (1 + Math.min(g.combo, 10) * 0.1))
+      if (g.combo >= 3) pushFloater(e.x, e.y - e.r - 4, 'x' + g.combo, '#FFE08A')
+      if (e.type === 'boss') {
+        gain += 30
+        g.score += 200
+        g.flashUntil = now + 160
+        spawnParts(e.x, e.y, e.color, 20, { life: 0.7, size: 6 })
+        pushFloater(e.x, e.y, 'BOSS 처치! +' + gain, '#FFD166')
+      } else {
+        spawnParts(e.x, e.y, e.color, 5, { life: 0.45, size: 4 })
+      }
+      g.gold += gain
     }
 
     const update = (dt) => {
       const g = G.current
       const now = performance.now()
+
+      // 스킬 발동 요청 처리
+      if (g.meteorReq) {
+        const { x, y } = g.meteorReq
+        g.meteorReq = null
+        const r2 = METEOR_R * METEOR_R
+        for (const e of g.enemies) {
+          if (e.dead) continue
+          if (dist2(x, y, e.x, e.y) <= r2) { e.hp -= METEOR_DMG; if (e.hp <= 0) { e.dead = true; killEnemy(e) } }
+        }
+        spawnParts(x, y, '#FF8C42', 16, { life: 0.6, size: 6, spread: 110 })
+        g.flashUntil = now + 110
+        g.meteorCd = METEOR_CD
+      }
+      if (g.freezeReq) {
+        g.freezeReq = false
+        for (const e of g.enemies) { if (!e.dead) { e.slowMul = 0; e.slowUntil = now + FREEZE_DUR } }
+        g.freezeTintUntil = now + 320
+        g.freezeCd = FREEZE_CD
+      }
 
       // 스폰
       if (g.queue.length > 0) {
@@ -278,12 +329,10 @@ function TowerDefense() {
 
       // 타워 발사
       for (const tw of g.towers) {
-        const L = TOWERS[tw.key].levels
         const st = mergeStats(tw.key, tw.level)
         if (now - tw.last < st.cd) continue
         const kind = TOWERS[tw.key].kind
         const rng2 = st.range * st.range
-        // 가장 진행된(seg/거리 큰) 사거리 내 적 탐색
         let target = null, bestProg = -1
         for (const e of g.enemies) {
           if (e.dead) continue
@@ -294,7 +343,6 @@ function TowerDefense() {
         if (!target) continue
         tw.last = now
         if (kind === 'chain') {
-          // 히트스캔 + 체인
           const hitPts = [{ x: tw.x, y: tw.y }]
           let dmg = st.dmg
           let from = target
@@ -305,7 +353,6 @@ function TowerDefense() {
             used.add(from.id)
             hitPts.push({ x: from.x, y: from.y })
             if (from.hp <= 0) { from.dead = true; killEnemy(from) }
-            // 다음 점프 대상
             let next = null, nd = st.chainRange * st.chainRange
             for (const e of g.enemies) {
               if (e.dead || used.has(e.id)) continue
@@ -325,7 +372,7 @@ function TowerDefense() {
         }
       }
 
-      // 투사체 이동/명중
+      // 투사체
       for (const s of g.shots) {
         const t = g.enemies.find((e) => e.id === s.targetId && !e.dead)
         if (!t) { s.dead = true; continue }
@@ -333,16 +380,12 @@ function TowerDefense() {
         const d = Math.hypot(dx, dy) || 1
         const step = s.speed * dt
         if (d <= step + t.r) {
-          // 명중
           s.dead = true
           if (s.kind === 'splash') {
             const sr2 = s.splash * s.splash
             for (const e of g.enemies) {
               if (e.dead) continue
-              if (dist2(t.x, t.y, e.x, e.y) <= sr2) {
-                e.hp -= s.dmg
-                if (e.hp <= 0) { e.dead = true; killEnemy(e) }
-              }
+              if (dist2(t.x, t.y, e.x, e.y) <= sr2) { e.hp -= s.dmg; if (e.hp <= 0) { e.dead = true; killEnemy(e) } }
             }
             spawnParts(t.x, t.y, '#E8893C', 6, { life: 0.35, size: 4 })
           } else if (s.kind === 'frost') {
@@ -370,16 +413,9 @@ function TowerDefense() {
       }
 
       // 파티클
-      for (const p of g.parts) {
-        p.life -= dt
-        p.x += p.vx * dt
-        p.y += p.vy * dt
-        p.vy += p.grav * dt
-      }
-      // 번개 수명
+      for (const p of g.parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.grav * dt }
       for (const b of g.bolts) b.life -= dt
 
-      // 정리(프레임당 1회)
       if (g.enemies.some((e) => e.dead)) g.enemies = g.enemies.filter((e) => !e.dead)
       if (g.shots.some((s) => s.dead)) g.shots = g.shots.filter((s) => !s.dead)
       if (g.parts.some((p) => p.life <= 0)) g.parts = g.parts.filter((p) => p.life > 0)
@@ -396,8 +432,13 @@ function TowerDefense() {
       }
       // 웨이브 종료
       if (g.queue.length === 0 && g.enemies.length === 0) {
-        g.gold += WAVES[g.waveIdx].bonus
+        const w = WAVES[g.waveIdx]
+        if (g.lives >= g.livesAtWave) g.streak += 1
+        else g.streak = 0
+        const streakBonus = Math.min(g.streak, 5) * 10
+        g.gold += w.bonus + streakBonus
         g.score += 100
+        const wasBoss = w.groups.some(([t]) => t === 'boss')
         g.waveIdx += 1
         if (g.waveIdx >= WAVES.length) {
           g.score += g.lives * 50 + g.gold + (g.lives >= START_LIVES ? 500 : 0)
@@ -405,19 +446,31 @@ function TowerDefense() {
           setPhase('won')
           saveBest(g.score)
         } else {
-          g.phase = 'building'
-          setPhase('building')
+          g.phase = 'intermission'
+          setPhase('intermission')
+          g.interTimer = (g.waveIdx >= 10 ? INTER_TIME_LATE : INTER_TIME) + (wasBoss ? BOSS_INTER_EXTRA : 0)
+          g.interTotal = g.interTimer
         }
+        setStreak(g.streak)
         pushHud()
       }
+    }
+
+    const showRange = (x, y, range, ok) => {
+      ctx.save()
+      ctx.setLineDash([5, 5])
+      ctx.strokeStyle = ok ? 'rgba(255,255,255,0.4)' : 'rgba(231,76,60,0.5)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.arc(x, y, range, 0, Math.PI * 2); ctx.stroke()
+      ctx.restore()
     }
 
     const draw = (now) => {
       const g = G.current
       ctx.drawImage(bgRef.current, 0, 0)
 
-      // 건설 모드: 설치가능 타일 하이라이트
-      if (g.selected && (g.phase === 'building' || g.phase === 'wave')) {
+      // 건설 가능 타일 하이라이트
+      if (g.selected && (g.phase === 'intermission' || g.phase === 'wave')) {
         ctx.fillStyle = 'rgba(168,240,192,0.30)'
         for (let r = 0; r < ROWS; r++) {
           for (let col = 0; col < COLS; col++) {
@@ -438,22 +491,11 @@ function TowerDefense() {
         ctx.font = '17px serif'
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
         ctx.fillText(tdef.emoji, tw.x, tw.y + 1)
-        // 레벨 핍
         ctx.fillStyle = '#2D3436'
         ctx.beginPath(); ctx.arc(tw.x + 11, tw.y + 11, 7, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = '#FFEAA7'
         ctx.font = 'bold 10px system-ui'
         ctx.fillText(String(tw.level + 1), tw.x + 11, tw.y + 12)
-      }
-
-      // 사거리 원 (건설 미리보기 / 선택 타워)
-      const showRange = (x, y, range, ok) => {
-        ctx.save()
-        ctx.setLineDash([5, 5])
-        ctx.strokeStyle = ok ? 'rgba(255,255,255,0.4)' : 'rgba(231,76,60,0.5)'
-        ctx.lineWidth = 1.5
-        ctx.beginPath(); ctx.arc(x, y, range, 0, Math.PI * 2); ctx.stroke()
-        ctx.restore()
       }
 
       // 적
@@ -497,13 +539,26 @@ function TowerDefense() {
       }
       ctx.globalAlpha = 1
 
-      // 고스트 프리뷰 + 사거리
+      // 플로팅 텍스트(콤보/보스)
+      g.floaters = g.floaters.filter((f) => now - f.born < 900)
+      if (g.floaters.length) {
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        for (const f of g.floaters) {
+          const age = (now - f.born) / 900
+          ctx.globalAlpha = Math.max(0, 1 - age)
+          ctx.fillStyle = f.color
+          ctx.font = 'bold 13px system-ui'
+          ctx.fillText(f.text, f.x, f.y - age * 24)
+        }
+        ctx.globalAlpha = 1
+      }
+
+      // 고스트 프리뷰
       if (g.selected && g.hover) {
         const { col, row } = g.hover
         const ok = !PATH_CELLS.has(col + ',' + row) && !g.towers.some((t) => t.col === col && t.row === row)
         const x = col * CELL + CELL / 2, y = row * CELL + CELL / 2
-        const st = TOWERS[g.selected].levels[0]
-        showRange(x, y, st.range, ok)
+        showRange(x, y, TOWERS[g.selected].levels[0].range, ok)
         ctx.globalAlpha = 0.55
         ctx.fillStyle = ok ? TOWERS[g.selected].color : 'rgba(231,76,60,0.7)'
         ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.fill()
@@ -517,11 +572,27 @@ function TowerDefense() {
           ctx.stroke()
         }
       }
-      // 선택(검사) 타워 사거리
       if (g.inspectId) {
         const tw = g.towers.find((t) => t.id === g.inspectId)
         if (tw) showRange(tw.x, tw.y, mergeStats(tw.key, tw.level).range, true)
       }
+
+      // 운석 조준 안내
+      if (g.aiming) {
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'
+        ctx.fillRect(0, 0, GAME_W, GAME_H)
+        ctx.fillStyle = '#FFE08A'
+        ctx.font = 'bold 15px system-ui'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText('☄️ 운석 떨어뜨릴 곳을 탭!', GAME_W / 2, 30)
+      }
+
+      // 보스 처치 플래시
+      const fa = (g.flashUntil - now) / 160
+      if (fa > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (fa * 0.55) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
+      // 빙결 틴트
+      const ft = (g.freezeTintUntil - now) / 320
+      if (ft > 0) { ctx.fillStyle = 'rgba(120,212,248,' + (ft * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
     }
 
     const loop = (now) => {
@@ -529,34 +600,58 @@ function TowerDefense() {
       last = now
       if (dt > 0.05) dt = 0.05
       const g = G.current
+
+      if (g.phase === 'wave' || g.phase === 'intermission') {
+        if (g.meteorCd > 0) g.meteorCd = Math.max(0, g.meteorCd - dt * 1000)
+        if (g.freezeCd > 0) g.freezeCd = Math.max(0, g.freezeCd - dt * 1000)
+        setSkill((p) => {
+          const m = Math.ceil(g.meteorCd / 1000), f = Math.ceil(g.freezeCd / 1000)
+          return (p.meteor === m && p.freeze === f && p.aiming === g.aiming) ? p : { meteor: m, freeze: f, aiming: g.aiming }
+        })
+      }
+
       if (g.phase === 'wave') {
         update(dt * g.speed)
-        // gold/score는 자주 바뀌므로 매 프레임 push (값 동일하면 React가 bail-out)
         setHud((h) => (h.gold === g.gold && h.lives === g.lives && h.score === g.score
           ? h : { gold: g.gold, lives: g.lives, wave: Math.min(g.waveIdx + 1, 15), score: g.score }))
+      } else if (g.phase === 'intermission') {
+        g.interTimer -= dt * 1000 // 실시간(배속 무관)
+        if (g.interTimer <= 0) {
+          startWave()
+        } else {
+          const sec = Math.ceil(g.interTimer / 1000)
+          const bonus = Math.ceil((g.interTimer / 1000) * 4)
+          const total = Math.ceil(g.interTotal / 1000)
+          setInter((p) => (p && p.sec === sec ? p : { sec, bonus, total }))
+        }
       }
+
       draw(now)
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [pushHud, saveBest])
+  }, [pushHud, saveBest, startWave])
 
-  // ── 입력: 캔버스 포인터 → 논리 셀 ──
-  const toCell = useCallback((ev) => {
-    const rect = canvasRef.current.getBoundingClientRect()
-    const x = (ev.clientX - rect.left) / scale
-    const y = (ev.clientY - rect.top) / scale
-    if (x < 0 || y < 0 || x >= GAME_W || y >= GAME_H) return null
-    return { col: Math.floor(x / CELL), row: Math.floor(y / CELL) }
-  }, [scale])
-
+  // ── 입력 ──
   const onPointerDown = useCallback((ev) => {
     const g = G.current
     if (g.phase === 'menu' || g.phase === 'won' || g.phase === 'lost') return
-    const cell = toCell(ev)
-    if (!cell) return
-    const existing = g.towers.find((t) => t.col === cell.col && t.row === cell.row)
+    const rect = canvasRef.current.getBoundingClientRect()
+    const px = (ev.clientX - rect.left) / scale
+    const py = (ev.clientY - rect.top) / scale
+    if (px < 0 || py < 0 || px >= GAME_W || py >= GAME_H) return
+
+    // 운석 조준
+    if (g.aiming) {
+      g.meteorReq = { x: px, y: py }
+      g.aiming = false
+      setSkill((s) => ({ ...s, aiming: false }))
+      return
+    }
+
+    const col = Math.floor(px / CELL), row = Math.floor(py / CELL)
+    const existing = g.towers.find((t) => t.col === col && t.row === row)
     if (existing) {
       setSelected(null)
       g.inspectId = existing.id
@@ -564,13 +659,13 @@ function TowerDefense() {
       return
     }
     if (g.selected) {
-      const onPath = PATH_CELLS.has(cell.col + ',' + cell.row)
+      const onPath = PATH_CELLS.has(col + ',' + row)
       const cost = TOWERS[g.selected].levels[0].cost
       if (!onPath && g.gold >= cost) {
         g.gold -= cost
         g.towers.push({
-          id: ++g.ids, key: g.selected, level: 0, col: cell.col, row: cell.row,
-          x: cell.col * CELL + CELL / 2, y: cell.row * CELL + CELL / 2, last: 0,
+          id: ++g.ids, key: g.selected, level: 0, col, row,
+          x: col * CELL + CELL / 2, y: row * CELL + CELL / 2, last: 0,
         })
         pushHud()
       }
@@ -578,36 +673,54 @@ function TowerDefense() {
       g.inspectId = null
       setInspect(null)
     }
-  }, [toCell, pushHud])
+  }, [scale, pushHud])
 
   const onPointerMove = useCallback((ev) => {
     const g = G.current
     if (!g.selected) { g.hover = null; return }
-    g.hover = toCell(ev)
-  }, [toCell])
+    const rect = canvasRef.current.getBoundingClientRect()
+    const px = (ev.clientX - rect.left) / scale
+    const py = (ev.clientY - rect.top) / scale
+    g.hover = (px < 0 || py < 0 || px >= GAME_W || py >= GAME_H) ? null : { col: Math.floor(px / CELL), row: Math.floor(py / CELL) }
+  }, [scale])
 
   const onPointerLeave = useCallback(() => { G.current.hover = null }, [])
 
   // ── 컨트롤 ──
   const startGame = useCallback(() => {
     const g = G.current
-    Object.assign(g, {
-      gold: START_GOLD, lives: START_LIVES, score: 0, waveIdx: 0, bossSeen: 0,
-      towers: [], enemies: [], shots: [], bolts: [], parts: [],
-      queue: [], spawnTimer: 0, hover: null, inspectId: null, selected: null, speed: 1,
-    })
-    setSelected(null); setInspect(null); setSpeed(1)
-    g.phase = 'building'; setPhase('building')
+    Object.assign(g, freshState())
+    g.phase = 'intermission'
+    g.interTimer = PREP_TIME
+    g.interTotal = PREP_TIME
+    setSelected(null); setInspect(null); setSpeed(1); setStreak(0)
+    setSkill({ meteor: 0, freeze: 0, aiming: false })
+    setPhase('intermission')
     pushHud()
   }, [pushHud])
 
-  const startWave = useCallback(() => {
+  const callNow = useCallback(() => {
     const g = G.current
-    if (g.phase !== 'building') return
-    g.queue = buildQueue(g.waveIdx)
-    g.spawnTimer = 0
-    g.inspectId = null; setInspect(null); setSelected(null)
-    g.phase = 'wave'; setPhase('wave')
+    if (g.phase !== 'intermission') return
+    const bonus = Math.ceil((g.interTimer / 1000) * 4)
+    g.gold += bonus
+    g.score += bonus
+    g.interTimer = 0
+    pushHud()
+    startWave()
+  }, [pushHud, startWave])
+
+  const armMeteor = useCallback(() => {
+    const g = G.current
+    if (g.phase !== 'wave' || g.meteorCd > 0) return
+    g.aiming = !g.aiming
+    setSkill((s) => ({ ...s, aiming: g.aiming }))
+  }, [])
+
+  const castFreeze = useCallback(() => {
+    const g = G.current
+    if (g.phase !== 'wave' || g.freezeCd > 0) return
+    g.freezeReq = true
   }, [])
 
   const upgrade = useCallback(() => {
@@ -635,22 +748,17 @@ function TowerDefense() {
     pushHud()
   }, [pushHud])
 
-  const closeInspect = useCallback(() => {
-    G.current.inspectId = null
-    setInspect(null)
-  }, [])
-
+  const closeInspect = useCallback(() => { G.current.inspectId = null; setInspect(null) }, [])
   const toggleSpeed = useCallback(() => setSpeed((s) => (s === 1 ? 2 : 1)), [])
 
-  // inspect 팝업용 현재 타워 데이터
   const inspTw = inspect && G.current.towers.find((t) => t.id === inspect.id)
   const inspDef = inspTw && TOWERS[inspTw.key]
   const upCost = inspTw && inspTw.level < 2 ? inspDef.levels[inspTw.level + 1].cost : null
   let sellAmt = 0
   if (inspTw) { for (let i = 0; i <= inspTw.level; i++) sellAmt += inspDef.levels[i].cost; sellAmt = Math.floor(sellAmt * 0.7) }
 
-  const nextWavePreview = phase === 'building' && hud.wave <= 15
-    ? WAVES[Math.min(hud.wave - 1, 14)].groups.map(([t, n]) => `${ENEMIES[t].emoji}×${n}`).join('  ')
+  const previewWave = inter && hud.wave <= 15
+    ? WAVES[Math.min(hud.wave - 1, 14)].groups.map(([t, n]) => `${ENEMIES[t].emoji}×${n}`).join(' ')
     : ''
 
   return (
@@ -664,10 +772,11 @@ function TowerDefense() {
             <div className="td-stat"><span>❤️</span><b style={{ color: '#FF7675' }}>{hud.lives}</b></div>
             <div className="td-stat"><span>🌊</span><b style={{ color: '#00CEC9' }}>{hud.wave}/15</b></div>
             <div className="td-stat"><span>⭐</span><b style={{ color: '#A29BFE' }}>{hud.score}</b></div>
+            {streak > 1 && <div className="td-streak">🔥{streak}</div>}
             <button className={`td-speed${speed === 2 ? ' on' : ''}`} onClick={toggleSpeed}>{speed}x</button>
           </div>
 
-          {/* 게임 캔버스 */}
+          {/* 게임 필드 */}
           <div className="td-field" style={{ width: GAME_W, height: GAME_H }}>
             <canvas
               ref={canvasRef}
@@ -677,6 +786,28 @@ function TowerDefense() {
               onPointerMove={onPointerMove}
               onPointerLeave={onPointerLeave}
             />
+
+            {/* 카운트다운 */}
+            {phase === 'intermission' && inter && (
+              <div className="td-countdown">
+                <div className="td-cd-top">다음 웨이브 {hud.wave} · {inter.sec}초</div>
+                {previewWave && <div className="td-cd-prev">{previewWave}</div>}
+                <div className="td-cd-bar"><div className="td-cd-fill" style={{ width: `${(inter.sec / inter.total) * 100}%` }} /></div>
+              </div>
+            )}
+
+            {/* 스킬 버튼 */}
+            {(phase === 'wave' || phase === 'intermission') && (
+              <div className="td-skills">
+                <button className={`td-skill${skill.aiming ? ' arm' : ''}`} disabled={phase !== 'wave' || skill.meteor > 0} onClick={armMeteor}>
+                  <span>☄️</span>{skill.meteor > 0 && <em>{skill.meteor}</em>}
+                </button>
+                <button className="td-skill" disabled={phase !== 'wave' || skill.freeze > 0} onClick={castFreeze}>
+                  <span>❄️</span>{skill.freeze > 0 && <em>{skill.freeze}</em>}
+                </button>
+              </div>
+            )}
+
             {inspTw && (
               <div
                 className="td-popup"
@@ -717,12 +848,8 @@ function TowerDefense() {
                 )
               })}
             </div>
-            <button
-              className="td-wave-btn"
-              disabled={phase !== 'building'}
-              onClick={startWave}
-            >
-              {phase === 'wave' ? '진행중…' : '▶ 시작'}
+            <button className="td-wave-btn" disabled={phase !== 'intermission'} onClick={callNow}>
+              {phase === 'intermission' && inter ? <>지금!<em>+{inter.bonus}</em></> : '진행중'}
             </button>
           </div>
 
@@ -734,7 +861,7 @@ function TowerDefense() {
                   <>
                     <h1>으악! 오지마</h1>
                     <p>길을 따라 몰려오는 젤리몽을<br />타워를 세워 막아내세요!</p>
-                    <p className="td-tip">길 옆 잔디에 타워 설치 · 15웨이브 사수</p>
+                    <p className="td-tip">웨이브는 자동 진행 · ☄️❄️ 스킬로 위기 탈출 · 15웨이브 사수</p>
                   </>
                 )}
                 {phase === 'won' && (
@@ -758,17 +885,25 @@ function TowerDefense() {
               </div>
             </div>
           )}
-
-          {phase === 'building' && nextWavePreview && (
-            <div className="td-preview">다음 웨이브 {hud.wave}: {nextWavePreview}</div>
-          )}
         </div>
       </div>
     </div>
   )
 }
 
-// 타워 레벨 누적 스탯
+function freshState() {
+  return {
+    gold: START_GOLD, lives: START_LIVES, score: 0, waveIdx: 0, bossSeen: 0,
+    towers: [], enemies: [], shots: [], bolts: [], parts: [], floaters: [],
+    queue: [], spawnTimer: 0, ids: 0,
+    phase: 'menu', speed: 1, selected: null, hover: null, inspectId: null,
+    interTimer: 0, interTotal: PREP_TIME, livesAtWave: START_LIVES, streak: 0,
+    combo: 0, lastKill: 0,
+    meteorCd: 0, freezeCd: 0, aiming: false, meteorReq: null, freezeReq: false,
+    flashUntil: 0, freezeTintUntil: 0,
+  }
+}
+
 function mergeStats(key, level) {
   const L = TOWERS[key].levels
   const base = { ...L[0] }
@@ -861,7 +996,6 @@ function drawBoss(ctx, cx, cy, r, now) {
   ctx.fillStyle = '#7D3C98'
   ctx.beginPath(); ctx.arc(cx, cy + r * 0.25, r * 0.8 * p, 0, Math.PI); ctx.fill()
   fe(ctx, cx - r * 0.35, cy - r * 0.32, r * 0.28, r * 0.2, -0.5, '#C39BD3')
-  // 왕관 (사다리꼴 + 뿔 3개를 하나의 path로)
   ctx.fillStyle = '#F1C40F'
   ctx.beginPath()
   ctx.moveTo(cx - r * 0.58, cy - r * 0.8 * p)
