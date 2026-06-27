@@ -15,6 +15,7 @@ import Fortress from './pages/Fortress'
 import HelpMe from './pages/HelpMe'
 import StarRescue from './pages/StarRescue'
 import FruitSlash from './pages/FruitSlash'
+import TowerDefense from './pages/TowerDefense'
 import './App.css'
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
         <Route path="/game/help-me" element={<HelpMe />} />
         <Route path="/game/star-rescue" element={<StarRescue />} />
         <Route path="/game/fruit-slash" element={<FruitSlash />} />
+        <Route path="/game/tower-defense" element={<TowerDefense />} />
       </Routes>
     </BrowserRouter>
   )
