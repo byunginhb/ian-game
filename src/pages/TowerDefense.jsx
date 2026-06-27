@@ -24,9 +24,8 @@ const METEOR_DMG = 85
 const METEOR_R = 62
 const FREEZE_CD = 48000
 const FREEZE_DUR = 1600
-const RAGE_CD = 45000
-const RAGE_DUR = 6000
-const RAGE_MUL = 0.55
+const CONFUSE_CD = 45000
+const CONFUSE_DUR = 3000
 
 // ── 경로(serpentine) waypoint: [col,row] ──
 const WAY = [
@@ -152,7 +151,7 @@ function TowerDefense() {
   const [best, setBest] = useState(0)
   const [inter, setInter] = useState(null) // {sec, bonus, total}
   const [streak, setStreak] = useState(0)
-  const [skill, setSkill] = useState({ meteor: 0, freeze: 0, rage: 0, aiming: false })
+  const [skill, setSkill] = useState({ meteor: 0, freeze: 0, confuse: 0, aiming: false })
 
   const G = useRef(null)
   if (G.current === null) {
@@ -291,11 +290,15 @@ function TowerDefense() {
         g.freezeTintUntil = now + 320
         g.freezeCd = FREEZE_CD
       }
-      if (g.rageReq) {
-        g.rageReq = false
-        g.rageUntil = now + RAGE_DUR
-        g.rageTintUntil = now + 300
-        g.rageCd = RAGE_CD
+      if (g.confuseReq) {
+        g.confuseReq = false
+        for (const e of g.enemies) {
+          if (e.dead) continue
+          e.confusedUntil = now + CONFUSE_DUR
+          spawnParts(e.x, e.y, '#B07BEB', 3, { life: 0.4 })
+        }
+        g.confuseTintUntil = now + 300
+        g.confuseCd = CONFUSE_CD
       }
 
       // 스폰
@@ -320,6 +323,18 @@ function TowerDefense() {
       for (const e of g.enemies) {
         if (e.slowUntil && now > e.slowUntil) { e.slowMul = 1; e.slowUntil = 0 }
         let move = e.base * e.slowMul * dt
+        // 혼란: 왔던 길로 역행
+        if (now < e.confusedUntil) {
+          while (move > 0 && e.seg >= 0) {
+            const t = PATH[e.seg]
+            const dx = t.x - e.x, dy = t.y - e.y
+            const d = Math.hypot(dx, dy)
+            if (d <= move) { e.x = t.x; e.y = t.y; e.seg--; move -= d }
+            else { e.x += (dx / d) * move; e.y += (dy / d) * move; move = 0 }
+          }
+          if (e.seg < 0) e.seg = 0
+          continue
+        }
         while (move > 0 && e.seg < PATH.length - 1) {
           const t = PATH[e.seg + 1]
           const dx = t.x - e.x, dy = t.y - e.y
@@ -337,8 +352,7 @@ function TowerDefense() {
       // 타워 발사
       for (const tw of g.towers) {
         const st = mergeStats(tw.key, tw.level)
-        const cd = now < g.rageUntil ? st.cd * RAGE_MUL : st.cd
-        if (now - tw.last < cd) continue
+        if (now - tw.last < st.cd) continue
         const kind = TOWERS[tw.key].kind
         const rng2 = st.range * st.range
         let target = null, bestProg = -1
@@ -489,14 +503,8 @@ function TowerDefense() {
       }
 
       // 타워
-      const raging = now < g.rageUntil
       for (const tw of g.towers) {
         const tdef = TOWERS[tw.key]
-        if (raging) {
-          ctx.strokeStyle = 'rgba(255,205,70,0.85)'
-          ctx.lineWidth = 2.5
-          ctx.beginPath(); ctx.arc(tw.x, tw.y, 18, 0, Math.PI * 2); ctx.stroke()
-        }
         ctx.fillStyle = 'rgba(0,0,0,0.16)'
         ctx.beginPath(); ctx.ellipse(tw.x, tw.y + 12, 13, 5, 0, 0, Math.PI * 2); ctx.fill()
         ctx.fillStyle = tdef.color
@@ -514,6 +522,11 @@ function TowerDefense() {
       // 적
       for (const e of g.enemies) {
         drawEnemy(ctx, e, now)
+        if (now < e.confusedUntil) {
+          ctx.strokeStyle = 'rgba(180,120,255,0.9)'
+          ctx.lineWidth = 2
+          ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 3, 0, Math.PI * 2); ctx.stroke()
+        }
         if (e.hp < e.maxHp) {
           const w = e.r * 1.9
           const ratio = Math.max(0, e.hp / e.maxHp)
@@ -606,9 +619,9 @@ function TowerDefense() {
       // 빙결 틴트
       const ft = (g.freezeTintUntil - now) / 320
       if (ft > 0) { ctx.fillStyle = 'rgba(120,212,248,' + (ft * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
-      // 광폭화 틴트
-      const rt = (g.rageTintUntil - now) / 300
-      if (rt > 0) { ctx.fillStyle = 'rgba(255,205,70,' + (rt * 0.35) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
+      // 혼란 틴트
+      const ct = (g.confuseTintUntil - now) / 300
+      if (ct > 0) { ctx.fillStyle = 'rgba(170,110,235,' + (ct * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
     }
 
     const loop = (now) => {
@@ -620,11 +633,11 @@ function TowerDefense() {
       if (g.phase === 'wave' || g.phase === 'intermission') {
         if (g.meteorCd > 0) g.meteorCd = Math.max(0, g.meteorCd - dt * 1000)
         if (g.freezeCd > 0) g.freezeCd = Math.max(0, g.freezeCd - dt * 1000)
-        if (g.rageCd > 0) g.rageCd = Math.max(0, g.rageCd - dt * 1000)
+        if (g.confuseCd > 0) g.confuseCd = Math.max(0, g.confuseCd - dt * 1000)
         setSkill((p) => {
-          const m = Math.ceil(g.meteorCd / 1000), f = Math.ceil(g.freezeCd / 1000), rg = Math.ceil(g.rageCd / 1000)
-          return (p.meteor === m && p.freeze === f && p.rage === rg && p.aiming === g.aiming)
-            ? p : { meteor: m, freeze: f, rage: rg, aiming: g.aiming }
+          const m = Math.ceil(g.meteorCd / 1000), f = Math.ceil(g.freezeCd / 1000), cf = Math.ceil(g.confuseCd / 1000)
+          return (p.meteor === m && p.freeze === f && p.confuse === cf && p.aiming === g.aiming)
+            ? p : { meteor: m, freeze: f, confuse: cf, aiming: g.aiming }
         })
       }
 
@@ -712,7 +725,7 @@ function TowerDefense() {
     g.interTimer = PREP_TIME
     g.interTotal = PREP_TIME
     setSelected(null); setInspect(null); setSpeed(1); setStreak(0)
-    setSkill({ meteor: 0, freeze: 0, rage: 0, aiming: false })
+    setSkill({ meteor: 0, freeze: 0, confuse: 0, aiming: false })
     setPhase('intermission')
     pushHud()
   }, [pushHud])
@@ -741,10 +754,10 @@ function TowerDefense() {
     g.freezeReq = true
   }, [])
 
-  const castRage = useCallback(() => {
+  const castConfuse = useCallback(() => {
     const g = G.current
-    if (g.phase !== 'wave' || g.rageCd > 0) return
-    g.rageReq = true
+    if (g.phase !== 'wave' || g.confuseCd > 0) return
+    g.confuseReq = true
   }, [])
 
   const upgrade = useCallback(() => {
@@ -829,8 +842,8 @@ function TowerDefense() {
                 <button className="td-skill" disabled={phase !== 'wave' || skill.freeze > 0} onClick={castFreeze}>
                   <span>❄️</span>{skill.freeze > 0 && <em>{skill.freeze}</em>}
                 </button>
-                <button className="td-skill" disabled={phase !== 'wave' || skill.rage > 0} onClick={castRage}>
-                  <span>🥁</span>{skill.rage > 0 && <em>{skill.rage}</em>}
+                <button className="td-skill" disabled={phase !== 'wave' || skill.confuse > 0} onClick={castConfuse}>
+                  <span>🌀</span>{skill.confuse > 0 && <em>{skill.confuse}</em>}
                 </button>
               </div>
             )}
@@ -888,7 +901,7 @@ function TowerDefense() {
                   <>
                     <h1>으악! 오지마</h1>
                     <p>길을 따라 몰려오는 젤리몽을<br />타워를 세워 막아내세요!</p>
-                    <p className="td-tip">웨이브 자동 진행 · ☄️❄️🥁 스킬로 위기 탈출 · 15웨이브 사수</p>
+                    <p className="td-tip">웨이브 자동 진행 · ☄️❄️🌀 스킬로 위기 탈출 · 15웨이브 사수</p>
                   </>
                 )}
                 {phase === 'won' && (
@@ -926,9 +939,9 @@ function freshState() {
     phase: 'menu', speed: 1, selected: null, hover: null, inspectId: null,
     interTimer: 0, interTotal: PREP_TIME, livesAtWave: START_LIVES, streak: 0,
     combo: 0, lastKill: 0,
-    meteorCd: 0, freezeCd: 0, rageCd: 0, aiming: false,
-    meteorReq: null, freezeReq: false, rageReq: false,
-    rageUntil: 0, flashUntil: 0, freezeTintUntil: 0, rageTintUntil: 0,
+    meteorCd: 0, freezeCd: 0, confuseCd: 0, aiming: false,
+    meteorReq: null, freezeReq: false, confuseReq: false,
+    flashUntil: 0, freezeTintUntil: 0, confuseTintUntil: 0,
   }
 }
 
