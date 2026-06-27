@@ -249,7 +249,7 @@ function TowerDefense() {
           const wave = g.waveIdx + 1
           const hp = waveHp(type, wave, g.bossSeen)
           g.enemies.push({
-            id: ++g.ids, type, color: ENEMIES[type].color, emoji: ENEMIES[type].emoji,
+            id: ++g.ids, type, color: ENEMIES[type].color,
             r: ENEMIES[type].r, gold: ENEMIES[type].gold, dmg: ENEMIES[type].dmg,
             x: PATH[0].x, y: PATH[0].y, seg: 0, hp, maxHp: hp,
             base: waveSpeed(type, wave), slowMul: 1, slowUntil: 0,
@@ -412,7 +412,7 @@ function TowerDefense() {
       }
     }
 
-    const draw = () => {
+    const draw = (now) => {
       const g = G.current
       ctx.drawImage(bgRef.current, 0, 0)
 
@@ -457,19 +457,16 @@ function TowerDefense() {
       }
 
       // 적
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
       for (const e of g.enemies) {
-        ctx.fillStyle = e.color
-        ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill()
-        ctx.font = (e.r + 4) + 'px serif'
-        ctx.fillText(e.emoji, e.x, e.y + 1)
+        drawEnemy(ctx, e, now)
         if (e.hp < e.maxHp) {
-          const w = e.r * 1.8
+          const w = e.r * 1.9
           const ratio = Math.max(0, e.hp / e.maxHp)
+          const top = e.y - e.r - (e.type === 'boss' ? e.r * 0.55 : 0) - 8
           ctx.fillStyle = '#636E72'
-          ctx.fillRect(e.x - w / 2, e.y - e.r - 7, w, 3)
+          ctx.fillRect(e.x - w / 2, top, w, 3)
           ctx.fillStyle = ratio > 0.5 ? '#00B894' : ratio > 0.25 ? '#FDCB6E' : '#D63031'
-          ctx.fillRect(e.x - w / 2, e.y - e.r - 7, w * ratio, 3)
+          ctx.fillRect(e.x - w / 2, top, w * ratio, 3)
         }
       }
 
@@ -538,7 +535,7 @@ function TowerDefense() {
         setHud((h) => (h.gold === g.gold && h.lives === g.lives && h.score === g.score
           ? h : { gold: g.gold, lives: g.lives, wave: Math.min(g.waveIdx + 1, 15), score: g.score }))
       }
-      draw()
+      draw(now)
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
@@ -777,6 +774,130 @@ function mergeStats(key, level) {
   const base = { ...L[0] }
   for (let i = 1; i <= level; i++) Object.assign(base, L[i])
   return base
+}
+
+// ── 몬스터 캔버스 드로잉 (경량 path 조합) ────────────
+function fc(ctx, x, y, rad, color) {
+  ctx.fillStyle = color
+  ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill()
+}
+function fe(ctx, x, y, rx, ry, rot, color) {
+  ctx.fillStyle = color
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.fill()
+}
+function tri(ctx, x1, y1, x2, y2, x3, y3, color) {
+  ctx.fillStyle = color
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath(); ctx.fill()
+}
+
+function drawSlime(ctx, cx, cy, r, now) {
+  const t = Math.sin(now / 380)
+  const sx = 1 - t * 0.07, sy = 1 + t * 0.12
+  fe(ctx, cx, cy + r * 0.1, r * sx, r * 0.88 * sy, 0, '#7CC36E')
+  ctx.fillStyle = '#5BA355'
+  ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.35 * sy, r * 0.75 * sx, r * 0.32, 0, 0, Math.PI); ctx.fill()
+  fe(ctx, cx - r * 0.3, cy - r * 0.25 * sy, r * 0.22, r * 0.15, -0.4, '#A8E09F')
+  fc(ctx, cx - r * 0.32, cy - r * 0.1, r * 0.21, '#fff')
+  fc(ctx, cx - r * 0.22, cy - r * 0.08, r * 0.1, '#2D5A27')
+  fc(ctx, cx + r * 0.3, cy - r * 0.1, r * 0.21, '#fff')
+  fc(ctx, cx + r * 0.4, cy - r * 0.08, r * 0.1, '#2D5A27')
+}
+
+function drawBat(ctx, cx, cy, r, now) {
+  const wf = Math.sin(now / 130)
+  fe(ctx, cx + r * 1.0, cy, r * 0.9, r * 0.45, 0, 'rgba(89,182,232,0.35)')
+  ctx.fillStyle = '#3A9FD4'
+  ctx.beginPath()
+  ctx.moveTo(cx + r * 0.4, cy - r * 0.2)
+  ctx.quadraticCurveTo(cx + r * 1.6, cy - r * (0.8 + wf * 0.35), cx + r * 0.7, cy + r * 0.2)
+  ctx.closePath(); ctx.fill()
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.26)
+  ctx.fillStyle = '#59B6E8'
+  ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.78, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.restore()
+  fe(ctx, cx - r * 0.25, cy - r * 0.25, r * 0.3, r * 0.2, -0.4, '#8DD4F7')
+  fc(ctx, cx - r * 0.2, cy - r * 0.1, r * 0.22, '#fff')
+  fc(ctx, cx - r * 0.11, cy - r * 0.08, r * 0.11, '#1A5A80')
+  ctx.strokeStyle = '#1A5A80'; ctx.lineWidth = 1.8
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.42, cy - r * 0.38); ctx.lineTo(cx + r * 0.02, cy - r * 0.3); ctx.stroke()
+}
+
+function drawGolem(ctx, cx, cy, r, now) {
+  const y = cy + Math.sin(now / 720) * r * 0.03
+  fc(ctx, cx, y, r, '#B5793A')
+  ctx.fillStyle = '#7A4F20'
+  ctx.fillRect(cx - r * 0.48, y - r * 0.08, r * 0.96, r * 0.68)
+  ctx.beginPath(); ctx.arc(cx - r * 0.62, y - r * 0.42, r * 0.42, Math.PI * 0.5, Math.PI * 1.5); ctx.fill()
+  ctx.beginPath(); ctx.arc(cx + r * 0.62, y - r * 0.42, r * 0.42, -Math.PI * 0.5, Math.PI * 0.5); ctx.fill()
+  fc(ctx, cx - r * 0.35, y - r * 0.32, r * 0.18, '#D4956B')
+  fc(ctx, cx - r * 0.22, y + r * 0.18, r * 0.08, '#4A3010')
+  fc(ctx, cx + r * 0.22, y + r * 0.18, r * 0.08, '#4A3010')
+  fc(ctx, cx - r * 0.28, y - r * 0.15, r * 0.17, '#fff')
+  fc(ctx, cx - r * 0.2, y - r * 0.12, r * 0.09, '#3D2000')
+  fc(ctx, cx + r * 0.28, y - r * 0.15, r * 0.17, '#fff')
+  fc(ctx, cx + r * 0.36, y - r * 0.12, r * 0.09, '#3D2000')
+  ctx.strokeStyle = '#3D2000'; ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(cx - r * 0.48, y - r * 0.36); ctx.lineTo(cx - r * 0.12, y - r * 0.3)
+  ctx.moveTo(cx + r * 0.48, y - r * 0.36); ctx.lineTo(cx + r * 0.12, y - r * 0.3)
+  ctx.stroke()
+}
+
+function drawChick(ctx, cx, cy, r, now) {
+  const y = cy - Math.abs(Math.sin(now / 290)) * r * 0.28
+  fc(ctx, cx, y, r, '#F4D03F')
+  ctx.fillStyle = '#D4A800'
+  ctx.beginPath(); ctx.arc(cx + r * 0.65, y + r * 0.1, r * 0.38, -Math.PI * 0.7, Math.PI * 0.7); ctx.fill()
+  fc(ctx, cx - r * 0.28, y - r * 0.2, r * 0.22, '#FFF8A0')
+  tri(ctx, cx - r * 0.18, y - r * 0.05, cx - r * 0.55, y + r * 0.1, cx - r * 0.18, y + r * 0.25, '#FF8C00')
+  fc(ctx, cx - r * 0.08, y - r * 0.15, r * 0.13, '#2C2C2C')
+  fc(ctx, cx - r * 0.02, y - r * 0.2, r * 0.05, '#fff')
+  fc(ctx, cx - r * 0.38, y + r * 0.08, r * 0.18, 'rgba(255,148,80,0.45)')
+}
+
+function drawBoss(ctx, cx, cy, r, now) {
+  const p = 1 + Math.sin(now / 480) * 0.045
+  fc(ctx, cx, cy, r * p, '#9B59B6')
+  ctx.fillStyle = '#7D3C98'
+  ctx.beginPath(); ctx.arc(cx, cy + r * 0.25, r * 0.8 * p, 0, Math.PI); ctx.fill()
+  fe(ctx, cx - r * 0.35, cy - r * 0.32, r * 0.28, r * 0.2, -0.5, '#C39BD3')
+  // 왕관 (사다리꼴 + 뿔 3개를 하나의 path로)
+  ctx.fillStyle = '#F1C40F'
+  ctx.beginPath()
+  ctx.moveTo(cx - r * 0.58, cy - r * 0.8 * p)
+  ctx.lineTo(cx + r * 0.58, cy - r * 0.8 * p)
+  ctx.lineTo(cx + r * 0.52, cy - r * 0.55 * p)
+  ctx.lineTo(cx - r * 0.52, cy - r * 0.55 * p)
+  ctx.closePath()
+  ctx.moveTo(cx - r * 0.52, cy - r * 0.82 * p); ctx.lineTo(cx - r * 0.68, cy - r * 1.22 * p); ctx.lineTo(cx - r * 0.35, cy - r * 0.82 * p); ctx.closePath()
+  ctx.moveTo(cx - r * 0.12, cy - r * 0.82 * p); ctx.lineTo(cx, cy - r * 1.38 * p); ctx.lineTo(cx + r * 0.12, cy - r * 0.82 * p); ctx.closePath()
+  ctx.moveTo(cx + r * 0.35, cy - r * 0.82 * p); ctx.lineTo(cx + r * 0.68, cy - r * 1.22 * p); ctx.lineTo(cx + r * 0.52, cy - r * 0.82 * p); ctx.closePath()
+  ctx.fill()
+  fc(ctx, cx - r * 0.38, cy - r * 0.05, r * 0.3, '#fff')
+  fc(ctx, cx + r * 0.38, cy - r * 0.05, r * 0.3, '#fff')
+  fc(ctx, cx - r * 0.28, cy - r * 0.01, r * 0.16, '#4A1A6B')
+  fc(ctx, cx + r * 0.48, cy - r * 0.01, r * 0.16, '#4A1A6B')
+  fc(ctx, cx - r * 0.22, cy - r * 0.07, r * 0.06, '#fff')
+  fc(ctx, cx + r * 0.54, cy - r * 0.07, r * 0.06, '#fff')
+  fc(ctx, cx - r * 0.63, cy + r * 0.22, r * 0.2, 'rgba(255,120,200,0.42)')
+  fc(ctx, cx + r * 0.63, cy + r * 0.22, r * 0.2, 'rgba(255,120,200,0.42)')
+  ctx.strokeStyle = '#4A1A6B'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(cx - r * 0.62, cy - r * 0.42); ctx.lineTo(cx - r * 0.18, cy - r * 0.35)
+  ctx.moveTo(cx + r * 0.62, cy - r * 0.42); ctx.lineTo(cx + r * 0.18, cy - r * 0.35)
+  ctx.stroke()
+  ctx.lineCap = 'butt'
+}
+
+const ENEMY_DRAW = { basic: drawSlime, fast: drawBat, tank: drawGolem, swarm: drawChick, boss: drawBoss }
+
+function drawEnemy(ctx, e, now) {
+  ENEMY_DRAW[e.type](ctx, e.x, e.y, e.r, now)
+  if (e.slowMul < 1) {
+    ctx.globalAlpha = 0.32
+    fc(ctx, e.x, e.y, e.r, '#7BD4F8')
+    ctx.globalAlpha = 1
+  }
 }
 
 export default TowerDefense
