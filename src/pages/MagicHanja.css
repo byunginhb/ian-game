@@ -47,6 +47,11 @@
 }
 .mh-hearts { font-size: 13px; letter-spacing: -1px; flex: 1; }
 .mh-stat { font-size: 13px; font-weight: 900; color: #ffe08a; }
+.mh-grade {
+  font-size: 12px; font-weight: 900; color: #9ad0ff;
+  padding: 3px 7px; border-radius: 8px; background: rgba(90, 150, 230, 0.16);
+  white-space: nowrap;
+}
 .mh-combo { font-size: 13px; font-weight: 900; color: #ff9472; }
 .mh-mute {
   border: none; border-radius: 8px; padding: 5px 7px;
@@ -81,8 +86,11 @@
   grid-template-rows: 1fr 1fr;
   gap: 8px;
   padding: 8px 10px;
+  box-sizing: border-box;
 }
 .mh-opt {
+  min-height: 0;
+  min-width: 0;
   border: 2px solid rgba(255, 255, 255, 0.14);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.07);

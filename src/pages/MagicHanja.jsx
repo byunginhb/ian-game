@@ -6,60 +6,63 @@ import './MagicHanja.css'
 
 const GAME_W = 360
 const HUD_H = 46
-const CANVAS_H = 230
-const Q_H = 86
-const OPT_H = 158
+const CANVAS_H = 226
+const Q_H = 84
+const OPT_H = 168
 const STAGE_H = HUD_H + CANVAS_H + Q_H + OPT_H
 const START_LIVES = 5
 const PARTICLE_CAP = 90
 
-// ── 한자 데이터 (대표 훈음 + 마법색) ──────────────────
-const HANJA = [
-  { c: '一', m: '한', s: '일', col: '#8B5CF6' },
-  { c: '二', m: '두', s: '이', col: '#8B5CF6' },
-  { c: '三', m: '석', s: '삼', col: '#8B5CF6' },
-  { c: '四', m: '넉', s: '사', col: '#8B5CF6' },
-  { c: '五', m: '다섯', s: '오', col: '#8B5CF6' },
-  { c: '六', m: '여섯', s: '육', col: '#8B5CF6' },
-  { c: '七', m: '일곱', s: '칠', col: '#8B5CF6' },
-  { c: '八', m: '여덟', s: '팔', col: '#8B5CF6' },
-  { c: '九', m: '아홉', s: '구', col: '#8B5CF6' },
-  { c: '十', m: '열', s: '십', col: '#8B5CF6' },
-  { c: '日', m: '날', s: '일', col: '#FF9F1C' },
-  { c: '月', m: '달', s: '월', col: '#C7CEDB' },
-  { c: '火', m: '불', s: '화', col: '#F0553A' },
-  { c: '水', m: '물', s: '수', col: '#3B9EDB' },
-  { c: '木', m: '나무', s: '목', col: '#46B36B' },
-  { c: '金', m: '쇠', s: '금', col: '#E0B341' },
-  { c: '土', m: '흙', s: '토', col: '#B5793A' },
-  { c: '山', m: '메', s: '산', col: '#6BA368' },
-  { c: '川', m: '내', s: '천', col: '#4FA8D8' },
-  { c: '天', m: '하늘', s: '천', col: '#5BB4E0' },
-  { c: '地', m: '땅', s: '지', col: '#A9763B' },
-  { c: '人', m: '사람', s: '인', col: '#E08A5B' },
-  { c: '大', m: '큰', s: '대', col: '#9B59B6' },
-  { c: '小', m: '작을', s: '소', col: '#7FC8A9' },
-  { c: '中', m: '가운데', s: '중', col: '#E06C9F' },
-  { c: '上', m: '윗', s: '상', col: '#79C0E8' },
-  { c: '下', m: '아래', s: '하', col: '#A0A0C0' },
-  { c: '東', m: '동녘', s: '동', col: '#6FCF97' },
-  { c: '西', m: '서녘', s: '서', col: '#F2C14E' },
-  { c: '南', m: '남녘', s: '남', col: '#F08A5D' },
-  { c: '北', m: '북녘', s: '북', col: '#7FB3D5' },
-  { c: '父', m: '아비', s: '부', col: '#E8896C' },
-  { c: '母', m: '어미', s: '모', col: '#EC9BB0' },
-  { c: '兄', m: '형', s: '형', col: '#D98880' },
-  { c: '弟', m: '아우', s: '제', col: '#E6B0AA' },
-  { c: '王', m: '임금', s: '왕', col: '#E0B341' },
-  { c: '學', m: '배울', s: '학', col: '#5DADE2' },
-  { c: '門', m: '문', s: '문', col: '#9A7B5F' },
-  { c: '先', m: '먼저', s: '선', col: '#76D7C4' },
-  { c: '生', m: '날', s: '생', col: '#82C785' },
-  { c: '白', m: '흰', s: '백', col: '#E5E8E8' },
-  { c: '靑', m: '푸를', s: '청', col: '#5499C7' },
-  { c: '力', m: '힘', s: '력', col: '#EC7063' },
-  { c: '心', m: '마음', s: '심', col: '#F1948A' },
+// ── 급수별 한자 ([한자, 훈, 음]) ──────────────────────
+const GRADE_8 = [
+  ['敎', '가르칠', '교'], ['校', '학교', '교'], ['九', '아홉', '구'], ['國', '나라', '국'], ['軍', '군사', '군'],
+  ['金', '쇠', '금'], ['南', '남녘', '남'], ['女', '여자', '녀'], ['年', '해', '년'], ['大', '큰', '대'],
+  ['東', '동녘', '동'], ['六', '여섯', '륙'], ['萬', '일만', '만'], ['母', '어미', '모'], ['木', '나무', '목'],
+  ['門', '문', '문'], ['民', '백성', '민'], ['白', '흰', '백'], ['父', '아비', '부'], ['北', '북녘', '북'],
+  ['四', '넉', '사'], ['山', '메', '산'], ['三', '석', '삼'], ['生', '날', '생'], ['西', '서녘', '서'],
+  ['先', '먼저', '선'], ['小', '작을', '소'], ['水', '물', '수'], ['室', '집', '실'], ['十', '열', '십'],
+  ['五', '다섯', '오'], ['王', '임금', '왕'], ['外', '바깥', '외'], ['月', '달', '월'], ['二', '두', '이'],
+  ['人', '사람', '인'], ['一', '한', '일'], ['日', '날', '일'], ['長', '긴', '장'], ['弟', '아우', '제'],
+  ['中', '가운데', '중'], ['靑', '푸를', '청'], ['寸', '마디', '촌'], ['七', '일곱', '칠'], ['土', '흙', '토'],
+  ['八', '여덟', '팔'], ['學', '배울', '학'], ['韓', '한국', '한'], ['兄', '형', '형'], ['火', '불', '화'],
 ]
+const GRADE_7 = [
+  ['家', '집', '가'], ['歌', '노래', '가'], ['間', '사이', '간'], ['江', '강', '강'], ['車', '수레', '거'],
+  ['空', '빌', '공'], ['工', '장인', '공'], ['口', '입', '구'], ['記', '기록할', '기'], ['氣', '기운', '기'],
+  ['男', '사내', '남'], ['內', '안', '내'], ['農', '농사', '농'], ['答', '대답', '답'], ['道', '길', '도'],
+  ['冬', '겨울', '동'], ['同', '한가지', '동'], ['動', '움직일', '동'], ['登', '오를', '등'], ['來', '올', '래'],
+  ['力', '힘', '력'], ['老', '늙을', '로'], ['里', '마을', '리'], ['林', '수풀', '림'], ['立', '설', '립'],
+  ['每', '매양', '매'], ['面', '낯', '면'], ['名', '이름', '명'], ['命', '목숨', '명'], ['文', '글월', '문'],
+  ['問', '물을', '문'], ['物', '물건', '물'], ['方', '모', '방'], ['百', '일백', '백'], ['不', '아닐', '불'],
+  ['事', '일', '사'], ['算', '셈', '산'], ['上', '윗', '상'], ['色', '빛', '색'], ['夕', '저녁', '석'],
+  ['世', '인간', '세'], ['少', '적을', '소'], ['所', '바', '소'], ['手', '손', '수'], ['數', '셈', '수'],
+  ['市', '저자', '시'], ['時', '때', '시'], ['食', '밥', '식'], ['植', '심을', '식'], ['心', '마음', '심'],
+  ['安', '편안', '안'], ['語', '말씀', '어'], ['午', '낮', '오'], ['右', '오른', '우'], ['有', '있을', '유'],
+  ['育', '기를', '육'], ['邑', '고을', '읍'], ['入', '들', '입'], ['自', '스스로', '자'], ['字', '글자', '자'],
+  ['場', '마당', '장'], ['全', '온전', '전'], ['前', '앞', '전'], ['電', '번개', '전'], ['正', '바를', '정'],
+  ['祖', '할아비', '조'], ['足', '발', '족'], ['左', '왼', '좌'], ['主', '주인', '주'], ['住', '살', '주'],
+  ['重', '무거울', '중'], ['地', '땅', '지'], ['紙', '종이', '지'], ['直', '곧을', '직'], ['千', '일천', '천'],
+  ['天', '하늘', '천'], ['川', '내', '천'], ['草', '풀', '초'], ['村', '마을', '촌'], ['秋', '가을', '추'],
+  ['春', '봄', '춘'], ['出', '날', '출'], ['便', '편할', '편'], ['平', '평평할', '평'], ['下', '아래', '하'],
+  ['夏', '여름', '하'], ['漢', '한수', '한'], ['海', '바다', '해'], ['花', '꽃', '화'], ['話', '말씀', '화'],
+  ['活', '살', '활'], ['孝', '효도', '효'], ['後', '뒤', '후'], ['休', '쉴', '휴'], ['然', '그럴', '연'],
+]
+
+const ELEMENT_COLORS = {
+  火: '#F0553A', 水: '#3B9EDB', 木: '#46B36B', 金: '#E0B341', 土: '#B5793A',
+  日: '#FF9F1C', 月: '#C7CEDB', 山: '#6BA368', 川: '#4FA8D8', 天: '#5BB4E0',
+  心: '#F1948A', 江: '#3B9EDB', 海: '#2E86C1', 花: '#EC7FB0', 草: '#52BE80',
+  電: '#F4D03F', 林: '#46B36B', 靑: '#5499C7', 白: '#E5E8E8', 力: '#EC7063',
+}
+const PALETTE = ['#8B5CF6', '#E06C9F', '#5DADE2', '#48C9B0', '#F5B041', '#EC7063', '#52BE80', '#AF7AC5', '#5499C7', '#F39C12']
+function hanjaColor(c) { return ELEMENT_COLORS[c] || PALETTE[c.charCodeAt(0) % PALETTE.length] }
+function toObj([c, m, s]) { return { c, m, s, col: hanjaColor(c) } }
+
+const GRADES = [
+  { name: '8급', list: GRADE_8.map(toObj) },
+  { name: '7급', list: GRADE_7.map(toObj) },
+]
+const ALL = GRADES.flatMap((g) => g.list)
 
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -69,9 +72,11 @@ function shuffle(arr) {
   return arr
 }
 
-function makeQuestion() {
-  const data = HANJA[Math.floor(Math.random() * HANJA.length)]
-  const mode = Math.floor(Math.random() * 3) // 0 뜻, 1 음, 2 한자
+function makeQuestion(grade, learnedSet) {
+  const unlearned = grade.list.filter((h) => !learnedSet.has(h.c))
+  const pool = unlearned.length ? unlearned : grade.list
+  const data = pool[Math.floor(Math.random() * pool.length)]
+  const mode = Math.floor(Math.random() * 3)
   let promptText, sub, correct, key, big
   if (mode === 0) { promptText = data.c; sub = '이 한자의 뜻은?'; correct = data.m; key = 'm'; big = true }
   else if (mode === 1) { promptText = data.c; sub = '이 한자의 음(소리)은?'; correct = data.s; key = 's'; big = true }
@@ -80,14 +85,13 @@ function makeQuestion() {
   const set = new Set([correct])
   const opts = [correct]
   let guard = 0
-  while (opts.length < 4 && guard++ < 200) {
-    const v = HANJA[Math.floor(Math.random() * HANJA.length)][key]
+  while (opts.length < 4 && guard++ < 300) {
+    const v = ALL[Math.floor(Math.random() * ALL.length)][key]
     if (!set.has(v)) { set.add(v); opts.push(v) }
   }
   shuffle(opts)
   return {
-    char: data.c, color: data.col, mode,
-    promptText, promptBig: big, sub,
+    char: data.c, color: data.col, promptText, promptBig: big, sub,
     options: opts, correctIdx: opts.indexOf(correct), optBig: mode === 2,
     answered: false, pickedIdx: -1,
   }
@@ -95,7 +99,26 @@ function makeQuestion() {
 
 function makeEnemy(stage) {
   const maxHp = Math.min(7, 2 + Math.floor(stage / 2))
-  return { type: (stage - 1) % 3, hp: maxHp, maxHp, x: 278, y: 122, dying: false, dieAt: 0, shakeUntil: 0, attackUntil: 0 }
+  return { type: (stage - 1) % 3, hp: maxHp, maxHp, x: 278, y: 120, dying: false, dieAt: 0, shakeUntil: 0, attackUntil: 0 }
+}
+
+// ── 학습 진행 저장/복원 ────────────────────────────
+function loadLearned() {
+  const obj = {}
+  for (const g of GRADES) {
+    try { obj[g.name] = new Set(JSON.parse(localStorage.getItem('mh-learned-' + g.name) || '[]')) }
+    catch { obj[g.name] = new Set() }
+  }
+  return obj
+}
+function saveLearned(name, set) {
+  try { localStorage.setItem('mh-learned-' + name, JSON.stringify([...set])) } catch { /* ignore */ }
+}
+function deriveGradeIdx(learned) {
+  for (let i = 0; i < GRADES.length; i++) {
+    if (learned[GRADES[i].name].size < GRADES[i].list.length) return i
+  }
+  return GRADES.length - 1
 }
 
 // ── 효과음 (Web Audio 합성, 외부 파일 없음) ───────────
@@ -118,23 +141,28 @@ const SFX = {
   hit: (ac) => beep(ac, { freq: 420, to: 150, dur: 0.13, type: 'triangle', vol: 0.22 }),
   hurt: (ac) => beep(ac, { freq: 200, to: 80, dur: 0.22, type: 'square', vol: 0.22 }),
   defeat: (ac) => [523, 659, 784, 1047].forEach((f, i) => beep(ac, { freq: f, dur: 0.14, type: 'square', vol: 0.2, delay: i * 0.09 })),
+  gradeup: (ac) => [523, 659, 784, 1047, 1319].forEach((f, i) => beep(ac, { freq: f, dur: 0.16, type: 'square', vol: 0.22, delay: i * 0.1 })),
   over: (ac) => [440, 330, 247, 165].forEach((f, i) => beep(ac, { freq: f, dur: 0.3, type: 'sawtooth', vol: 0.2, delay: i * 0.16 })),
 }
 
 function MagicHanja() {
-  const scale = useGameScale(GAME_W, STAGE_H, { reservedH: 16, maxScale: 1.3 })
+  const scale = useGameScale(GAME_W, STAGE_H, { reservedH: 84, maxScale: 1.25 })
   const containerRef = useRef(null)
   const canvasRef = useRef(null)
   useTouchLock(containerRef)
 
-  const [phase, setPhase] = useState('menu') // menu | play | over
-  const [hud, setHud] = useState({ lives: START_LIVES, score: 0, combo: 0, stage: 1, learned: 0 })
+  const [phase, setPhase] = useState('menu')
+  const [hud, setHud] = useState({ lives: START_LIVES, score: 0, combo: 0, stage: 1, gradeName: '8급', gLearned: 0, gTotal: 50, caster: '손오공' })
   const [q, setQ] = useState(null)
   const [best, setBest] = useState(() => {
     try { return Number(localStorage.getItem('magic-hanja-best')) || 0 } catch { return 0 }
   })
   const [muted, setMuted] = useState(() => {
     try { return localStorage.getItem('mh-muted') === '1' } catch { return false }
+  })
+  const [menuProgress, setMenuProgress] = useState(() => {
+    const l = loadLearned(); const gi = deriveGradeIdx(l)
+    return { gradeName: GRADES[gi].name, learned: l[GRADES[gi].name].size, total: GRADES[gi].list.length }
   })
 
   const G = useRef(null)
@@ -161,10 +189,15 @@ function MagicHanja() {
 
   const syncHud = useCallback(() => {
     const g = G.current
-    setHud({ lives: g.lives, score: g.score, combo: g.combo, stage: g.stage, learned: g.learned.size })
+    const grade = GRADES[g.gradeIdx]
+    setHud({
+      lives: g.lives, score: g.score, combo: g.combo, stage: g.stage,
+      gradeName: grade.name, gLearned: g.learnedByGrade[grade.name].size, gTotal: grade.list.length,
+      caster: HERO_NAMES[(g.stage - 1) % HERO_NAMES.length],
+    })
   }, [])
 
-  // ── 게임 루프 (캔버스 연출만, 입력은 DOM 버튼) ──
+  // ── 게임 루프 (캔버스 연출) ──
   useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
@@ -188,7 +221,6 @@ function MagicHanja() {
 
     const update = (dt, now) => {
       const g = G.current
-      // 주인공 마법 투사체 → 적
       if (g.proj) {
         g.proj.t += dt * 2.6
         if (g.proj.t >= 1) {
@@ -205,7 +237,6 @@ function MagicHanja() {
           g.proj = null
         }
       }
-      // 적 반격 투사체 → 주인공
       if (g.proj2) {
         g.proj2.t += dt * 2.4
         if (g.proj2.t >= 1) {
@@ -222,12 +253,11 @@ function MagicHanja() {
     const drawBg = () => {
       ctx.fillStyle = '#2a2350'
       ctx.fillRect(0, 0, GAME_W, CANVAS_H)
-      // 은은한 동양풍 동심원
       ctx.strokeStyle = 'rgba(255,255,255,0.05)'
       ctx.lineWidth = 1
       for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.arc(GAME_W / 2, CANVAS_H + 30, i * 50, 0, Math.PI * 2); ctx.stroke() }
       ctx.fillStyle = 'rgba(0,0,0,0.18)'
-      ctx.fillRect(0, CANVAS_H - 34, GAME_W, 34)
+      ctx.fillRect(0, CANVAS_H - 30, GAME_W, 30)
     }
 
     const draw = (now) => {
@@ -236,8 +266,8 @@ function MagicHanja() {
       if (g.phase === 'play' || g.phase === 'over') {
         drawEnemy(ctx, g.enemy, now)
         const hb = g.heroHurtUntil > now ? Math.sin(now / 28) * 3 : 0
-        drawHero(ctx, g.hero.x + hb, g.hero.y, now, g.castUntil > now, g.castChar, g.castColor)
-        // 투사체
+        const heroDraw = HERO_DRAW[(g.stage - 1) % HERO_DRAW.length]
+        heroDraw(ctx, g.hero.x + hb, g.hero.y, now, g.castUntil > now, g.castChar, g.castColor)
         if (g.proj) {
           const p = g.proj
           const x = g.hero.x + 18 + (g.enemy.x - g.hero.x - 18) * p.t
@@ -258,9 +288,25 @@ function MagicHanja() {
         fillc(ctx, p.x, p.y, p.size, p.color)
       }
       ctx.globalAlpha = 1
-      // 피격 화면 플래시
       const fl = (g.flashUntil - now) / 300
       if (fl > 0) { ctx.fillStyle = 'rgba(231,76,60,' + (fl * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, CANVAS_H) }
+
+      // 급수 완성 배너
+      if (now < g.gradeBannerUntil) {
+        const left = g.gradeBannerUntil - now
+        const fade = left < 500 ? left / 500 : 1
+        ctx.save()
+        ctx.globalAlpha = fade
+        ctx.fillStyle = 'rgba(18,10,40,0.8)'
+        ctx.fillRect(0, CANVAS_H / 2 - 30, GAME_W, 60)
+        ctx.fillStyle = '#FFE08A'
+        ctx.fillRect(0, CANVAS_H / 2 - 30, GAME_W, 3)
+        ctx.fillRect(0, CANVAS_H / 2 + 27, GAME_W, 3)
+        ctx.font = 'bold 22px system-ui'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillText(g.gradeBannerText, GAME_W / 2, CANVAS_H / 2)
+        ctx.restore()
+      }
     }
 
     const loop = (now) => {
@@ -276,7 +322,11 @@ function MagicHanja() {
     return () => cancelAnimationFrame(raf)
   }, [play])
 
-  const nextQuestion = useCallback(() => { setQ(makeQuestion()) }, [])
+  const nextQuestion = useCallback(() => {
+    const g = G.current
+    const grade = GRADES[g.gradeIdx]
+    setQ(makeQuestion(grade, g.learnedByGrade[grade.name]))
+  }, [])
 
   const nextStage = useCallback(() => {
     const g = G.current
@@ -296,12 +346,21 @@ function MagicHanja() {
     if (correct) {
       g.score += 10 + g.combo * 2
       g.combo += 1
-      g.learned.add(q.char)
+      const grade = GRADES[g.gradeIdx]
+      const set = g.learnedByGrade[grade.name]
+      if (!set.has(q.char)) { set.add(q.char); saveLearned(grade.name, set) }
       g.castUntil = now + 440
       g.castChar = q.char
       g.castColor = q.color
       g.proj = { t: 0, color: q.color }
       play('correct'); play('cast')
+      // 급수 완성 체크
+      if (set.size >= grade.list.length && g.gradeIdx < GRADES.length - 1) {
+        g.gradeIdx += 1
+        g.gradeBannerUntil = now + 2600
+        g.gradeBannerText = `${grade.name} 완성! 🎉 ${GRADES[g.gradeIdx].name} 도전!`
+        play('gradeup')
+      }
       syncHud()
       setTimeout(() => {
         if (G.current.phase !== 'play') return
@@ -322,6 +381,8 @@ function MagicHanja() {
           G.current.phase = 'over'
           setPhase('over')
           play('over')
+          const l = loadLearned(); const gi = deriveGradeIdx(l)
+          setMenuProgress({ gradeName: GRADES[gi].name, learned: l[GRADES[gi].name].size, total: GRADES[gi].list.length })
           setBest((prev) => {
             const s = G.current.score
             if (s <= prev) return prev
@@ -346,8 +407,8 @@ function MagicHanja() {
     g.enemy = makeEnemy(1)
     setPhase('play')
     syncHud()
-    setQ(makeQuestion())
-  }, [syncHud])
+    nextQuestion()
+  }, [syncHud, nextQuestion])
 
   return (
     <div className="mh-container" ref={containerRef}>
@@ -358,7 +419,7 @@ function MagicHanja() {
           <div className="mh-top" style={{ height: HUD_H }}>
             <div className="mh-hearts">{'❤️'.repeat(Math.max(0, hud.lives))}{'🖤'.repeat(Math.max(0, START_LIVES - hud.lives))}</div>
             <div className="mh-stat">⭐{hud.score}</div>
-            <div className="mh-stat">📚{hud.learned}</div>
+            <div className="mh-grade">{hud.gradeName} {hud.gLearned}/{hud.gTotal}</div>
             {hud.combo > 1 && <div className="mh-combo">🔥{hud.combo}</div>}
             <button className="mh-mute" onClick={toggleMute}>{muted ? '🔇' : '🔊'}</button>
           </div>
@@ -366,9 +427,7 @@ function MagicHanja() {
           {/* 배틀 캔버스 */}
           <div className="mh-field" style={{ height: CANVAS_H }}>
             <canvas ref={canvasRef} style={{ width: GAME_W, height: CANVAS_H }} />
-            {phase === 'play' && (
-              <div className="mh-stagetag">제 {hud.stage} 관문</div>
-            )}
+            {phase === 'play' && <div className="mh-stagetag">제 {hud.stage}관문 · {hud.caster}</div>}
           </div>
 
           {/* 문제 */}
@@ -391,9 +450,7 @@ function MagicHanja() {
                 else if (i === q.pickedIdx) cls += ' wrong'
                 else cls += ' dim'
               }
-              return (
-                <button key={i} className={cls} disabled={q.answered} onClick={() => answer(i)}>{opt}</button>
-              )
+              return <button key={i} className={cls} disabled={q.answered} onClick={() => answer(i)}>{opt}</button>
             })}
           </div>
 
@@ -405,15 +462,15 @@ function MagicHanja() {
                   <>
                     <div className="mh-logo">🔮 한자 마법 배틀</div>
                     <p>한자의 <b>뜻·음</b>을 맞혀 마법을 외치고<br />요괴를 물리치세요!</p>
-                    <p className="mh-tip">불 火 · 물 水 · 나무 木 … 한자마다 다른 마법!</p>
+                    <p className="mh-tip">손오공·저팔계·사오정과 함께!<br />8급을 모두 익히면 7급에 도전!</p>
                   </>
                 ) : (
                   <>
                     <div className="mh-logo">💫 도전 끝!</div>
                     <p>제 {hud.stage}관문 · 점수 {hud.score}</p>
-                    <p className="mh-tip">배운 한자 {hud.learned}자 📚</p>
                   </>
                 )}
+                <p className="mh-prog">📚 {menuProgress.gradeName} {menuProgress.learned}/{menuProgress.total} 학습</p>
                 {best > 0 && <p className="mh-best">최고 점수 {best}</p>}
                 <button className="mh-start" onClick={startGame}>{phase === 'menu' ? '시작하기' : '다시 하기'}</button>
               </div>
@@ -426,11 +483,13 @@ function MagicHanja() {
 }
 
 function fresh() {
+  const learnedByGrade = loadLearned()
   return {
-    phase: 'menu', lives: START_LIVES, score: 0, combo: 0, stage: 1, learned: new Set(),
+    phase: 'menu', lives: START_LIVES, score: 0, combo: 0, stage: 1,
+    learnedByGrade, gradeIdx: deriveGradeIdx(learnedByGrade),
     hero: { x: 78, y: 150 }, enemy: makeEnemy(1), parts: [],
     proj: null, proj2: null, castUntil: 0, castChar: '', castColor: '#fff',
-    heroHurtUntil: 0, flashUntil: 0,
+    heroHurtUntil: 0, flashUntil: 0, gradeBannerUntil: 0, gradeBannerText: '',
   }
 }
 
@@ -438,66 +497,126 @@ function fresh() {
 function fillc(ctx, x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill() }
 function tri(ctx, x1, y1, x2, y2, x3, y3, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath(); ctx.fill() }
 
-// 한자 마법사 소년 (오리지널)
-function drawHero(ctx, x, y, now, casting, char, color) {
-  const bob = Math.sin(now / 360) * 3
-  const cy = y + bob
-  // 그림자
+function drawMagicCircle(ctx, mx, my, now, color, char) {
+  ctx.save()
+  ctx.translate(mx, my)
+  ctx.rotate(now / 240)
+  ctx.strokeStyle = color
+  ctx.lineWidth = 2
+  ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.stroke()
+  ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke()
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; fillc(ctx, Math.cos(a) * 18, Math.sin(a) * 18, 2, color) }
+  ctx.restore()
+  ctx.fillStyle = color
+  ctx.font = 'bold 20px serif'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.fillText(char, mx, my)
+}
+
+function heroBase(ctx, x, y) {
   ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(x, y + 40, 26, 7, 0, 0, Math.PI * 2); ctx.fill()
-  // 도복(몸)
-  ctx.fillStyle = '#2E6DB4'
-  ctx.beginPath()
-  ctx.moveTo(x - 20, cy + 38); ctx.lineTo(x - 14, cy + 4); ctx.lineTo(x + 14, cy + 4); ctx.lineTo(x + 20, cy + 38)
-  ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#21528C'; ctx.fillRect(x - 4, cy + 6, 8, 32) // 옷깃
-  ctx.fillStyle = '#E8C341'; ctx.fillRect(x - 16, cy + 22, 32, 6) // 허리띠
-  // 팔 (cast 시 들어올림)
-  ctx.strokeStyle = '#2E6DB4'; ctx.lineWidth = 7; ctx.lineCap = 'round'
+}
+function heroArms(ctx, x, cy, casting, color) {
+  ctx.lineWidth = 7; ctx.lineCap = 'round'
   ctx.beginPath()
   if (casting) { ctx.moveTo(x + 12, cy + 12); ctx.lineTo(x + 30, cy - 14) }
   else { ctx.moveTo(x + 12, cy + 12); ctx.lineTo(x + 24, cy + 24) }
   ctx.moveTo(x - 12, cy + 12); ctx.lineTo(x - 22, cy + 26)
+  ctx.strokeStyle = color
   ctx.stroke()
-  // 머리
-  fillc(ctx, x, cy - 14, 15, '#FFD9B3')
-  // 머리카락
-  ctx.fillStyle = '#2B2B2B'
-  ctx.beginPath(); ctx.arc(x, cy - 18, 15, Math.PI, 0); ctx.fill()
-  ctx.fillRect(x - 15, cy - 20, 30, 5)
-  // 머리띠
-  ctx.fillStyle = '#D6453B'; ctx.fillRect(x - 16, cy - 14, 32, 5)
-  tri(ctx, x - 16, cy - 12, x - 28, cy - 8, x - 16, cy - 6, '#D6453B') // 띠 자락
-  // 눈
-  fillc(ctx, x - 6, cy - 12, 2.4, '#222'); fillc(ctx, x + 6, cy - 12, 2.4, '#222')
-  // 입
-  ctx.strokeStyle = '#9C5A3C'; ctx.lineWidth = 1.6
-  ctx.beginPath(); ctx.arc(x, cy - 6, 3.5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke()
-  // 붓 (왼손)
-  ctx.strokeStyle = '#8B5A2B'; ctx.lineWidth = 3
-  ctx.beginPath(); ctx.moveTo(x - 22, cy + 26); ctx.lineTo(x - 30, cy + 38); ctx.stroke()
-  fillc(ctx, x - 31, cy + 40, 3, '#1A1A1A')
   ctx.lineCap = 'butt'
-  // 마법진 (cast 중)
-  if (casting) {
-    const mx = x + 40, my = cy - 22
-    ctx.save()
-    ctx.translate(mx, my)
-    ctx.rotate(now / 240)
-    ctx.strokeStyle = color
-    ctx.lineWidth = 2
-    ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.stroke()
-    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke()
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2
-      fillc(ctx, Math.cos(a) * 18, Math.sin(a) * 18, 2, color)
-    }
-    ctx.restore()
-    ctx.fillStyle = color
-    ctx.font = 'bold 20px serif'
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.fillText(char, mx, my)
-  }
 }
+
+// 손오공 (원숭이 + 긴고아 머리띠 + 여의봉)
+function drawSonOhgong(ctx, x, y, now, casting, char, color) {
+  const cy = y + Math.sin(now / 360) * 3
+  heroBase(ctx, x, y)
+  // 근두운
+  ctx.fillStyle = '#FFF3C4'
+  for (let i = -1; i <= 1; i++) fillc(ctx, x + i * 14, y + 40, 9, '#FFF3C4')
+  // 몸 (붉은 도복)
+  ctx.fillStyle = '#D6453B'
+  ctx.beginPath(); ctx.moveTo(x - 19, cy + 38); ctx.lineTo(x - 13, cy + 4); ctx.lineTo(x + 13, cy + 4); ctx.lineTo(x + 19, cy + 38); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#E8C341'; ctx.fillRect(x - 15, cy + 22, 30, 6)
+  heroArms(ctx, x, cy, casting, '#D6453B')
+  // 여의봉 (왼손)
+  ctx.strokeStyle = '#C9322B'; ctx.lineWidth = 4
+  ctx.beginPath(); ctx.moveTo(x - 22, cy + 26); ctx.lineTo(x - 34, cy + 6); ctx.stroke()
+  ctx.fillStyle = '#E8C341'; ctx.fillRect(x - 36, cy + 2, 5, 6)
+  // 얼굴 (원숭이)
+  fillc(ctx, x, cy - 14, 15, '#C68642')
+  fillc(ctx, x - 14, cy - 14, 6, '#C68642'); fillc(ctx, x + 14, cy - 14, 6, '#C68642') // 귀
+  fillc(ctx, x - 14, cy - 14, 3, '#E8B98A'); fillc(ctx, x + 14, cy - 14, 3, '#E8B98A')
+  ctx.fillStyle = '#F2D2A9'; ctx.beginPath(); ctx.ellipse(x, cy - 9, 10, 8, 0, 0, Math.PI * 2); ctx.fill() // 얼굴 중앙
+  // 긴고아 (금테 머리띠)
+  ctx.strokeStyle = '#E8C341'; ctx.lineWidth = 3
+  ctx.beginPath(); ctx.arc(x, cy - 14, 15, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke()
+  fillc(ctx, x, cy - 28, 3, '#E8C341')
+  // 눈/입
+  fillc(ctx, x - 5, cy - 11, 2.3, '#222'); fillc(ctx, x + 5, cy - 11, 2.3, '#222')
+  ctx.strokeStyle = '#7A3B1E'; ctx.lineWidth = 1.6
+  ctx.beginPath(); ctx.arc(x, cy - 4, 3, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke()
+  if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
+}
+
+// 저팔계 (돼지)
+function drawJeopalgye(ctx, x, y, now, casting, char, color) {
+  const cy = y + Math.sin(now / 380) * 3
+  heroBase(ctx, x, y)
+  // 몸 (회색 승복)
+  ctx.fillStyle = '#7E8AA2'
+  ctx.beginPath(); ctx.moveTo(x - 21, cy + 38); ctx.lineTo(x - 15, cy + 2); ctx.lineTo(x + 15, cy + 2); ctx.lineTo(x + 21, cy + 38); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#5E6B86'; ctx.fillRect(x - 17, cy + 22, 34, 6)
+  heroArms(ctx, x, cy, casting, '#7E8AA2')
+  // 쇠스랑(갈퀴, 왼손)
+  ctx.strokeStyle = '#9A7B5F'; ctx.lineWidth = 4
+  ctx.beginPath(); ctx.moveTo(x - 22, cy + 26); ctx.lineTo(x - 34, cy + 2); ctx.stroke()
+  ctx.strokeStyle = '#C7CEDB'; ctx.lineWidth = 2
+  for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x - 34 + i * 4, cy + 2); ctx.lineTo(x - 34 + i * 4, cy - 8); ctx.stroke() }
+  // 얼굴 (분홍 돼지)
+  fillc(ctx, x, cy - 13, 16, '#F2A9C0')
+  // 큰 귀
+  tri(ctx, x - 14, cy - 22, x - 24, cy - 26, x - 12, cy - 10, '#E58AAA')
+  tri(ctx, x + 14, cy - 22, x + 24, cy - 26, x + 12, cy - 10, '#E58AAA')
+  // 코
+  ctx.fillStyle = '#E58AAA'; ctx.beginPath(); ctx.ellipse(x, cy - 8, 8, 6, 0, 0, Math.PI * 2); ctx.fill()
+  fillc(ctx, x - 3, cy - 8, 1.6, '#7A3B53'); fillc(ctx, x + 3, cy - 8, 1.6, '#7A3B53')
+  // 눈
+  fillc(ctx, x - 6, cy - 15, 2.3, '#222'); fillc(ctx, x + 6, cy - 15, 2.3, '#222')
+  if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
+}
+
+// 사오정 (물요괴 승려)
+function drawSaohjeong(ctx, x, y, now, casting, char, color) {
+  const cy = y + Math.sin(now / 400) * 3
+  heroBase(ctx, x, y)
+  // 몸 (청록 승복)
+  ctx.fillStyle = '#2E8B8B'
+  ctx.beginPath(); ctx.moveTo(x - 20, cy + 38); ctx.lineTo(x - 14, cy + 2); ctx.lineTo(x + 14, cy + 2); ctx.lineTo(x + 20, cy + 38); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#1F6B6B'; ctx.fillRect(x - 16, cy + 22, 32, 6)
+  // 해골 염주
+  for (let i = -2; i <= 2; i++) fillc(ctx, x + i * 6, cy + 6, 2.4, '#EDE7D9')
+  heroArms(ctx, x, cy, casting, '#2E8B8B')
+  // 항요장(지팡이, 왼손)
+  ctx.strokeStyle = '#9A7B5F'; ctx.lineWidth = 4
+  ctx.beginPath(); ctx.moveTo(x - 22, cy + 26); ctx.lineTo(x - 32, cy - 12); ctx.stroke()
+  ctx.strokeStyle = '#E8C341'; ctx.lineWidth = 2
+  ctx.beginPath(); ctx.arc(x - 32, cy - 16, 5, 0, Math.PI * 2); ctx.stroke()
+  // 얼굴 (청록)
+  fillc(ctx, x, cy - 13, 15, '#5FB9B0')
+  // 머리카락 (붉은 더벅)
+  ctx.fillStyle = '#B23B2E'
+  ctx.beginPath(); ctx.arc(x, cy - 18, 15, Math.PI, 0); ctx.fill()
+  for (let i = -2; i <= 2; i++) tri(ctx, x + i * 6 - 3, cy - 24, x + i * 6, cy - 34, x + i * 6 + 3, cy - 24, '#B23B2E')
+  // 눈
+  fillc(ctx, x - 6, cy - 12, 2.6, '#222'); fillc(ctx, x + 6, cy - 12, 2.6, '#222')
+  ctx.strokeStyle = '#1F5B57'; ctx.lineWidth = 1.6
+  ctx.beginPath(); ctx.moveTo(x - 5, cy - 4); ctx.lineTo(x + 5, cy - 4); ctx.stroke()
+  if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
+}
+
+const HERO_DRAW = [drawSonOhgong, drawJeopalgye, drawSaohjeong]
+const HERO_NAMES = ['손오공', '저팔계', '사오정']
 
 function drawEnemy(ctx, e, now) {
   const dead = e.dying
@@ -517,7 +636,6 @@ function drawEnemy(ctx, e, now) {
   else if (e.type === 1) drawShadow(ctx, now)
   else drawFox(ctx, now)
   ctx.restore()
-  // HP 바
   if (!dead) {
     const w = 56, ratio = Math.max(0, e.hp / e.maxHp)
     ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x - w / 2, y - 44, w, 6)
@@ -526,7 +644,6 @@ function drawEnemy(ctx, e, now) {
   }
 }
 
-// 도깨비 (빨강, 뿔, 엄니)
 function drawGoblin(ctx, now) {
   const b = Math.sin(now / 300) * 2
   ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(0, 40, 26, 7, 0, 0, Math.PI * 2); ctx.fill()
@@ -534,58 +651,48 @@ function drawGoblin(ctx, now) {
   tri(ctx, 16, -22, 26, -46, 4, -26, '#7A1B1B')
   fillc(ctx, 0, b, 28, '#D6453B')
   ctx.fillStyle = '#A8352C'; ctx.beginPath(); ctx.arc(0, b + 8, 22, 0, Math.PI); ctx.fill()
-  // 눈썹+눈
   ctx.strokeStyle = '#3A0E0E'; ctx.lineWidth = 3; ctx.lineCap = 'round'
   ctx.beginPath(); ctx.moveTo(-18, b - 8); ctx.lineTo(-4, b - 2); ctx.moveTo(18, b - 8); ctx.lineTo(4, b - 2); ctx.stroke()
   ctx.lineCap = 'butt'
   fillc(ctx, -10, b + 2, 6, '#FFE08A'); fillc(ctx, 10, b + 2, 6, '#FFE08A')
   fillc(ctx, -10, b + 2, 2.6, '#000'); fillc(ctx, 10, b + 2, 2.6, '#000')
-  // 입 + 엄니
   ctx.fillStyle = '#3A0808'; ctx.beginPath(); ctx.ellipse(0, b + 16, 12, 6, 0, 0, Math.PI * 2); ctx.fill()
   tri(ctx, -8, b + 12, -5, b + 22, -2, b + 12, '#fff')
   tri(ctx, 8, b + 12, 5, b + 22, 2, b + 12, '#fff')
 }
 
-// 그림자 요괴 (검정 유령)
 function drawShadow(ctx, now) {
   const b = Math.sin(now / 260) * 3
   const wob = Math.sin(now / 180) * 4
-  ctx.fillStyle = '#241B3A'
+  ctx.globalAlpha *= 1
   ctx.beginPath()
   ctx.arc(0, b - 4, 26, Math.PI, 0)
   ctx.lineTo(26, b + 22)
-  for (let i = 2; i >= -2; i--) { ctx.lineTo(i * 13, b + 22 + (i % 2 === 0 ? 0 : 8) + wob * 0.3) }
+  for (let i = 2; i >= -2; i--) ctx.lineTo(i * 13, b + 22 + (i % 2 === 0 ? 0 : 8) + wob * 0.3)
   ctx.lineTo(-26, b + 22)
-  ctx.closePath(); ctx.fill()
-  // 보라 오라
-  ctx.globalAlpha = 0.4; fillc(ctx, 0, b - 2, 30, '#5B3A8A'); ctx.globalAlpha = 1
-  ctx.beginPath(); ctx.arc(0, b - 4, 26, Math.PI, 0); ctx.fillStyle = '#241B3A'; ctx.fill()
+  ctx.closePath()
+  ctx.fillStyle = '#241B3A'; ctx.fill()
   fillc(ctx, -10, b - 4, 6, '#B388E0'); fillc(ctx, 10, b - 4, 6, '#B388E0')
   fillc(ctx, -10, b - 4, 2.6, '#1A0A2A'); fillc(ctx, 10, b - 4, 2.6, '#1A0A2A')
   ctx.strokeStyle = '#B388E0'; ctx.lineWidth = 2
   ctx.beginPath(); ctx.arc(0, b + 6, 6, 1.1 * Math.PI, 1.9 * Math.PI); ctx.stroke()
 }
 
-// 불여우 (주황 여우)
 function drawFox(ctx, now) {
   const b = Math.sin(now / 320) * 2
   const tw = Math.sin(now / 200) * 0.2
   ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(0, 40, 26, 7, 0, 0, Math.PI * 2); ctx.fill()
-  // 꼬리
   ctx.save(); ctx.translate(-22, b + 20); ctx.rotate(tw)
   tri(ctx, 0, -8, -28, 6, 0, 14, '#E8743B')
   tri(ctx, -20, 2, -28, 6, -20, 12, '#FFF1E0')
   ctx.restore()
   fillc(ctx, 0, b, 26, '#F08A3C')
-  // 귀
   tri(ctx, -20, b - 14, -26, b - 40, -6, b - 22, '#E8743B')
   tri(ctx, 20, b - 14, 26, b - 40, 6, b - 22, '#E8743B')
   tri(ctx, -18, b - 18, -21, b - 32, -10, b - 22, '#FFF1E0')
   tri(ctx, 18, b - 18, 21, b - 32, 10, b - 22, '#FFF1E0')
-  // 주둥이
   ctx.fillStyle = '#FFF1E0'; ctx.beginPath(); ctx.ellipse(0, b + 12, 13, 9, 0, 0, Math.PI * 2); ctx.fill()
   fillc(ctx, 0, b + 10, 3, '#3A1500')
-  // 눈
   ctx.strokeStyle = '#3A1500'; ctx.lineWidth = 2.4; ctx.lineCap = 'round'
   ctx.beginPath(); ctx.moveTo(-14, b - 4); ctx.lineTo(-4, b); ctx.moveTo(14, b - 4); ctx.lineTo(4, b); ctx.stroke()
   ctx.lineCap = 'butt'
