@@ -304,6 +304,7 @@ function TowerDefense() {
         id: ++g.ids, type, color: def.color, r: def.r, gold: def.gold, dmg: def.dmg,
         x, y, seg, hp, maxHp: hp, base: waveSpeed(type, wave),
         slowMul: 1, slowUntil: 0, confusedUntil: 0,
+        bossIdx: type === 'boss' ? Math.min(g.bossSeen - 1, BOSS_NAMES.length - 1) : 0,
       })
     }
 
@@ -1203,7 +1204,8 @@ function drawChick(ctx, cx, cy, r, now) {
   fc(ctx, cx - r * 0.38, y + r * 0.08, r * 0.18, 'rgba(255,148,80,0.45)')
 }
 
-function drawBoss(ctx, cx, cy, r, now) {
+// 대장여왕 (보라 + 큰 골드 왕관) — 기존 보스 외형
+function drawGrandQueen(ctx, cx, cy, r, now) {
   const p = 1 + Math.sin(now / 480) * 0.045
   fc(ctx, cx, cy, r * p, '#9B59B6')
   ctx.fillStyle = '#7D3C98'
@@ -1287,13 +1289,108 @@ function drawMini(ctx, cx, cy, r, now) {
   fc(ctx, cx + r * 0.31, cy - r * 0.03, r * 0.09, '#6A1B4D')
 }
 
-const ENEMY_DRAW = {
-  basic: drawSlime, fast: drawBat, tank: drawGolem, swarm: drawChick, boss: drawBoss,
-  dart: drawDart, brute: drawBrute, splitter: drawSplitter, mini: drawMini,
+// 여왕 (분홍 + 보석 티아라, 귀엽고 우아)
+function drawQueen(ctx, cx, cy, r, now) {
+  const p = 1 + Math.sin(now / 480) * 0.04
+  const R = r * p
+  fc(ctx, cx, cy, R, '#FF6FB5')
+  ctx.fillStyle = '#E0559B'; ctx.beginPath(); ctx.arc(cx, cy + r * 0.25, r * 0.8 * p, 0, Math.PI); ctx.fill()
+  fe(ctx, cx - r * 0.35, cy - r * 0.3, r * 0.26, r * 0.18, -0.5, '#FFC0DD')
+  // 티아라
+  ctx.fillStyle = '#FFD700'
+  ctx.beginPath()
+  ctx.moveTo(cx - r * 0.52, cy - r * 0.6)
+  ctx.quadraticCurveTo(cx, cy - r * 0.96, cx + r * 0.52, cy - r * 0.6)
+  ctx.lineTo(cx + r * 0.42, cy - r * 0.48)
+  ctx.quadraticCurveTo(cx, cy - r * 0.76, cx - r * 0.42, cy - r * 0.48)
+  ctx.closePath(); ctx.fill()
+  fc(ctx, cx, cy - r * 0.8, r * 0.1, '#FF4D6D')
+  fc(ctx, cx - r * 0.34, cy - r * 0.6, r * 0.06, '#7DD4F8')
+  fc(ctx, cx + r * 0.34, cy - r * 0.6, r * 0.06, '#7DD4F8')
+  // 큰 눈 + 반짝
+  fc(ctx, cx - r * 0.32, cy - r * 0.02, r * 0.2, '#fff')
+  fc(ctx, cx - r * 0.28, cy + r * 0.02, r * 0.11, '#5A2A4A')
+  fc(ctx, cx - r * 0.24, cy - r * 0.03, r * 0.04, '#fff')
+  fc(ctx, cx + r * 0.32, cy - r * 0.02, r * 0.2, '#fff')
+  fc(ctx, cx + r * 0.36, cy + r * 0.02, r * 0.11, '#5A2A4A')
+  fc(ctx, cx + r * 0.4, cy - r * 0.03, r * 0.04, '#fff')
+  ctx.strokeStyle = '#5A2A4A'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(cx - r * 0.52, cy - r * 0.16); ctx.lineTo(cx - r * 0.4, cy - r * 0.2)
+  ctx.moveTo(cx + r * 0.52, cy - r * 0.16); ctx.lineTo(cx + r * 0.4, cy - r * 0.2)
+  ctx.stroke(); ctx.lineCap = 'butt'
+  fc(ctx, cx - r * 0.55, cy + r * 0.26, r * 0.16, 'rgba(255,120,170,0.5)')
+  fc(ctx, cx + r * 0.55, cy + r * 0.26, r * 0.16, 'rgba(255,120,170,0.5)')
+  ctx.strokeStyle = '#A03A6A'; ctx.lineWidth = 2
+  ctx.beginPath(); ctx.arc(cx, cy + r * 0.26, r * 0.18, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke()
 }
 
+// 마왕 (빨강 + 뿔 + 송곳니, 사악)
+function drawDemon(ctx, cx, cy, r, now) {
+  const p = 1 + Math.sin(now / 360) * 0.05
+  const R = r * p
+  tri(ctx, cx - r * 0.55, cy - r * 0.55, cx - r * 0.95, cy - r * 1.25, cx - r * 0.2, cy - r * 0.7, '#7A1B1B')
+  tri(ctx, cx + r * 0.55, cy - r * 0.55, cx + r * 0.95, cy - r * 1.25, cx + r * 0.2, cy - r * 0.7, '#7A1B1B')
+  fc(ctx, cx, cy, R, '#E74C3C')
+  ctx.fillStyle = '#B03A2E'; ctx.beginPath(); ctx.arc(cx, cy + r * 0.25, r * 0.8 * p, 0, Math.PI); ctx.fill()
+  fe(ctx, cx - r * 0.35, cy - r * 0.3, r * 0.24, r * 0.16, -0.5, '#F1948A')
+  // 사악한 눈 (노란 흰자 + 검은 동공)
+  tri(ctx, cx - r * 0.5, cy - r * 0.12, cx - r * 0.1, cy - r * 0.2, cx - r * 0.14, cy + r * 0.06, '#FFE08A')
+  tri(ctx, cx + r * 0.5, cy - r * 0.12, cx + r * 0.1, cy - r * 0.2, cx + r * 0.14, cy + r * 0.06, '#FFE08A')
+  fc(ctx, cx - r * 0.28, cy - r * 0.06, r * 0.07, '#2A0000')
+  fc(ctx, cx + r * 0.28, cy - r * 0.06, r * 0.07, '#2A0000')
+  ctx.strokeStyle = '#5A0E0E'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(cx - r * 0.52, cy - r * 0.3); ctx.lineTo(cx - r * 0.12, cy - r * 0.12)
+  ctx.moveTo(cx + r * 0.52, cy - r * 0.3); ctx.lineTo(cx + r * 0.12, cy - r * 0.12)
+  ctx.stroke(); ctx.lineCap = 'butt'
+  // 송곳니 입
+  ctx.fillStyle = '#3A0808'
+  ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.4, r * 0.3, r * 0.15, 0, 0, Math.PI * 2); ctx.fill()
+  tri(ctx, cx - r * 0.16, cy + r * 0.33, cx - r * 0.08, cy + r * 0.56, cx - r * 0.0, cy + r * 0.33, '#fff')
+  tri(ctx, cx + r * 0.16, cy + r * 0.33, cx + r * 0.08, cy + r * 0.56, cx + r * 0.0, cy + r * 0.33, '#fff')
+}
+
+// 대마왕 (검붉은 + 큰 뿔 + 가시 왕관 + 화염 눈, 최종보스)
+function drawDarkLord(ctx, cx, cy, r, now) {
+  const p = 1 + Math.sin(now / 300) * 0.05
+  const R = r * p
+  tri(ctx, cx - r * 0.6, cy - r * 0.5, cx - r * 1.1, cy - r * 1.45, cx - r * 0.15, cy - r * 0.72, '#2A1010')
+  tri(ctx, cx + r * 0.6, cy - r * 0.5, cx + r * 1.1, cy - r * 1.45, cx + r * 0.15, cy - r * 0.72, '#2A1010')
+  fc(ctx, cx, cy, R, '#7A2222')
+  ctx.fillStyle = '#4A1414'; ctx.beginPath(); ctx.arc(cx, cy + r * 0.25, r * 0.8 * p, 0, Math.PI); ctx.fill()
+  fe(ctx, cx - r * 0.35, cy - r * 0.3, r * 0.24, r * 0.16, -0.5, '#A84B4B')
+  // 가시 왕관
+  for (let i = -2; i <= 2; i++) {
+    const sx = cx + i * r * 0.27
+    const peak = cy - r * 0.92 - (i === 0 ? r * 0.22 : 0)
+    tri(ctx, sx - r * 0.12, cy - r * 0.58, sx, peak, sx + r * 0.12, cy - r * 0.58, '#0A0505')
+  }
+  // 화염 눈
+  fc(ctx, cx - r * 0.3, cy - r * 0.02, r * 0.17, '#FF6B00')
+  fc(ctx, cx + r * 0.3, cy - r * 0.02, r * 0.17, '#FF6B00')
+  fc(ctx, cx - r * 0.3, cy - r * 0.02, r * 0.09, '#FFE08A')
+  fc(ctx, cx + r * 0.3, cy - r * 0.02, r * 0.09, '#FFE08A')
+  ctx.strokeStyle = '#1A0505'; ctx.lineWidth = 3; ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(cx - r * 0.54, cy - r * 0.3); ctx.lineTo(cx - r * 0.1, cy - r * 0.1)
+  ctx.moveTo(cx + r * 0.54, cy - r * 0.3); ctx.lineTo(cx + r * 0.1, cy - r * 0.1)
+  ctx.stroke(); ctx.lineCap = 'butt'
+  ctx.fillStyle = '#1A0505'
+  ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.42, r * 0.32, r * 0.15, 0, 0, Math.PI * 2); ctx.fill()
+  tri(ctx, cx - r * 0.18, cy + r * 0.34, cx - r * 0.1, cy + r * 0.6, cx - r * 0.02, cy + r * 0.34, '#fff')
+  tri(ctx, cx + r * 0.18, cy + r * 0.34, cx + r * 0.1, cy + r * 0.6, cx + r * 0.02, cy + r * 0.34, '#fff')
+}
+
+const ENEMY_DRAW = {
+  basic: drawSlime, fast: drawBat, tank: drawGolem, swarm: drawChick,
+  dart: drawDart, brute: drawBrute, splitter: drawSplitter, mini: drawMini,
+}
+const BOSS_DRAW = [drawQueen, drawDemon, drawGrandQueen, drawDarkLord]
+
 function drawEnemy(ctx, e, now) {
-  ENEMY_DRAW[e.type](ctx, e.x, e.y, e.r, now)
+  if (e.type === 'boss') (BOSS_DRAW[e.bossIdx] || drawGrandQueen)(ctx, e.x, e.y, e.r, now)
+  else ENEMY_DRAW[e.type](ctx, e.x, e.y, e.r, now)
   if (e.slowMul < 1) {
     ctx.globalAlpha = 0.32
     fc(ctx, e.x, e.y, e.r, '#7BD4F8')
