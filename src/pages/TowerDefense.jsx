@@ -785,8 +785,7 @@ function TowerDefense() {
           startWave()
         } else {
           const sec = Math.ceil(g.interTimer / 1000)
-          const bonus = Math.ceil((g.interTimer / 1000) * 4)
-          setInter((p) => (p && p.sec === sec ? p : { sec, bonus, total: Math.ceil(g.interTotal / 1000) }))
+          setInter((p) => (p && p.sec === sec ? p : { sec, total: Math.ceil(g.interTotal / 1000) }))
         }
       }
 
@@ -868,17 +867,6 @@ function TowerDefense() {
     setPhase('intermission')
     pushHud()
   }, [pushHud])
-
-  const callNow = useCallback(() => {
-    const g = G.current
-    if (g.phase !== 'intermission') return
-    const bonus = Math.ceil((g.interTimer / 1000) * 4)
-    g.gold += bonus
-    g.score += bonus
-    g.interTimer = 0
-    pushHud()
-    startWave()
-  }, [pushHud, startWave])
 
   const armMeteor = useCallback(() => {
     const g = G.current
@@ -1032,9 +1020,6 @@ function TowerDefense() {
                 )
               })}
             </div>
-            <button className="td-wave-btn" disabled={phase !== 'intermission'} onClick={callNow}>
-              {phase === 'intermission' && inter ? <>지금!<em>+{inter.bonus}</em></> : '진행중'}
-            </button>
           </div>
 
           {/* 오버레이 */}

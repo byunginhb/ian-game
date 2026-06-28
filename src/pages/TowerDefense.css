@@ -221,25 +221,6 @@
 .td-card.poor { filter: brightness(0.55); }
 .td-card.poor .td-card-cost { color: #d63031; }
 
-.td-wave-btn {
-  flex: 0 0 76px;
-  height: 64px;
-  border: none;
-  border-radius: 12px;
-  background: #00b894;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 900;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  line-height: 1.1;
-}
-.td-wave-btn em { font-style: normal; font-size: 12px; color: #d1fae5; }
-.td-wave-btn:disabled { opacity: 0.4; cursor: default; }
-
 /* 오버레이 */
 .td-overlay {
   position: absolute;
