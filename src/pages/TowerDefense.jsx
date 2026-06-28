@@ -30,6 +30,9 @@ const CONFUSE_CD = 46000
 const CONFUSE_DUR = 3000
 const THUNDER_CD = 42000
 const THUNDER_KILLS = 3
+const BOSS_NAMES = ['여왕', '마왕', '대장여왕', '대마왕']
+const BOSS_COLORS = ['#FF6FB5', '#E74C3C', '#9B59B6', '#C0392B']
+const BOSS_BANNER_DUR = 2300
 
 // ── 경로(serpentine) waypoint: [col,row] ──
 const WAY = [
@@ -385,7 +388,14 @@ function TowerDefense() {
         g.spawnTimer -= dt * 1000
         if (g.spawnTimer <= 0) {
           const type = g.queue.shift()
-          if (type === 'boss') g.bossSeen += 1
+          if (type === 'boss') {
+            g.bossSeen += 1
+            const bi = Math.min(g.bossSeen - 1, BOSS_NAMES.length - 1)
+            g.bossBannerName = BOSS_NAMES[bi]
+            g.bossBannerColor = BOSS_COLORS[bi]
+            g.bossBannerUntil = now + BOSS_BANNER_DUR
+            play('bossAppear')
+          }
           spawnEnemy(type, g.waveIdx + 1, PATH[0].x, PATH[0].y, 0)
           g.spawnTimer = WAVES[g.waveIdx].gap
         }
@@ -717,6 +727,28 @@ function TowerDefense() {
       if (ftn > 0) { ctx.fillStyle = 'rgba(120,212,248,' + (ftn * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
       const ct = (g.confuseTintUntil - now) / 300
       if (ct > 0) { ctx.fillStyle = 'rgba(170,110,235,' + (ct * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
+
+      // 보스 등장 배너
+      if (now < g.bossBannerUntil) {
+        const left = g.bossBannerUntil - now
+        const sIn = Math.min(1, (BOSS_BANNER_DUR - left) / 220)
+        const fade = left < 450 ? left / 450 : 1
+        const cy = GAME_H / 2
+        ctx.save()
+        ctx.globalAlpha = fade
+        ctx.fillStyle = 'rgba(18,8,26,0.74)'
+        ctx.fillRect(0, cy - 40, GAME_W, 80)
+        ctx.fillStyle = g.bossBannerColor
+        ctx.fillRect(0, cy - 40, GAME_W, 4)
+        ctx.fillRect(0, cy + 36, GAME_W, 4)
+        ctx.translate(GAME_W / 2, cy)
+        ctx.scale(sIn, sIn)
+        ctx.font = 'bold 30px system-ui'
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillStyle = g.bossBannerColor
+        ctx.fillText(g.bossBannerName + ' 등장!!!', 0, 0)
+        ctx.restore()
+      }
     }
 
     const loop = (now) => {
@@ -1055,6 +1087,7 @@ function freshState() {
     meteorReq: null, freezeReq: false, confuseReq: false, thunderReq: false,
     thunderBolts: null, thunderUntil: 0,
     flashUntil: 0, freezeTintUntil: 0, confuseTintUntil: 0,
+    bossBannerUntil: 0, bossBannerName: '', bossBannerColor: '#FFD166',
   }
 }
 
@@ -1081,6 +1114,7 @@ function beep(ac, { freq = 440, to, dur = 0.12, type = 'square', vol = 0.2, dela
 const SFX = {
   hit: (ac) => beep(ac, { freq: 300, to: 150, dur: 0.06, type: 'triangle', vol: 0.12 }),
   boss: (ac) => { beep(ac, { freq: 180, to: 60, dur: 0.5, type: 'sawtooth', vol: 0.24 }); beep(ac, { freq: 90, to: 40, dur: 0.6, type: 'square', vol: 0.18, delay: 0.05 }) },
+  bossAppear: (ac) => [110, 110, 165, 220].forEach((f, i) => beep(ac, { freq: f, dur: 0.24, type: 'square', vol: 0.26, delay: i * 0.16 })),
   build: (ac) => beep(ac, { freq: 520, to: 800, dur: 0.12, type: 'square', vol: 0.18 }),
   skill: (ac) => beep(ac, { freq: 700, to: 1300, dur: 0.18, type: 'sawtooth', vol: 0.2 }),
   thunder: (ac) => { beep(ac, { freq: 1300, to: 200, dur: 0.26, type: 'sawtooth', vol: 0.26 }); beep(ac, { freq: 80, dur: 0.3, type: 'square', vol: 0.18, delay: 0.02 }) },
