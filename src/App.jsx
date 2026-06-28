@@ -16,6 +16,7 @@ import HelpMe from './pages/HelpMe'
 import StarRescue from './pages/StarRescue'
 import FruitSlash from './pages/FruitSlash'
 import TowerDefense from './pages/TowerDefense'
+import MagicHanja from './pages/MagicHanja'
 import './App.css'
 
 function App() {
@@ -39,6 +40,7 @@ function App() {
         <Route path="/game/star-rescue" element={<StarRescue />} />
         <Route path="/game/fruit-slash" element={<FruitSlash />} />
         <Route path="/game/tower-defense" element={<TowerDefense />} />
+        <Route path="/game/magic-hanja" element={<MagicHanja />} />
       </Routes>
     </BrowserRouter>
   )

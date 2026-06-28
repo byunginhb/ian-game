@@ -1,0 +1,125 @@
+.mh-container {
+  min-height: 100vh;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(139, 92, 246, 0.28), transparent 26%),
+    radial-gradient(circle at 84% 16%, rgba(240, 85, 58, 0.2), transparent 24%),
+    linear-gradient(160deg, #1b1638 0%, #2a2350 50%, #1d2244 100%);
+}
+
+.mh-back {
+  width: min(360px, calc(100vw - 24px));
+  margin-bottom: 8px;
+  color: #ffe08a;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 900;
+  text-shadow: 0 2px 10px rgba(5, 8, 24, 0.5);
+}
+.mh-back:hover { opacity: 0.85; }
+
+.mh-wrapper { position: relative; overflow: hidden; border-radius: 14px; }
+.mh-stage {
+  position: relative;
+  transform-origin: top left;
+  user-select: none;
+  touch-action: manipulation;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 22px 46px rgba(8, 6, 26, 0.5);
+  background: #1d1940;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HUD */
+.mh-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: rgba(18, 14, 40, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.mh-hearts { font-size: 13px; letter-spacing: -1px; flex: 1; }
+.mh-stat { font-size: 13px; font-weight: 900; color: #ffe08a; }
+.mh-combo { font-size: 13px; font-weight: 900; color: #ff9472; }
+.mh-mute {
+  border: none; border-radius: 8px; padding: 5px 7px;
+  background: rgba(255, 255, 255, 0.12); font-size: 14px; cursor: pointer;
+}
+
+/* 배틀 */
+.mh-field { position: relative; }
+.mh-field canvas { display: block; }
+.mh-stagetag {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  padding: 3px 12px; border-radius: 12px;
+  background: rgba(18, 14, 40, 0.7); border: 1px solid rgba(255, 224, 138, 0.3);
+  font-size: 12px; font-weight: 900; color: #ffe08a; white-space: nowrap;
+}
+
+/* 문제 */
+.mh-q {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.mh-q-sub { font-size: 13px; font-weight: 700; color: #c9c2e8; }
+.mh-q-prompt { font-size: 22px; font-weight: 900; line-height: 1; }
+.mh-q-prompt.big { font-size: 50px; font-family: serif; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); }
+
+/* 선택지 */
+.mh-opts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+}
+.mh-opt {
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.08s, background 0.15s, border-color 0.15s;
+}
+.mh-opt.big { font-size: 32px; font-family: serif; }
+.mh-opt:active { transform: scale(0.96); }
+.mh-opt.correct { background: #1f8b4c; border-color: #2ecc71; color: #fff; }
+.mh-opt.wrong { background: #9b2d24; border-color: #e74c3c; color: #fff; }
+.mh-opt.dim { opacity: 0.4; }
+.mh-opt:disabled { cursor: default; }
+
+/* 오버레이 */
+.mh-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 8, 28, 0.74);
+  backdrop-filter: blur(3px);
+}
+.mh-box {
+  width: 80%; max-width: 320px;
+  padding: 26px 20px; text-align: center;
+  background: rgba(28, 22, 58, 0.96);
+  border: 2px solid rgba(255, 224, 138, 0.25);
+  border-radius: 20px; color: #fff;
+}
+.mh-logo { font-size: 24px; font-weight: 900; color: #ffe08a; margin-bottom: 12px; }
+.mh-box p { margin: 6px 0; font-size: 14px; line-height: 1.5; color: #dcd8f0; }
+.mh-box .mh-tip { font-size: 12px; color: #a99fd0; }
+.mh-box .mh-best { font-size: 12px; color: #ffcf6e; }
+.mh-start {
+  margin-top: 16px; padding: 12px 30px;
+  border: none; border-radius: 14px;
+  background: #7c4dde; color: #fff; font-size: 16px; font-weight: 900; cursor: pointer;
+}
+.mh-start:active { transform: scale(0.96); }

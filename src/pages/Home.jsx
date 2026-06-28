@@ -28,6 +28,14 @@ function Home() {
 
   const games = [
     {
+      id: "magic-hanja",
+      title: "한자 마법 배틀",
+      emoji: "🔮",
+      description: "한자의 뜻·음을 맞혀 마법을 외치고 요괴를 물리치는 학습 배틀!",
+      color: "#7c4dde",
+      tags: ["new", "hot", "edu"],
+    },
+    {
       id: "tower-defense",
       title: "으악! 오지마",
       emoji: "🏯",
