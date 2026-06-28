@@ -31,7 +31,7 @@ function Home() {
       id: "tower-defense",
       title: "으악! 오지마",
       emoji: "🏯",
-      description: "구불구불 길로 몰려오는 젤리몽을 타워를 세워 막아라! 15웨이브 디펜스!",
+      description: "구불구불 길로 몰려오는 젤리몽을 타워를 세워 막아라! 20웨이브 디펜스!",
       color: "#16a34a",
       tags: ["new", "hot", "action"],
     },

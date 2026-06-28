@@ -13,19 +13,23 @@ const GAME_H = ROWS * CELL // 504
 const TOP_H = 52
 const BOT_H = 96
 const STAGE_H = TOP_H + GAME_H + BOT_H
-const START_GOLD = 80
+const TOTAL_WAVES = 20
+const START_GOLD = 75
 const START_LIVES = 10
-const PARTICLE_CAP = 90
+const PARTICLE_CAP = 120
+const BURST_CAP = 36
 const PREP_TIME = 3000
 const INTER_TIME = 3000
 const COMBO_WINDOW = 1200
-const METEOR_CD = 32000
+const METEOR_CD = 34000
 const METEOR_DMG = 85
 const METEOR_R = 62
-const FREEZE_CD = 48000
+const FREEZE_CD = 50000
 const FREEZE_DUR = 1600
-const CONFUSE_CD = 45000
+const CONFUSE_CD = 46000
 const CONFUSE_DUR = 3000
+const THUNDER_CD = 42000
+const THUNDER_KILLS = 3
 
 // ── 경로(serpentine) waypoint: [col,row] ──
 const WAY = [
@@ -51,7 +55,7 @@ const PATH_CELLS = (() => {
   return set
 })()
 
-// ── 타워 4종 (levels[0]=건설, [1]=Lv2, [2]=Lv3) ─────────
+// ── 타워 5종 (levels[0]=건설, [1]=Lv2, [2]=Lv3) ─────────
 const TOWERS = {
   arrow: {
     name: '화살탑', emoji: '🏹', color: '#7CC36B', kind: 'single',
@@ -85,19 +89,33 @@ const TOWERS = {
       { cost: 220, dmg: 65, range: 190, cd: 909, chain: 4, chainRange: 80, falloff: 0.7 },
     ],
   },
+  sniper: {
+    name: '저격탑', emoji: '🎯', color: '#5D8233', kind: 'single',
+    levels: [
+      { cost: 150, dmg: 60, range: 200, cd: 1600, pspeed: 520 },
+      { cost: 120, dmg: 95, range: 230, cd: 1500, pspeed: 560 },
+      { cost: 200, dmg: 150, range: 260, cd: 1400, pspeed: 600 },
+    ],
+  },
 }
-const TOWER_ORDER = ['arrow', 'frost', 'cannon', 'bolt']
+const TOWER_ORDER = ['arrow', 'frost', 'cannon', 'bolt', 'sniper']
 
-// ── 적 5종 ──────────────────────────────────────────
+// ── 적 (8종 + 분열 자식 mini) ──────────────────────────
 const ENEMIES = {
-  basic: { name: '콩알이', emoji: '🟢', color: '#7CC36E', hp: 38, speed: 55, gold: 4, dmg: 1, r: 13 },
-  fast: { name: '쌩쌩이', emoji: '💨', color: '#59B6E8', hp: 20, speed: 122, gold: 5, dmg: 1, r: 11 },
-  tank: { name: '둥글탱', emoji: '🛡️', color: '#B5793A', hp: 180, speed: 34, gold: 9, dmg: 3, r: 17 },
-  swarm: { name: '옹기종', emoji: '🐤', color: '#F4D03F', hp: 16, speed: 72, gold: 2, dmg: 1, r: 10 },
-  boss: { name: '왕방울', emoji: '👑', color: '#9B59B6', hp: 980, speed: 30, gold: 55, dmg: 6, r: 24 },
+  basic: { name: '콩알이', color: '#7CC36E', hp: 38, speed: 55, gold: 4, dmg: 1, r: 13 },
+  fast: { name: '쌩쌩이', color: '#59B6E8', hp: 20, speed: 122, gold: 5, dmg: 1, r: 11 },
+  tank: { name: '둥글탱', color: '#B5793A', hp: 180, speed: 34, gold: 9, dmg: 3, r: 17 },
+  swarm: { name: '옹기종', color: '#F4D03F', hp: 16, speed: 72, gold: 2, dmg: 1, r: 10 },
+  boss: { name: '왕방울', color: '#9B59B6', hp: 980, speed: 30, gold: 55, dmg: 6, r: 24 },
+  dart: { name: '번개돌이', color: '#FF7043', hp: 24, speed: 150, gold: 6, dmg: 1, r: 10 },
+  brute: { name: '우락부락', color: '#6B7280', hp: 340, speed: 28, gold: 16, dmg: 4, r: 20 },
+  splitter: { name: '퐁퐁이', color: '#EC7FB0', hp: 70, speed: 60, gold: 8, dmg: 2, r: 14 },
+  mini: { name: '퐁알', color: '#F5A9C8', hp: 16, speed: 88, gold: 1, dmg: 1, r: 8 },
 }
+// 홈/미리보기용 이모지
+const ENEMY_EMOJI = { basic: '🟢', fast: '💨', tank: '🛡️', swarm: '🐤', boss: '👑', dart: '🦊', brute: '🦏', splitter: '🫧', mini: '🫧' }
 
-// ── 15웨이브 (강화) ─────────────────────────────────
+// ── 20웨이브 ────────────────────────────────────────
 const WAVES = [
   { bonus: 25, gap: 1100, groups: [['basic', 6]] },
   { bonus: 28, gap: 1000, groups: [['basic', 8], ['fast', 3]] },
@@ -106,23 +124,28 @@ const WAVES = [
   { bonus: 50, gap: 780, groups: [['boss', 1], ['basic', 10], ['fast', 4]] },
   { bonus: 38, gap: 780, groups: [['tank', 4], ['fast', 8]] },
   { bonus: 42, gap: 560, groups: [['swarm', 20], ['basic', 8]] },
-  { bonus: 45, gap: 720, groups: [['tank', 5], ['fast', 10]] },
-  { bonus: 48, gap: 680, groups: [['basic', 14], ['tank', 5], ['fast', 8]] },
+  { bonus: 45, gap: 700, groups: [['tank', 5], ['dart', 6]] },
+  { bonus: 48, gap: 680, groups: [['basic', 14], ['tank', 4], ['fast', 8]] },
   { bonus: 75, gap: 620, groups: [['boss', 1], ['tank', 5], ['swarm', 16]] },
-  { bonus: 52, gap: 600, groups: [['tank', 8], ['fast', 14]] },
+  { bonus: 52, gap: 560, groups: [['dart', 10], ['fast', 12]] },
   { bonus: 55, gap: 430, groups: [['swarm', 34], ['tank', 6]] },
-  { bonus: 58, gap: 560, groups: [['tank', 10], ['fast', 16], ['basic', 14]] },
-  { bonus: 62, gap: 460, groups: [['tank', 11], ['swarm', 28], ['fast', 12]] },
-  { bonus: 90, gap: 500, groups: [['boss', 2], ['tank', 9], ['fast', 16], ['swarm', 14]] },
+  { bonus: 58, gap: 600, groups: [['splitter', 6], ['tank', 8], ['fast', 12]] },
+  { bonus: 62, gap: 520, groups: [['brute', 3], ['swarm', 24], ['dart', 8]] },
+  { bonus: 80, gap: 560, groups: [['boss', 1], ['brute', 2], ['tank', 6], ['fast', 10]] },
+  { bonus: 60, gap: 500, groups: [['splitter', 10], ['dart', 12], ['tank', 6]] },
+  { bonus: 64, gap: 440, groups: [['brute', 4], ['swarm', 30], ['fast', 14]] },
+  { bonus: 68, gap: 460, groups: [['dart', 16], ['splitter', 10], ['tank', 8]] },
+  { bonus: 72, gap: 420, groups: [['brute', 6], ['tank', 10], ['swarm', 28], ['dart', 12]] },
+  { bonus: 120, gap: 480, groups: [['boss', 2], ['brute', 4], ['splitter', 8], ['dart', 14], ['tank', 8]] },
 ]
 
 function waveHp(type, wave, bossSeen) {
   const base = ENEMIES[type].hp
-  if (type === 'boss') return Math.round(base * (1 + 0.7 * (bossSeen - 1)))
-  return Math.round(base * (1 + 0.22 * (wave - 1)))
+  if (type === 'boss') return Math.round(base * (1 + 0.78 * (bossSeen - 1)))
+  return Math.round(base * (1 + 0.23 * (wave - 1)))
 }
 function waveSpeed(type, wave) {
-  return ENEMIES[type].speed * Math.min(1.45, 1 + 0.028 * (wave - 1))
+  return ENEMIES[type].speed * Math.min(1.5, 1 + 0.028 * (wave - 1))
 }
 function buildQueue(waveIdx) {
   const w = WAVES[waveIdx]
@@ -149,17 +172,38 @@ function TowerDefense() {
   const [speed, setSpeed] = useState(1)
   const [inspect, setInspect] = useState(null)
   const [best, setBest] = useState(0)
-  const [inter, setInter] = useState(null) // {sec, bonus, total}
+  const [inter, setInter] = useState(null)
   const [streak, setStreak] = useState(0)
-  const [skill, setSkill] = useState({ meteor: 0, freeze: 0, confuse: 0, aiming: false })
+  const [skill, setSkill] = useState({ meteor: 0, freeze: 0, confuse: 0, thunder: 0, aiming: false })
 
   const G = useRef(null)
-  if (G.current === null) {
-    G.current = freshState()
-  }
+  if (G.current === null) G.current = freshState()
+  const hudCache = useRef({ gold: -1, lives: -1, score: -1, wave: -1 })
+  const skillCache = useRef({ meteor: -1, freeze: -1, confuse: -1, thunder: -1, aiming: null })
+  const audioRef = useRef(null)
+  const mutedRef = useRef(false)
+  const [muted, setMuted] = useState(false)
 
   useEffect(() => {
     try { setBest(Number(localStorage.getItem('tower-defense-best')) || 0) } catch { /* ignore */ }
+    try { setMuted(localStorage.getItem('td-muted') === '1') } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => { mutedRef.current = muted }, [muted])
+
+  const play = useCallback((name) => {
+    if (mutedRef.current) return
+    const ac = audioRef.current
+    if (!ac) return
+    try { if (ac.state === 'suspended') ac.resume(); SFX[name](ac) } catch { /* ignore */ }
+  }, [])
+
+  const toggleMute = useCallback(() => {
+    setMuted((m) => {
+      const next = !m
+      try { localStorage.setItem('td-muted', next ? '1' : '0') } catch { /* ignore */ }
+      return next
+    })
   }, [])
 
   useEffect(() => { G.current.phase = phase }, [phase])
@@ -197,7 +241,9 @@ function TowerDefense() {
 
   const pushHud = useCallback(() => {
     const g = G.current
-    setHud({ gold: g.gold, lives: g.lives, wave: Math.min(g.waveIdx + 1, 15), score: g.score })
+    const wv = Math.min(g.waveIdx + 1, TOTAL_WAVES)
+    hudCache.current = { gold: g.gold, lives: g.lives, score: g.score, wave: wv }
+    setHud({ gold: g.gold, lives: g.lives, wave: wv, score: g.score })
   }, [])
 
   const saveBest = useCallback((s) => {
@@ -208,7 +254,6 @@ function TowerDefense() {
     })
   }, [])
 
-  // 다음 웨이브 시작 (자동/early)
   const startWave = useCallback(() => {
     const g = G.current
     g.queue = buildQueue(g.waveIdx)
@@ -220,7 +265,8 @@ function TowerDefense() {
     setInter(null)
     g.phase = 'wave'
     setPhase('wave')
-  }, [])
+    play('wave')
+  }, [play])
 
   // ── 게임 루프 ──
   useEffect(() => {
@@ -243,8 +289,19 @@ function TowerDefense() {
     }
     const pushFloater = (x, y, text, color) => {
       const g = G.current
-      if (g.floaters.length > 30) return
+      if (g.floaters.length > 24) return
       g.floaters.push({ x, y, text, color, born: performance.now() })
+    }
+
+    const spawnEnemy = (type, wave, x, y, seg) => {
+      const g = G.current
+      const def = ENEMIES[type]
+      const hp = waveHp(type, wave, g.bossSeen)
+      g.enemies.push({
+        id: ++g.ids, type, color: def.color, r: def.r, gold: def.gold, dmg: def.dmg,
+        x, y, seg, hp, maxHp: hp, base: waveSpeed(type, wave),
+        slowMul: 1, slowUntil: 0, confusedUntil: 0,
+      })
     }
 
     const killEnemy = (e) => {
@@ -255,14 +312,22 @@ function TowerDefense() {
       g.lastKill = now
       g.score += Math.round(10 * (1 + Math.min(g.combo, 10) * 0.1))
       if (g.combo >= 3) pushFloater(e.x, e.y - e.r - 4, 'x' + g.combo, '#FFE08A')
+      if (e.type === 'boss') play('boss')
+      else if (now - g.lastHitSfx > 45) { play('hit'); g.lastHitSfx = now }
+      // 폭발 타격감: 확장 링 + 색 파편
+      if (g.bursts.length < BURST_CAP) {
+        g.bursts.push({ x: e.x, y: e.y, r0: e.r * 0.5, r1: e.r * (e.type === 'boss' ? 3.4 : 2.4), color: e.color, born: now, dur: e.type === 'boss' ? 0.45 : 0.3 })
+      }
+      spawnParts(e.x, e.y, e.color, e.type === 'boss' ? 18 : e.r > 15 ? 10 : 7, { life: 0.5, size: e.r > 16 ? 5 : 3, spread: e.r * 6 })
       if (e.type === 'boss') {
         gain += 30
         g.score += 200
         g.flashUntil = now + 160
-        spawnParts(e.x, e.y, e.color, 20, { life: 0.7, size: 6 })
         pushFloater(e.x, e.y, 'BOSS 처치! +' + gain, '#FFD166')
-      } else {
-        spawnParts(e.x, e.y, e.color, 5, { life: 0.45, size: 4 })
+      } else if (e.type === 'splitter') {
+        const wave = g.waveIdx + 1
+        spawnEnemy('mini', wave, e.x - 12, e.y, e.seg)
+        spawnEnemy('mini', wave, e.x + 12, e.y, e.seg)
       }
       g.gold += gain
     }
@@ -271,7 +336,7 @@ function TowerDefense() {
       const g = G.current
       const now = performance.now()
 
-      // 스킬 발동 요청 처리
+      // 스킬 발동 요청
       if (g.meteorReq) {
         const { x, y } = g.meteorReq
         g.meteorReq = null
@@ -283,22 +348,36 @@ function TowerDefense() {
         spawnParts(x, y, '#FF8C42', 16, { life: 0.6, size: 6, spread: 110 })
         g.flashUntil = now + 110
         g.meteorCd = METEOR_CD
+        play('skill')
       }
       if (g.freezeReq) {
         g.freezeReq = false
         for (const e of g.enemies) { if (!e.dead) { e.slowMul = 0; e.slowUntil = now + FREEZE_DUR } }
         g.freezeTintUntil = now + 320
         g.freezeCd = FREEZE_CD
+        play('skill')
       }
       if (g.confuseReq) {
         g.confuseReq = false
         for (const e of g.enemies) {
           if (e.dead) continue
           e.confusedUntil = now + CONFUSE_DUR
-          spawnParts(e.x, e.y, '#B07BEB', 3, { life: 0.4 })
+          spawnParts(e.x, e.y, '#B07BEB', 2, { life: 0.4 })
         }
         g.confuseTintUntil = now + 300
         g.confuseCd = CONFUSE_CD
+        play('skill')
+      }
+      if (g.thunderReq) {
+        g.thunderReq = false
+        const cand = g.enemies.filter((e) => !e.dead && e.type !== 'boss')
+        cand.sort((a, b) => (b.seg * 100000 + b.x + b.y) - (a.seg * 100000 + a.x + a.y))
+        for (let i = 0; i < THUNDER_KILLS && i < cand.length; i++) { cand[i].dead = true; killEnemy(cand[i]) }
+        g.thunderBolts = makeScreenBolts()
+        g.thunderUntil = now + 260
+        g.flashUntil = now + 130
+        g.thunderCd = THUNDER_CD
+        play('thunder')
       }
 
       // 스폰
@@ -307,14 +386,7 @@ function TowerDefense() {
         if (g.spawnTimer <= 0) {
           const type = g.queue.shift()
           if (type === 'boss') g.bossSeen += 1
-          const wave = g.waveIdx + 1
-          const hp = waveHp(type, wave, g.bossSeen)
-          g.enemies.push({
-            id: ++g.ids, type, color: ENEMIES[type].color,
-            r: ENEMIES[type].r, gold: ENEMIES[type].gold, dmg: ENEMIES[type].dmg,
-            x: PATH[0].x, y: PATH[0].y, seg: 0, hp, maxHp: hp,
-            base: waveSpeed(type, wave), slowMul: 1, slowUntil: 0,
-          })
+          spawnEnemy(type, g.waveIdx + 1, PATH[0].x, PATH[0].y, 0)
           g.spawnTimer = WAVES[g.waveIdx].gap
         }
       }
@@ -323,7 +395,6 @@ function TowerDefense() {
       for (const e of g.enemies) {
         if (e.slowUntil && now > e.slowUntil) { e.slowMul = 1; e.slowUntil = 0 }
         let move = e.base * e.slowMul * dt
-        // 혼란: 왔던 길로 역행
         if (now < e.confusedUntil) {
           while (move > 0 && e.seg >= 0) {
             const t = PATH[e.seg]
@@ -346,6 +417,7 @@ function TowerDefense() {
           e.dead = true
           g.lives -= e.dmg
           spawnParts(e.x, e.y, '#FF7675', 4, { life: 0.3 })
+          if (now - g.lastLeakSfx > 120) { play('leak'); g.lastLeakSfx = now }
         }
       }
 
@@ -387,17 +459,17 @@ function TowerDefense() {
           g.bolts.push({ pts: hitPts, life: 0.13 })
         } else {
           g.shots.push({
-            x: tw.x, y: tw.y, targetId: target.id, speed: st.pspeed, dmg: st.dmg,
+            x: tw.x, y: tw.y, target, speed: st.pspeed, dmg: st.dmg,
             color: TOWERS[tw.key].color, kind, splash: st.splash || 0,
             slow: st.slow || 0, slowDur: st.slowDur || 0,
           })
         }
       }
 
-      // 투사체
+      // 투사체 (target 객체 참조 → find 불필요)
       for (const s of g.shots) {
-        const t = g.enemies.find((e) => e.id === s.targetId && !e.dead)
-        if (!t) { s.dead = true; continue }
+        const t = s.target
+        if (!t || t.dead) { s.dead = true; continue }
         const dx = t.x - s.x, dy = t.y - s.y
         const d = Math.hypot(dx, dy) || 1
         const step = s.speed * dt
@@ -434,7 +506,7 @@ function TowerDefense() {
         }
       }
 
-      // 파티클
+      // 파티클 / 번개선
       for (const p of g.parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.grav * dt }
       for (const b of g.bolts) b.life -= dt
 
@@ -443,22 +515,20 @@ function TowerDefense() {
       if (g.parts.some((p) => p.life <= 0)) g.parts = g.parts.filter((p) => p.life > 0)
       if (g.bolts.some((b) => b.life <= 0)) g.bolts = g.bolts.filter((b) => b.life > 0)
 
-      // 패배
       if (g.lives <= 0) {
         g.lives = 0
         g.phase = 'lost'
         setPhase('lost')
         saveBest(g.score)
         pushHud()
+        play('lose')
         return
       }
-      // 웨이브 종료
       if (g.queue.length === 0 && g.enemies.length === 0) {
         const w = WAVES[g.waveIdx]
         if (g.lives >= g.livesAtWave) g.streak += 1
         else g.streak = 0
-        const streakBonus = Math.min(g.streak, 5) * 10
-        g.gold += w.bonus + streakBonus
+        g.gold += w.bonus + Math.min(g.streak, 5) * 10
         g.score += 100
         g.waveIdx += 1
         if (g.waveIdx >= WAVES.length) {
@@ -466,6 +536,7 @@ function TowerDefense() {
           g.phase = 'won'
           setPhase('won')
           saveBest(g.score)
+          play('win')
         } else {
           g.phase = 'intermission'
           setPhase('intermission')
@@ -490,7 +561,6 @@ function TowerDefense() {
       const g = G.current
       ctx.drawImage(bgRef.current, 0, 0)
 
-      // 건설 가능 타일 하이라이트
       if (g.selected && (g.phase === 'intermission' || g.phase === 'wave')) {
         ctx.fillStyle = 'rgba(168,240,192,0.30)'
         for (let r = 0; r < ROWS; r++) {
@@ -544,7 +614,7 @@ function TowerDefense() {
         ctx.beginPath(); ctx.arc(s.x, s.y, s.kind === 'splash' ? 5 : 4, 0, Math.PI * 2); ctx.fill()
       }
 
-      // 번개
+      // 번개탑 체인
       for (const b of g.bolts) {
         ctx.save()
         ctx.globalAlpha = Math.max(0, b.life / 0.13)
@@ -557,6 +627,17 @@ function TowerDefense() {
         ctx.restore()
       }
 
+      // 폭발 링
+      g.bursts = g.bursts.filter((b) => now - b.born < b.dur * 1000)
+      for (const b of g.bursts) {
+        const k = (now - b.born) / (b.dur * 1000)
+        ctx.globalAlpha = Math.max(0, 1 - k)
+        ctx.strokeStyle = b.color
+        ctx.lineWidth = 3 * (1 - k) + 1
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r0 + (b.r1 - b.r0) * k, 0, Math.PI * 2); ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+
       // 파티클
       for (const p of g.parts) {
         ctx.globalAlpha = Math.max(0, p.life / p.max)
@@ -565,7 +646,7 @@ function TowerDefense() {
       }
       ctx.globalAlpha = 1
 
-      // 플로팅 텍스트(콤보/보스)
+      // 플로팅 텍스트
       g.floaters = g.floaters.filter((f) => now - f.born < 900)
       if (g.floaters.length) {
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -603,7 +684,6 @@ function TowerDefense() {
         if (tw) showRange(tw.x, tw.y, mergeStats(tw.key, tw.level).range, true)
       }
 
-      // 운석 조준 안내
       if (g.aiming) {
         ctx.fillStyle = 'rgba(0,0,0,0.18)'
         ctx.fillRect(0, 0, GAME_W, GAME_H)
@@ -613,13 +693,28 @@ function TowerDefense() {
         ctx.fillText('☄️ 운석 떨어뜨릴 곳을 탭!', GAME_W / 2, 30)
       }
 
-      // 보스 처치 플래시
+      // 전체화면 번개
+      if (now < g.thunderUntil && g.thunderBolts) {
+        ctx.save()
+        ctx.globalAlpha = Math.max(0, (g.thunderUntil - now) / 260)
+        ctx.fillStyle = 'rgba(253,224,71,0.18)'
+        ctx.fillRect(0, 0, GAME_W, GAME_H)
+        ctx.strokeStyle = '#FDE047'
+        ctx.lineWidth = 3
+        ctx.lineCap = 'round'
+        for (const pts of g.thunderBolts) {
+          ctx.beginPath()
+          ctx.moveTo(pts[0].x, pts[0].y)
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+          ctx.stroke()
+        }
+        ctx.restore()
+      }
+
       const fa = (g.flashUntil - now) / 160
       if (fa > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (fa * 0.55) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
-      // 빙결 틴트
-      const ft = (g.freezeTintUntil - now) / 320
-      if (ft > 0) { ctx.fillStyle = 'rgba(120,212,248,' + (ft * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
-      // 혼란 틴트
+      const ftn = (g.freezeTintUntil - now) / 320
+      if (ftn > 0) { ctx.fillStyle = 'rgba(120,212,248,' + (ftn * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
       const ct = (g.confuseTintUntil - now) / 300
       if (ct > 0) { ctx.fillStyle = 'rgba(170,110,235,' + (ct * 0.4) + ')'; ctx.fillRect(0, 0, GAME_W, GAME_H) }
     }
@@ -634,26 +729,32 @@ function TowerDefense() {
         if (g.meteorCd > 0) g.meteorCd = Math.max(0, g.meteorCd - dt * 1000)
         if (g.freezeCd > 0) g.freezeCd = Math.max(0, g.freezeCd - dt * 1000)
         if (g.confuseCd > 0) g.confuseCd = Math.max(0, g.confuseCd - dt * 1000)
-        setSkill((p) => {
-          const m = Math.ceil(g.meteorCd / 1000), f = Math.ceil(g.freezeCd / 1000), cf = Math.ceil(g.confuseCd / 1000)
-          return (p.meteor === m && p.freeze === f && p.confuse === cf && p.aiming === g.aiming)
-            ? p : { meteor: m, freeze: f, confuse: cf, aiming: g.aiming }
-        })
+        if (g.thunderCd > 0) g.thunderCd = Math.max(0, g.thunderCd - dt * 1000)
+        const m = Math.ceil(g.meteorCd / 1000), f = Math.ceil(g.freezeCd / 1000)
+        const cf = Math.ceil(g.confuseCd / 1000), th = Math.ceil(g.thunderCd / 1000)
+        const sc = skillCache.current
+        if (sc.meteor !== m || sc.freeze !== f || sc.confuse !== cf || sc.thunder !== th || sc.aiming !== g.aiming) {
+          sc.meteor = m; sc.freeze = f; sc.confuse = cf; sc.thunder = th; sc.aiming = g.aiming
+          setSkill({ meteor: m, freeze: f, confuse: cf, thunder: th, aiming: g.aiming })
+        }
       }
 
       if (g.phase === 'wave') {
         update(dt * g.speed)
-        setHud((h) => (h.gold === g.gold && h.lives === g.lives && h.score === g.score
-          ? h : { gold: g.gold, lives: g.lives, wave: Math.min(g.waveIdx + 1, 15), score: g.score }))
+        const wv = Math.min(g.waveIdx + 1, TOTAL_WAVES)
+        const hc = hudCache.current
+        if (hc.gold !== g.gold || hc.lives !== g.lives || hc.score !== g.score || hc.wave !== wv) {
+          hc.gold = g.gold; hc.lives = g.lives; hc.score = g.score; hc.wave = wv
+          setHud({ gold: g.gold, lives: g.lives, wave: wv, score: g.score })
+        }
       } else if (g.phase === 'intermission') {
-        g.interTimer -= dt * 1000 // 실시간(배속 무관)
+        g.interTimer -= dt * 1000
         if (g.interTimer <= 0) {
           startWave()
         } else {
           const sec = Math.ceil(g.interTimer / 1000)
           const bonus = Math.ceil((g.interTimer / 1000) * 4)
-          const total = Math.ceil(g.interTotal / 1000)
-          setInter((p) => (p && p.sec === sec ? p : { sec, bonus, total }))
+          setInter((p) => (p && p.sec === sec ? p : { sec, bonus, total: Math.ceil(g.interTotal / 1000) }))
         }
       }
 
@@ -662,7 +763,7 @@ function TowerDefense() {
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [pushHud, saveBest, startWave])
+  }, [pushHud, saveBest, startWave, play])
 
   // ── 입력 ──
   const onPointerDown = useCallback((ev) => {
@@ -673,7 +774,6 @@ function TowerDefense() {
     const py = (ev.clientY - rect.top) / scale
     if (px < 0 || py < 0 || px >= GAME_W || py >= GAME_H) return
 
-    // 운석 조준
     if (g.aiming) {
       g.meteorReq = { x: px, y: py }
       g.aiming = false
@@ -699,12 +799,13 @@ function TowerDefense() {
           x: col * CELL + CELL / 2, y: row * CELL + CELL / 2, last: 0,
         })
         pushHud()
+        play('build')
       }
     } else {
       g.inspectId = null
       setInspect(null)
     }
-  }, [scale, pushHud])
+  }, [scale, pushHud, play])
 
   const onPointerMove = useCallback((ev) => {
     const g = G.current
@@ -720,12 +821,18 @@ function TowerDefense() {
   // ── 컨트롤 ──
   const startGame = useCallback(() => {
     const g = G.current
+    if (!audioRef.current) {
+      try { audioRef.current = new (window.AudioContext || window.webkitAudioContext)() } catch { /* no audio */ }
+    }
+    try { audioRef.current?.resume() } catch { /* ignore */ }
     Object.assign(g, freshState())
     g.phase = 'intermission'
     g.interTimer = PREP_TIME
     g.interTotal = PREP_TIME
+    hudCache.current = { gold: -1, lives: -1, score: -1, wave: -1 }
+    skillCache.current = { meteor: -1, freeze: -1, confuse: -1, thunder: -1, aiming: null }
     setSelected(null); setInspect(null); setSpeed(1); setStreak(0)
-    setSkill({ meteor: 0, freeze: 0, confuse: 0, aiming: false })
+    setSkill({ meteor: 0, freeze: 0, confuse: 0, thunder: 0, aiming: false })
     setPhase('intermission')
     pushHud()
   }, [pushHud])
@@ -747,17 +854,20 @@ function TowerDefense() {
     g.aiming = !g.aiming
     setSkill((s) => ({ ...s, aiming: g.aiming }))
   }, [])
-
   const castFreeze = useCallback(() => {
     const g = G.current
     if (g.phase !== 'wave' || g.freezeCd > 0) return
     g.freezeReq = true
   }, [])
-
   const castConfuse = useCallback(() => {
     const g = G.current
     if (g.phase !== 'wave' || g.confuseCd > 0) return
     g.confuseReq = true
+  }, [])
+  const castThunder = useCallback(() => {
+    const g = G.current
+    if (g.phase !== 'wave' || g.thunderCd > 0) return
+    g.thunderReq = true
   }, [])
 
   const upgrade = useCallback(() => {
@@ -794,8 +904,8 @@ function TowerDefense() {
   let sellAmt = 0
   if (inspTw) { for (let i = 0; i <= inspTw.level; i++) sellAmt += inspDef.levels[i].cost; sellAmt = Math.floor(sellAmt * 0.7) }
 
-  const previewWave = inter && hud.wave <= 15
-    ? WAVES[Math.min(hud.wave - 1, 14)].groups.map(([t, n]) => `${ENEMIES[t].emoji}×${n}`).join(' ')
+  const previewWave = inter && hud.wave <= TOTAL_WAVES
+    ? WAVES[Math.min(hud.wave - 1, TOTAL_WAVES - 1)].groups.map(([t, n]) => `${ENEMY_EMOJI[t]}×${n}`).join(' ')
     : ''
 
   return (
@@ -807,9 +917,10 @@ function TowerDefense() {
           <div className="td-top" style={{ height: TOP_H }}>
             <div className="td-stat"><span>💰</span><b style={{ color: '#F1C40F' }}>{hud.gold}</b></div>
             <div className="td-stat"><span>❤️</span><b style={{ color: '#FF7675' }}>{hud.lives}</b></div>
-            <div className="td-stat"><span>🌊</span><b style={{ color: '#00CEC9' }}>{hud.wave}/15</b></div>
+            <div className="td-stat"><span>🌊</span><b style={{ color: '#00CEC9' }}>{hud.wave}/{TOTAL_WAVES}</b></div>
             <div className="td-stat"><span>⭐</span><b style={{ color: '#A29BFE' }}>{hud.score}</b></div>
             {streak > 1 && <div className="td-streak">🔥{streak}</div>}
+            <button className="td-speed td-mute" onClick={toggleMute}>{muted ? '🔇' : '🔊'}</button>
             <button className={`td-speed${speed === 2 ? ' on' : ''}`} onClick={toggleSpeed}>{speed}x</button>
           </div>
 
@@ -824,7 +935,6 @@ function TowerDefense() {
               onPointerLeave={onPointerLeave}
             />
 
-            {/* 카운트다운 */}
             {phase === 'intermission' && inter && (
               <div className="td-countdown">
                 <div className="td-cd-top">다음 웨이브 {hud.wave} · {inter.sec}초</div>
@@ -833,7 +943,6 @@ function TowerDefense() {
               </div>
             )}
 
-            {/* 스킬 버튼 */}
             {(phase === 'wave' || phase === 'intermission') && (
               <div className="td-skills">
                 <button className={`td-skill${skill.aiming ? ' arm' : ''}`} disabled={phase !== 'wave' || skill.meteor > 0} onClick={armMeteor}>
@@ -844,6 +953,9 @@ function TowerDefense() {
                 </button>
                 <button className="td-skill" disabled={phase !== 'wave' || skill.confuse > 0} onClick={castConfuse}>
                   <span>🌀</span>{skill.confuse > 0 && <em>{skill.confuse}</em>}
+                </button>
+                <button className="td-skill" disabled={phase !== 'wave' || skill.thunder > 0} onClick={castThunder}>
+                  <span>🌩️</span>{skill.thunder > 0 && <em>{skill.thunder}</em>}
                 </button>
               </div>
             )}
@@ -883,7 +995,7 @@ function TowerDefense() {
                     onClick={() => setSelected(selected === key ? null : key)}
                   >
                     <span className="td-card-emoji">{t.emoji}</span>
-                    <span className="td-card-cost">{cost}💰</span>
+                    <span className="td-card-cost">{cost}</span>
                   </button>
                 )
               })}
@@ -901,13 +1013,13 @@ function TowerDefense() {
                   <>
                     <h1>으악! 오지마</h1>
                     <p>길을 따라 몰려오는 젤리몽을<br />타워를 세워 막아내세요!</p>
-                    <p className="td-tip">웨이브 자동 진행 · ☄️❄️🌀 스킬로 위기 탈출 · 15웨이브 사수</p>
+                    <p className="td-tip">자동 진행 · ☄️❄️🌀🌩️ 스킬 · {TOTAL_WAVES}웨이브 사수</p>
                   </>
                 )}
                 {phase === 'won' && (
                   <>
                     <h1>🎉 클리어!</h1>
-                    <p>15웨이브를 모두 막아냈어요!</p>
+                    <p>{TOTAL_WAVES}웨이브를 모두 막아냈어요!</p>
                     <p className="td-score">점수 {hud.score} · 생명 {hud.lives}</p>
                   </>
                 )}
@@ -934,13 +1046,14 @@ function TowerDefense() {
 function freshState() {
   return {
     gold: START_GOLD, lives: START_LIVES, score: 0, waveIdx: 0, bossSeen: 0,
-    towers: [], enemies: [], shots: [], bolts: [], parts: [], floaters: [],
+    towers: [], enemies: [], shots: [], bolts: [], parts: [], floaters: [], bursts: [],
     queue: [], spawnTimer: 0, ids: 0,
     phase: 'menu', speed: 1, selected: null, hover: null, inspectId: null,
     interTimer: 0, interTotal: PREP_TIME, livesAtWave: START_LIVES, streak: 0,
-    combo: 0, lastKill: 0,
-    meteorCd: 0, freezeCd: 0, confuseCd: 0, aiming: false,
-    meteorReq: null, freezeReq: false, confuseReq: false,
+    combo: 0, lastKill: 0, lastHitSfx: 0, lastLeakSfx: 0,
+    meteorCd: 0, freezeCd: 0, confuseCd: 0, thunderCd: 0, aiming: false,
+    meteorReq: null, freezeReq: false, confuseReq: false, thunderReq: false,
+    thunderBolts: null, thunderUntil: 0,
     flashUntil: 0, freezeTintUntil: 0, confuseTintUntil: 0,
   }
 }
@@ -950,6 +1063,46 @@ function mergeStats(key, level) {
   const base = { ...L[0] }
   for (let i = 1; i <= level; i++) Object.assign(base, L[i])
   return base
+}
+
+// ── 효과음 (Web Audio 합성음, 외부 파일 없음) ───────
+function beep(ac, { freq = 440, to, dur = 0.12, type = 'square', vol = 0.2, delay = 0 }) {
+  const t0 = ac.currentTime + delay
+  const osc = ac.createOscillator()
+  const gain = ac.createGain()
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, t0)
+  if (to) osc.frequency.exponentialRampToValueAtTime(Math.max(1, to), t0 + dur)
+  gain.gain.setValueAtTime(vol, t0)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+  osc.connect(gain); gain.connect(ac.destination)
+  osc.start(t0); osc.stop(t0 + dur + 0.02)
+}
+const SFX = {
+  hit: (ac) => beep(ac, { freq: 300, to: 150, dur: 0.06, type: 'triangle', vol: 0.12 }),
+  boss: (ac) => { beep(ac, { freq: 180, to: 60, dur: 0.5, type: 'sawtooth', vol: 0.24 }); beep(ac, { freq: 90, to: 40, dur: 0.6, type: 'square', vol: 0.18, delay: 0.05 }) },
+  build: (ac) => beep(ac, { freq: 520, to: 800, dur: 0.12, type: 'square', vol: 0.18 }),
+  skill: (ac) => beep(ac, { freq: 700, to: 1300, dur: 0.18, type: 'sawtooth', vol: 0.2 }),
+  thunder: (ac) => { beep(ac, { freq: 1300, to: 200, dur: 0.26, type: 'sawtooth', vol: 0.26 }); beep(ac, { freq: 80, dur: 0.3, type: 'square', vol: 0.18, delay: 0.02 }) },
+  leak: (ac) => beep(ac, { freq: 220, to: 110, dur: 0.18, type: 'sine', vol: 0.2 }),
+  wave: (ac) => beep(ac, { freq: 300, to: 460, dur: 0.16, type: 'square', vol: 0.16 }),
+  win: (ac) => [523, 659, 784, 1047].forEach((f, i) => beep(ac, { freq: f, dur: 0.18, type: 'square', vol: 0.2, delay: i * 0.12 })),
+  lose: (ac) => [400, 300, 200].forEach((f, i) => beep(ac, { freq: f, dur: 0.26, type: 'sawtooth', vol: 0.2, delay: i * 0.14 })),
+}
+
+function makeScreenBolts() {
+  const bolts = []
+  for (let i = 0; i < 4; i++) {
+    const x = 50 + i * 105 + (Math.random() * 30 - 15)
+    const pts = [{ x, y: 0 }]
+    let yy = 0
+    while (yy < GAME_H) {
+      yy += 32 + Math.random() * 30
+      pts.push({ x: x + (Math.random() * 44 - 22), y: Math.min(yy, GAME_H) })
+    }
+    bolts.push(pts)
+  }
+  return bolts
 }
 
 // ── 몬스터 캔버스 드로잉 (경량 path 조합) ────────────
@@ -1064,7 +1217,61 @@ function drawBoss(ctx, cx, cy, r, now) {
   ctx.lineCap = 'butt'
 }
 
-const ENEMY_DRAW = { basic: drawSlime, fast: drawBat, tank: drawGolem, swarm: drawChick, boss: drawBoss }
+function drawDart(ctx, cx, cy, r, now) {
+  const wob = Math.sin(now / 90) * r * 0.12
+  fe(ctx, cx + r * 0.9, cy, r * 0.85, r * 0.3, 0, 'rgba(255,112,67,0.30)') // 속도 잔상
+  tri(ctx, cx - r * 1.05, cy + wob, cx - r * 0.3, cy - r * 0.45, cx - r * 0.3, cy + r * 0.45, '#E64A19') // 꼬리지느러미
+  fe(ctx, cx, cy, r * 1.05, r * 0.68, 0, '#FF7043') // 유선형 몸통
+  fe(ctx, cx - r * 0.1, cy - r * 0.28, r * 0.4, r * 0.16, -0.2, '#FFAB91') // 하이라이트
+  fc(ctx, cx + r * 0.42, cy - r * 0.08, r * 0.2, '#fff')
+  fc(ctx, cx + r * 0.49, cy - r * 0.06, r * 0.1, '#3A1500')
+}
+
+function drawBrute(ctx, cx, cy, r, now) {
+  const y = cy + Math.sin(now / 560) * r * 0.025
+  fc(ctx, cx, y, r, '#6B7280')
+  fe(ctx, cx, y + r * 0.22, r * 0.86, r * 0.42, 0, '#4B5563') // 아래 음영
+  fe(ctx, cx - r * 0.34, y - r * 0.34, r * 0.22, r * 0.14, -0.4, '#9CA3AF') // 하이라이트
+  tri(ctx, cx - r * 0.5, y - r * 0.66, cx - r * 0.8, y - r * 1.16, cx - r * 0.18, y - r * 0.74, '#E5E7EB') // 왼 뿔
+  tri(ctx, cx + r * 0.5, y - r * 0.66, cx + r * 0.8, y - r * 1.16, cx + r * 0.18, y - r * 0.74, '#E5E7EB') // 오른 뿔
+  fc(ctx, cx - r * 0.3, y - r * 0.04, r * 0.16, '#fff')
+  fc(ctx, cx - r * 0.26, y - r * 0.01, r * 0.08, '#111')
+  fc(ctx, cx + r * 0.3, y - r * 0.04, r * 0.16, '#fff')
+  fc(ctx, cx + r * 0.34, y - r * 0.01, r * 0.08, '#111')
+  ctx.strokeStyle = '#1F2937'; ctx.lineWidth = 2.4; ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(cx - r * 0.5, y - r * 0.34); ctx.lineTo(cx - r * 0.12, y - r * 0.2)
+  ctx.moveTo(cx + r * 0.5, y - r * 0.34); ctx.lineTo(cx + r * 0.12, y - r * 0.2)
+  ctx.stroke()
+  ctx.lineCap = 'butt'
+}
+
+function drawSplitter(ctx, cx, cy, r, now) {
+  const t = Math.sin(now / 300)
+  const R = r * (1 + t * 0.05)
+  fc(ctx, cx - r * 0.5, cy + r * 0.5, r * 0.3, 'rgba(236,127,176,0.65)') // 작은 방울(분열 암시)
+  fc(ctx, cx + r * 0.55, cy + r * 0.45, r * 0.26, 'rgba(236,127,176,0.65)')
+  fc(ctx, cx, cy, R, '#EC7FB0')
+  fe(ctx, cx - r * 0.3, cy - r * 0.3, r * 0.24, r * 0.16, -0.4, '#F8BBD0')
+  fc(ctx, cx - r * 0.22, cy - r * 0.05, r * 0.17, '#fff')
+  fc(ctx, cx - r * 0.16, cy - r * 0.03, r * 0.08, '#6A1B4D')
+  fc(ctx, cx + r * 0.22, cy - r * 0.05, r * 0.17, '#fff')
+  fc(ctx, cx + r * 0.28, cy - r * 0.03, r * 0.08, '#6A1B4D')
+}
+
+function drawMini(ctx, cx, cy, r, now) {
+  const t = Math.sin(now / 220)
+  fc(ctx, cx, cy, r * (1 + t * 0.06), '#F5A9C8')
+  fc(ctx, cx - r * 0.25, cy - r * 0.05, r * 0.18, '#fff')
+  fc(ctx, cx - r * 0.19, cy - r * 0.03, r * 0.09, '#6A1B4D')
+  fc(ctx, cx + r * 0.25, cy - r * 0.05, r * 0.18, '#fff')
+  fc(ctx, cx + r * 0.31, cy - r * 0.03, r * 0.09, '#6A1B4D')
+}
+
+const ENEMY_DRAW = {
+  basic: drawSlime, fast: drawBat, tank: drawGolem, swarm: drawChick, boss: drawBoss,
+  dart: drawDart, brute: drawBrute, splitter: drawSplitter, mini: drawMini,
+}
 
 function drawEnemy(ctx, e, now) {
   ENEMY_DRAW[e.type](ctx, e.x, e.y, e.r, now)
