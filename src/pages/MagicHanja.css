@@ -67,6 +67,10 @@
   background: rgba(18, 14, 40, 0.7); border: 1px solid rgba(255, 224, 138, 0.3);
   font-size: 12px; font-weight: 900; color: #ffe08a; white-space: nowrap;
 }
+.mh-stagetag.boss {
+  color: #ffd166; border-color: rgba(255, 100, 100, 0.6);
+  background: rgba(60, 14, 40, 0.8);
+}
 
 /* 문제 */
 .mh-q {

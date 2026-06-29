@@ -97,9 +97,57 @@ function makeQuestion(grade, learnedSet) {
   }
 }
 
+// ── 악당 (마법천자문 빌런 로스터) ───────────────────
+// 좋아하는 혼세마왕은 3관문마다 등장. 그 외엔 약→강 순으로 등장.
+const HONSE = { key: 'honse', name: '혼세마왕', color: '#7A3AB0', fallback: 'shadow', boss: true }
+const ROSTER = [
+  { key: 'heuksim', name: '흑심마왕', color: '#5B2C6F', fallback: 'shadow' },
+  { key: 'jiltu', name: '질투마녀', color: '#1E8449', fallback: 'fox' },
+  { key: 'tarak', name: '타락마왕', color: '#7D6608', fallback: 'goblin' },
+  { key: 'tamyok', name: '탐욕마왕', color: '#B9770E', fallback: 'goblin' },
+  { key: 'bunno', name: '분노군단장', color: '#C0392B', fallback: 'goblin' },
+  { key: 'nate', name: '나태군단장', color: '#5D6D7E', fallback: 'shadow' },
+  { key: 'gyoman', name: '교만지왕', color: '#A04000', fallback: 'goblin' },
+  { key: 'janhok', name: '잔혹마왕', color: '#922B21', fallback: 'goblin' },
+  { key: 'bulmyeol', name: '불멸대왕', color: '#5499C7', fallback: 'shadow' },
+  { key: 'oman', name: '오만군단장', color: '#6C3483', fallback: 'shadow' },
+  { key: 'amheungnoya', name: '암흑노야', color: '#34495E', fallback: 'shadow' },
+  { key: 'heukryong', name: '흑룡', color: '#1B2631', fallback: 'fox' },
+  { key: 'daemawang', name: '대마왕', color: '#4A235A', fallback: 'shadow' },
+  { key: 'geomeun', name: '검은마왕', color: '#212F3D', fallback: 'shadow' },
+  { key: 'amheuksangje', name: '암흑상제', color: '#0E1116', fallback: 'shadow' },
+]
+function villainForStage(stage) {
+  if (stage % 3 === 0) return HONSE
+  const idx = (stage - 1) - Math.floor((stage - 1) / 3)
+  return ROSTER[idx % ROSTER.length]
+}
 function makeEnemy(stage) {
-  const maxHp = Math.min(7, 2 + Math.floor(stage / 2))
-  return { type: (stage - 1) % 3, hp: maxHp, maxHp, x: 278, y: 120, dying: false, dieAt: 0, shakeUntil: 0, attackUntil: 0 }
+  const v = villainForStage(stage)
+  const maxHp = Math.min(v.boss ? 12 : 8, (v.boss ? 5 : 3) + Math.floor(stage / 2))
+  return {
+    key: v.key, name: v.name, color: v.color, fallback: v.fallback, boss: !!v.boss,
+    hp: maxHp, maxHp, x: 278, y: 118, dying: false, dieAt: 0, shakeUntil: 0, attackUntil: 0,
+  }
+}
+
+// ── 스프라이트 로더 (있으면 이미지, 없으면 캔버스 폴백) ──
+// 이미지를 직접 넣으려면: public/mh/<key>.png (배경 투명 PNG 권장)
+const sprites = {}
+function getSprite(key) {
+  let s = sprites[key]
+  if (!s) {
+    s = { img: new Image(), ready: false }
+    s.img.onload = () => { s.ready = true }
+    s.img.onerror = () => { s.ready = false }
+    s.img.src = `${import.meta.env.BASE_URL}mh/${key}.png`
+    sprites[key] = s
+  }
+  return s
+}
+function drawSprite(ctx, img, cx, baselineY, h) {
+  const w = h * (img.width / img.height)
+  ctx.drawImage(img, cx - w / 2, baselineY - h, w, h)
 }
 
 // ── 학습 진행 저장/복원 ────────────────────────────
@@ -152,7 +200,7 @@ function MagicHanja() {
   useTouchLock(containerRef)
 
   const [phase, setPhase] = useState('menu')
-  const [hud, setHud] = useState({ lives: START_LIVES, score: 0, combo: 0, stage: 1, gradeName: '8급', gLearned: 0, gTotal: 50, caster: '손오공' })
+  const [hud, setHud] = useState({ lives: START_LIVES, score: 0, combo: 0, stage: 1, gradeName: '8급', gLearned: 0, gTotal: 50, enemy: '', boss: false })
   const [q, setQ] = useState(null)
   const [best, setBest] = useState(() => {
     try { return Number(localStorage.getItem('magic-hanja-best')) || 0 } catch { return 0 }
@@ -193,7 +241,7 @@ function MagicHanja() {
     setHud({
       lives: g.lives, score: g.score, combo: g.combo, stage: g.stage,
       gradeName: grade.name, gLearned: g.learnedByGrade[grade.name].size, gTotal: grade.list.length,
-      caster: HERO_NAMES[(g.stage - 1) % HERO_NAMES.length],
+      enemy: g.enemy.name, boss: g.enemy.boss,
     })
   }, [])
 
@@ -266,8 +314,15 @@ function MagicHanja() {
       if (g.phase === 'play' || g.phase === 'over') {
         drawEnemy(ctx, g.enemy, now)
         const hb = g.heroHurtUntil > now ? Math.sin(now / 28) * 3 : 0
-        const heroDraw = HERO_DRAW[(g.stage - 1) % HERO_DRAW.length]
-        heroDraw(ctx, g.hero.x + hb, g.hero.y, now, g.castUntil > now, g.castChar, g.castColor)
+        const casting = g.castUntil > now
+        const hsp = getSprite('sonogong')
+        if (hsp.ready) {
+          ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(g.hero.x + hb, g.hero.y + 40, 26, 7, 0, 0, Math.PI * 2); ctx.fill()
+          drawSprite(ctx, hsp.img, g.hero.x + hb, g.hero.y + 42, 88)
+          if (casting) drawMagicCircle(ctx, g.hero.x + hb + 42, g.hero.y - 22, now, g.castColor, g.castChar)
+        } else {
+          drawSonOhgong(ctx, g.hero.x + hb, g.hero.y, now, casting, g.castChar, g.castColor)
+        }
         if (g.proj) {
           const p = g.proj
           const x = g.hero.x + 18 + (g.enemy.x - g.hero.x - 18) * p.t
@@ -427,7 +482,7 @@ function MagicHanja() {
           {/* 배틀 캔버스 */}
           <div className="mh-field" style={{ height: CANVAS_H }}>
             <canvas ref={canvasRef} style={{ width: GAME_W, height: CANVAS_H }} />
-            {phase === 'play' && <div className="mh-stagetag">제 {hud.stage}관문 · {hud.caster}</div>}
+            {phase === 'play' && <div className={`mh-stagetag${hud.boss ? ' boss' : ''}`}>제 {hud.stage}관문 · {hud.boss ? '★ ' : 'vs '}{hud.enemy}</div>}
           </div>
 
           {/* 문제 */}
@@ -462,7 +517,7 @@ function MagicHanja() {
                   <>
                     <div className="mh-logo">🔮 한자 마법 배틀</div>
                     <p>한자의 <b>뜻·음</b>을 맞혀 마법을 외치고<br />요괴를 물리치세요!</p>
-                    <p className="mh-tip">손오공·삼장·옥동자·샤오공주와 함께!<br />8급을 모두 익히면 7급에 도전!</p>
+                    <p className="mh-tip">손오공이 되어 마왕들을 물리쳐요!<br />3관문마다 혼세마왕 등장 · 8급→7급 도전!</p>
                   </>
                 ) : (
                   <>
@@ -570,142 +625,45 @@ function drawSonOhgong(ctx, x, y, now, casting, char, color) {
   if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
 }
 
-// 삼장 (여주인공, 대지여신의 후예 - 긴 머리 미소녀 마법사)
-function drawSamjang(ctx, x, y, now, casting, char, color) {
-  const cy = y + Math.sin(now / 380) * 3
-  heroBase(ctx, x, y)
-  // 긴 머리 (뒤로 늘어뜨림)
-  ctx.fillStyle = '#2E2620'
-  ctx.beginPath(); ctx.moveTo(x - 16, cy - 12); ctx.quadraticCurveTo(x - 24, cy + 22, x - 14, cy + 36); ctx.lineTo(x + 14, cy + 36); ctx.quadraticCurveTo(x + 24, cy + 22, x + 16, cy - 12); ctx.closePath(); ctx.fill()
-  // 몸 (붉은 치마저고리 + 초록 띠)
-  ctx.fillStyle = '#E0566E'
-  ctx.beginPath(); ctx.moveTo(x - 21, cy + 38); ctx.lineTo(x - 12, cy + 4); ctx.lineTo(x + 12, cy + 4); ctx.lineTo(x + 21, cy + 38); ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#F4D7DE'; ctx.fillRect(x - 12, cy + 4, 24, 9) // 저고리
-  ctx.fillStyle = '#3FA86B'; ctx.fillRect(x - 13, cy + 13, 26, 5) // 초록 띠(대지)
-  heroArms(ctx, x, cy, casting, '#E0566E')
-  // 부적/주선 (왼손)
-  ctx.fillStyle = '#F5EBC8'; ctx.fillRect(x - 36, cy + 12, 8, 16)
-  ctx.fillStyle = '#C0392B'; ctx.fillRect(x - 34, cy + 15, 4, 10)
-  // 얼굴
-  fillc(ctx, x, cy - 13, 14, '#FFE0C2')
-  // 앞머리 + 옆머리
-  ctx.fillStyle = '#2E2620'
-  ctx.beginPath(); ctx.arc(x, cy - 15, 14, Math.PI * 1.0, Math.PI * 2.0); ctx.fill()
-  ctx.beginPath(); ctx.moveTo(x - 14, cy - 14); ctx.lineTo(x - 16, cy - 2); ctx.lineTo(x - 9, cy - 6); ctx.closePath(); ctx.fill()
-  ctx.beginPath(); ctx.moveTo(x + 14, cy - 14); ctx.lineTo(x + 16, cy - 2); ctx.lineTo(x + 9, cy - 6); ctx.closePath(); ctx.fill()
-  // 꽃 비녀
-  fillc(ctx, x + 11, cy - 18, 3.2, '#FF7AA8'); fillc(ctx, x + 11, cy - 18, 1.3, '#FFE08A')
-  // 큰 눈 + 속눈썹
-  fillc(ctx, x - 5, cy - 12, 3, '#3A2A40'); fillc(ctx, x + 5, cy - 12, 3, '#3A2A40')
-  fillc(ctx, x - 4, cy - 13, 1, '#fff'); fillc(ctx, x + 6, cy - 13, 1, '#fff')
-  ctx.strokeStyle = '#C8607E'; ctx.lineWidth = 1.4
-  ctx.beginPath(); ctx.arc(x, cy - 5, 2.4, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke()
-  fillc(ctx, x - 8, cy - 6, 1.8, 'rgba(255,150,170,0.5)'); fillc(ctx, x + 8, cy - 6, 1.8, 'rgba(255,150,170,0.5)')
-  if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
-}
-
-// 옥동자 (보리도사 제자, 시간 마법 - 상투 소년)
-function drawOkdongja(ctx, x, y, now, casting, char, color) {
-  const cy = y + Math.sin(now / 400) * 3
-  heroBase(ctx, x, y)
-  // 몸 (옥빛 도복)
-  ctx.fillStyle = '#3FB89A'
-  ctx.beginPath(); ctx.moveTo(x - 20, cy + 38); ctx.lineTo(x - 13, cy + 4); ctx.lineTo(x + 13, cy + 4); ctx.lineTo(x + 20, cy + 38); ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#E8C341'; ctx.fillRect(x - 16, cy + 22, 32, 5)
-  ctx.fillStyle = '#2E9079'; ctx.fillRect(x - 2, cy + 4, 4, 34)
-  heroArms(ctx, x, cy, casting, '#3FB89A')
-  // 모래시계 (시간 마법, 왼손)
-  ctx.strokeStyle = '#C9A36A'; ctx.lineWidth = 2
-  ctx.beginPath(); ctx.moveTo(x - 36, cy + 8); ctx.lineTo(x - 28, cy + 8); ctx.moveTo(x - 36, cy + 22); ctx.lineTo(x - 28, cy + 22); ctx.stroke()
-  tri(ctx, x - 36, cy + 8, x - 28, cy + 8, x - 32, cy + 15, '#9AD8FF')
-  tri(ctx, x - 36, cy + 22, x - 28, cy + 22, x - 32, cy + 15, '#9AD8FF')
-  // 얼굴 (둥근 소년)
-  fillc(ctx, x, cy - 13, 15, '#FFE0C2')
-  // 머리 + 상투
-  ctx.fillStyle = '#3A2E26'
-  ctx.beginPath(); ctx.arc(x, cy - 15, 15, Math.PI * 1.05, Math.PI * 1.95); ctx.fill()
-  fillc(ctx, x, cy - 30, 4, '#3A2E26') // 상투
-  ctx.fillStyle = '#2E9079'; ctx.fillRect(x - 4, cy - 31, 8, 3) // 상투 띠
-  // 눈 (동글, 허당 느낌) + 발그레
-  fillc(ctx, x - 5, cy - 11, 2.8, '#222'); fillc(ctx, x + 5, cy - 11, 2.8, '#222')
-  fillc(ctx, x - 4, cy - 12, 1, '#fff'); fillc(ctx, x + 6, cy - 12, 1, '#fff')
-  fillc(ctx, x - 9, cy - 6, 2, 'rgba(255,150,120,0.5)'); fillc(ctx, x + 9, cy - 6, 2, 'rgba(255,150,120,0.5)')
-  ctx.strokeStyle = '#9C5A3C'; ctx.lineWidth = 1.5
-  ctx.beginPath(); ctx.arc(x, cy - 5, 2.6, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke()
-  if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
-}
-
-// 샤오공주 (하늘나라 공주 - 머리 장식 + 푸른 예복)
-function drawXiao(ctx, x, y, now, casting, char, color) {
-  const cy = y + Math.sin(now / 360) * 3
-  heroBase(ctx, x, y)
-  // 예복 치마 (넓게)
-  ctx.fillStyle = '#7FB8E8'
-  ctx.beginPath(); ctx.moveTo(x - 24, cy + 38); ctx.lineTo(x - 12, cy + 4); ctx.lineTo(x + 12, cy + 4); ctx.lineTo(x + 24, cy + 38); ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#EAF4FF'; ctx.fillRect(x - 12, cy + 4, 24, 8) // 흰 상의
-  ctx.fillStyle = '#E8C341'; ctx.fillRect(x - 13, cy + 12, 26, 5) // 금띠
-  // 치마 무늬
-  ctx.fillStyle = 'rgba(255,255,255,0.35)'
-  for (let i = -1; i <= 1; i++) fillc(ctx, x + i * 12, cy + 30, 2.2, 'rgba(255,255,255,0.4)')
-  heroArms(ctx, x, cy, casting, '#7FB8E8')
-  // 부채 (왼손)
-  ctx.fillStyle = '#E84F8A'
-  ctx.beginPath(); ctx.moveTo(x - 30, cy + 20); ctx.lineTo(x - 42, cy + 8); ctx.lineTo(x - 40, cy + 22); ctx.closePath(); ctx.fill()
-  // 얼굴
-  fillc(ctx, x, cy - 13, 14, '#FFE3CC')
-  // 올림머리 + 옆머리
-  ctx.fillStyle = '#241C30'
-  ctx.beginPath(); ctx.arc(x, cy - 15, 14, Math.PI * 1.0, Math.PI * 2.0); ctx.fill()
-  fillc(ctx, x, cy - 30, 6, '#241C30') // 쪽
-  // 작은 관/장식
-  ctx.fillStyle = '#F2C200'
-  tri(ctx, x - 7, cy - 24, x, cy - 34, x + 7, cy - 24, '#F2C200')
-  fillc(ctx, x, cy - 33, 2, '#7DD4F8')
-  fillc(ctx, x - 11, cy - 16, 2.2, '#FF7AA8'); fillc(ctx, x + 11, cy - 16, 2.2, '#FF7AA8') // 귀 장식
-  // 눈 (우아)
-  fillc(ctx, x - 5, cy - 12, 2.8, '#2A2238'); fillc(ctx, x + 5, cy - 12, 2.8, '#2A2238')
-  fillc(ctx, x - 4, cy - 13, 1, '#fff'); fillc(ctx, x + 6, cy - 13, 1, '#fff')
-  ctx.strokeStyle = '#C8607E'; ctx.lineWidth = 1.4
-  ctx.beginPath(); ctx.arc(x, cy - 5, 2.2, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke()
-  if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
-}
-
-const HERO_DRAW = [drawSonOhgong, drawSamjang, drawOkdongja, drawXiao]
-const HERO_NAMES = ['손오공', '삼장', '옥동자', '샤오공주']
-
 function drawEnemy(ctx, e, now) {
   const dead = e.dying
-  let scale = 1, alpha = 1
-  if (dead) {
-    const k = Math.min(1, (now - e.dieAt) / 450)
-    scale = 1 - k; alpha = 1 - k
-  }
+  let sc = 1, alpha = 1
+  if (dead) { const k = Math.min(1, (now - e.dieAt) / 450); sc = 1 - k; alpha = 1 - k }
   if (alpha <= 0) return
   const shake = e.shakeUntil > now ? Math.sin(now / 24) * 4 : 0
   const x = e.x + shake, y = e.y
+  const sp = getSprite(e.key)
   ctx.save()
   ctx.globalAlpha = alpha
-  ctx.translate(x, y)
-  ctx.scale(scale, scale)
-  if (e.type === 0) drawGoblin(ctx, now)
-  else if (e.type === 1) drawShadow(ctx, now)
-  else drawFox(ctx, now)
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(x, y + 40, 26 * sc, 7 * sc, 0, 0, Math.PI * 2); ctx.fill()
+  if (sp.ready) {
+    drawSprite(ctx, sp.img, x, y + 42, (e.boss ? 102 : 82) * sc)
+  } else {
+    ctx.translate(x, y); ctx.scale(sc, sc)
+    const fb = e.fallback === 'goblin' ? drawGoblin : e.fallback === 'fox' ? drawFox : drawShadow
+    fb(ctx, now, e.color)
+  }
   ctx.restore()
   if (!dead) {
-    const w = 56, ratio = Math.max(0, e.hp / e.maxHp)
-    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x - w / 2, y - 44, w, 6)
+    const w = 62, ratio = Math.max(0, e.hp / e.maxHp)
+    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(x - w / 2, y - 48, w, 6)
     ctx.fillStyle = ratio > 0.5 ? '#2ECC71' : ratio > 0.25 ? '#F1C40F' : '#E74C3C'
-    ctx.fillRect(x - w / 2, y - 44, w * ratio, 6)
+    ctx.fillRect(x - w / 2, y - 48, w * ratio, 6)
+    ctx.fillStyle = e.boss ? '#FFD166' : '#fff'
+    ctx.font = (e.boss ? 'bold 13px' : '11px') + ' system-ui'
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+    ctx.fillText((e.boss ? '★ ' : '') + e.name, x, y - 52)
   }
 }
 
-function drawGoblin(ctx, now) {
+function drawGoblin(ctx, now, color) {
+  const body = color || '#D6453B'
   const b = Math.sin(now / 300) * 2
   ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(0, 40, 26, 7, 0, 0, Math.PI * 2); ctx.fill()
-  tri(ctx, -16, -22, -26, -46, -4, -26, '#7A1B1B')
-  tri(ctx, 16, -22, 26, -46, 4, -26, '#7A1B1B')
-  fillc(ctx, 0, b, 28, '#D6453B')
-  ctx.fillStyle = '#A8352C'; ctx.beginPath(); ctx.arc(0, b + 8, 22, 0, Math.PI); ctx.fill()
+  tri(ctx, -16, -22, -26, -46, -4, -26, '#3A0E0E')
+  tri(ctx, 16, -22, 26, -46, 4, -26, '#3A0E0E')
+  fillc(ctx, 0, b, 28, body)
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.arc(0, b + 8, 22, 0, Math.PI); ctx.fill()
   ctx.strokeStyle = '#3A0E0E'; ctx.lineWidth = 3; ctx.lineCap = 'round'
   ctx.beginPath(); ctx.moveTo(-18, b - 8); ctx.lineTo(-4, b - 2); ctx.moveTo(18, b - 8); ctx.lineTo(4, b - 2); ctx.stroke()
   ctx.lineCap = 'butt'
@@ -716,24 +674,25 @@ function drawGoblin(ctx, now) {
   tri(ctx, 8, b + 12, 5, b + 22, 2, b + 12, '#fff')
 }
 
-function drawShadow(ctx, now) {
+function drawShadow(ctx, now, color) {
+  const body = color || '#241B3A'
   const b = Math.sin(now / 260) * 3
   const wob = Math.sin(now / 180) * 4
-  ctx.globalAlpha *= 1
   ctx.beginPath()
   ctx.arc(0, b - 4, 26, Math.PI, 0)
   ctx.lineTo(26, b + 22)
   for (let i = 2; i >= -2; i--) ctx.lineTo(i * 13, b + 22 + (i % 2 === 0 ? 0 : 8) + wob * 0.3)
   ctx.lineTo(-26, b + 22)
   ctx.closePath()
-  ctx.fillStyle = '#241B3A'; ctx.fill()
-  fillc(ctx, -10, b - 4, 6, '#B388E0'); fillc(ctx, 10, b - 4, 6, '#B388E0')
+  ctx.fillStyle = body; ctx.fill()
+  fillc(ctx, -10, b - 4, 6, '#FFE08A'); fillc(ctx, 10, b - 4, 6, '#FFE08A')
   fillc(ctx, -10, b - 4, 2.6, '#1A0A2A'); fillc(ctx, 10, b - 4, 2.6, '#1A0A2A')
-  ctx.strokeStyle = '#B388E0'; ctx.lineWidth = 2
+  ctx.strokeStyle = '#FFE08A'; ctx.lineWidth = 2
   ctx.beginPath(); ctx.arc(0, b + 6, 6, 1.1 * Math.PI, 1.9 * Math.PI); ctx.stroke()
 }
 
-function drawFox(ctx, now) {
+function drawFox(ctx, now, color) {
+  const body = color || '#F08A3C'
   const b = Math.sin(now / 320) * 2
   const tw = Math.sin(now / 200) * 0.2
   ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(0, 40, 26, 7, 0, 0, Math.PI * 2); ctx.fill()
@@ -741,7 +700,7 @@ function drawFox(ctx, now) {
   tri(ctx, 0, -8, -28, 6, 0, 14, '#E8743B')
   tri(ctx, -20, 2, -28, 6, -20, 12, '#FFF1E0')
   ctx.restore()
-  fillc(ctx, 0, b, 26, '#F08A3C')
+  fillc(ctx, 0, b, 26, body)
   tri(ctx, -20, b - 14, -26, b - 40, -6, b - 22, '#E8743B')
   tri(ctx, 20, b - 14, 26, b - 40, 6, b - 22, '#E8743B')
   tri(ctx, -18, b - 18, -21, b - 32, -10, b - 22, '#FFF1E0')
