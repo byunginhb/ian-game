@@ -462,7 +462,7 @@ function MagicHanja() {
                   <>
                     <div className="mh-logo">🔮 한자 마법 배틀</div>
                     <p>한자의 <b>뜻·음</b>을 맞혀 마법을 외치고<br />요괴를 물리치세요!</p>
-                    <p className="mh-tip">손오공·저팔계·사오정과 함께!<br />8급을 모두 익히면 7급에 도전!</p>
+                    <p className="mh-tip">손오공·삼장·옥동자·샤오공주와 함께!<br />8급을 모두 익히면 7급에 도전!</p>
                   </>
                 ) : (
                   <>
@@ -570,75 +570,108 @@ function drawSonOhgong(ctx, x, y, now, casting, char, color) {
   if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
 }
 
-// 저팔계 (돼지 + 쇠스랑)
-function drawJeopalgye(ctx, x, y, now, casting, char, color) {
+// 삼장 (여주인공, 대지여신의 후예 - 긴 머리 미소녀 마법사)
+function drawSamjang(ctx, x, y, now, casting, char, color) {
   const cy = y + Math.sin(now / 380) * 3
   heroBase(ctx, x, y)
-  // 꼬불 꼬리
-  ctx.strokeStyle = '#E58AAA'; ctx.lineWidth = 3
-  ctx.beginPath(); ctx.arc(x + 18, cy + 28, 5, Math.PI, Math.PI * 2.4); ctx.stroke()
-  // 몸 (감색 승복)
-  ctx.fillStyle = '#5E6B86'
-  ctx.beginPath(); ctx.moveTo(x - 21, cy + 38); ctx.lineTo(x - 15, cy + 2); ctx.lineTo(x + 15, cy + 2); ctx.lineTo(x + 21, cy + 38); ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#E8C341'; ctx.fillRect(x - 17, cy + 22, 34, 5)
-  ctx.fillStyle = '#445072'; ctx.fillRect(x - 2, cy + 2, 4, 36)
-  heroArms(ctx, x, cy, casting, '#5E6B86')
-  // 쇠스랑(9치 갈퀴, 왼손)
-  ctx.strokeStyle = '#9A7B5F'; ctx.lineWidth = 4
-  ctx.beginPath(); ctx.moveTo(x - 22, cy + 26); ctx.lineTo(x - 34, cy - 2); ctx.stroke()
-  ctx.strokeStyle = '#C7CEDB'; ctx.lineWidth = 3
-  ctx.beginPath(); ctx.moveTo(x - 40, cy - 2); ctx.lineTo(x - 28, cy - 2); ctx.stroke()
-  ctx.lineWidth = 2
-  for (let i = 0; i < 4; i++) { const tx = x - 40 + i * 4; ctx.beginPath(); ctx.moveTo(tx, cy - 2); ctx.lineTo(tx, cy - 11); ctx.stroke() }
-  // 얼굴 (분홍 돼지)
-  fillc(ctx, x, cy - 12, 16, '#F2A9C0')
-  // 큰 귀
-  tri(ctx, x - 13, cy - 22, x - 26, cy - 24, x - 10, cy - 8, '#E07FA3')
-  tri(ctx, x + 13, cy - 22, x + 26, cy - 24, x + 10, cy - 8, '#E07FA3')
-  // 코
-  ctx.fillStyle = '#E07FA3'; ctx.beginPath(); ctx.ellipse(x, cy - 6, 9, 6.5, 0, 0, Math.PI * 2); ctx.fill()
-  fillc(ctx, x - 3.5, cy - 6, 1.7, '#7A3B53'); fillc(ctx, x + 3.5, cy - 6, 1.7, '#7A3B53')
-  // 눈 (졸린/장난)
-  fillc(ctx, x - 6, cy - 15, 2.6, '#222'); fillc(ctx, x + 6, cy - 15, 2.6, '#222')
-  ctx.strokeStyle = '#B86A86'; ctx.lineWidth = 1.5
-  ctx.beginPath(); ctx.moveTo(x - 9, cy - 18); ctx.lineTo(x - 3, cy - 17); ctx.moveTo(x + 9, cy - 18); ctx.lineTo(x + 3, cy - 17); ctx.stroke()
+  // 긴 머리 (뒤로 늘어뜨림)
+  ctx.fillStyle = '#2E2620'
+  ctx.beginPath(); ctx.moveTo(x - 16, cy - 12); ctx.quadraticCurveTo(x - 24, cy + 22, x - 14, cy + 36); ctx.lineTo(x + 14, cy + 36); ctx.quadraticCurveTo(x + 24, cy + 22, x + 16, cy - 12); ctx.closePath(); ctx.fill()
+  // 몸 (붉은 치마저고리 + 초록 띠)
+  ctx.fillStyle = '#E0566E'
+  ctx.beginPath(); ctx.moveTo(x - 21, cy + 38); ctx.lineTo(x - 12, cy + 4); ctx.lineTo(x + 12, cy + 4); ctx.lineTo(x + 21, cy + 38); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#F4D7DE'; ctx.fillRect(x - 12, cy + 4, 24, 9) // 저고리
+  ctx.fillStyle = '#3FA86B'; ctx.fillRect(x - 13, cy + 13, 26, 5) // 초록 띠(대지)
+  heroArms(ctx, x, cy, casting, '#E0566E')
+  // 부적/주선 (왼손)
+  ctx.fillStyle = '#F5EBC8'; ctx.fillRect(x - 36, cy + 12, 8, 16)
+  ctx.fillStyle = '#C0392B'; ctx.fillRect(x - 34, cy + 15, 4, 10)
+  // 얼굴
+  fillc(ctx, x, cy - 13, 14, '#FFE0C2')
+  // 앞머리 + 옆머리
+  ctx.fillStyle = '#2E2620'
+  ctx.beginPath(); ctx.arc(x, cy - 15, 14, Math.PI * 1.0, Math.PI * 2.0); ctx.fill()
+  ctx.beginPath(); ctx.moveTo(x - 14, cy - 14); ctx.lineTo(x - 16, cy - 2); ctx.lineTo(x - 9, cy - 6); ctx.closePath(); ctx.fill()
+  ctx.beginPath(); ctx.moveTo(x + 14, cy - 14); ctx.lineTo(x + 16, cy - 2); ctx.lineTo(x + 9, cy - 6); ctx.closePath(); ctx.fill()
+  // 꽃 비녀
+  fillc(ctx, x + 11, cy - 18, 3.2, '#FF7AA8'); fillc(ctx, x + 11, cy - 18, 1.3, '#FFE08A')
+  // 큰 눈 + 속눈썹
+  fillc(ctx, x - 5, cy - 12, 3, '#3A2A40'); fillc(ctx, x + 5, cy - 12, 3, '#3A2A40')
+  fillc(ctx, x - 4, cy - 13, 1, '#fff'); fillc(ctx, x + 6, cy - 13, 1, '#fff')
+  ctx.strokeStyle = '#C8607E'; ctx.lineWidth = 1.4
+  ctx.beginPath(); ctx.arc(x, cy - 5, 2.4, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke()
+  fillc(ctx, x - 8, cy - 6, 1.8, 'rgba(255,150,170,0.5)'); fillc(ctx, x + 8, cy - 6, 1.8, 'rgba(255,150,170,0.5)')
   if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
 }
 
-// 사오정 (강의 요괴승 + 항요장 + 해골 염주)
-function drawSaohjeong(ctx, x, y, now, casting, char, color) {
+// 옥동자 (보리도사 제자, 시간 마법 - 상투 소년)
+function drawOkdongja(ctx, x, y, now, casting, char, color) {
   const cy = y + Math.sin(now / 400) * 3
   heroBase(ctx, x, y)
-  // 몸 (청록 승복)
-  ctx.fillStyle = '#2E8B8B'
-  ctx.beginPath(); ctx.moveTo(x - 20, cy + 38); ctx.lineTo(x - 14, cy + 2); ctx.lineTo(x + 14, cy + 2); ctx.lineTo(x + 20, cy + 38); ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#1F6B6B'; ctx.fillRect(x - 16, cy + 24, 32, 5)
-  // 해골 염주
-  for (let i = -2; i <= 2; i++) fillc(ctx, x + i * 6, cy + 7, 2.6, '#EDE7D9')
-  heroArms(ctx, x, cy, casting, '#2E8B8B')
-  // 항요장(지팡이, 왼손)
-  ctx.strokeStyle = '#9A7B5F'; ctx.lineWidth = 4
-  ctx.beginPath(); ctx.moveTo(x - 22, cy + 26); ctx.lineTo(x - 32, cy - 14); ctx.stroke()
-  ctx.strokeStyle = '#E8C341'; ctx.lineWidth = 2.4
-  ctx.beginPath(); ctx.arc(x - 32, cy - 18, 5, 0, Math.PI * 2); ctx.stroke()
-  fillc(ctx, x - 37, cy - 18, 1.6, '#E8C341'); fillc(ctx, x - 27, cy - 18, 1.6, '#E8C341')
-  // 얼굴 (청록 요괴)
-  fillc(ctx, x, cy - 12, 15, '#5FB9B0')
-  ctx.fillStyle = '#4A9E96'; ctx.beginPath(); ctx.arc(x, cy - 6, 11, 0, Math.PI); ctx.fill() // 턱
-  // 붉은 더벅머리
-  ctx.fillStyle = '#B23B2E'
-  ctx.beginPath(); ctx.arc(x, cy - 16, 15, Math.PI * 0.98, Math.PI * 2.02); ctx.fill()
-  for (let i = -2; i <= 2; i++) tri(ctx, x + i * 6 - 3, cy - 22, x + i * 6, cy - 35, x + i * 6 + 3, cy - 22, '#9E3327')
-  // 눈 (부리부리)
-  fillc(ctx, x - 6, cy - 12, 3.2, '#fff'); fillc(ctx, x + 6, cy - 12, 3.2, '#fff')
-  fillc(ctx, x - 6, cy - 12, 1.8, '#222'); fillc(ctx, x + 6, cy - 12, 1.8, '#222')
-  ctx.strokeStyle = '#1F5B57'; ctx.lineWidth = 1.6
-  ctx.beginPath(); ctx.moveTo(x - 5, cy - 3); ctx.lineTo(x + 5, cy - 3); ctx.stroke()
+  // 몸 (옥빛 도복)
+  ctx.fillStyle = '#3FB89A'
+  ctx.beginPath(); ctx.moveTo(x - 20, cy + 38); ctx.lineTo(x - 13, cy + 4); ctx.lineTo(x + 13, cy + 4); ctx.lineTo(x + 20, cy + 38); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#E8C341'; ctx.fillRect(x - 16, cy + 22, 32, 5)
+  ctx.fillStyle = '#2E9079'; ctx.fillRect(x - 2, cy + 4, 4, 34)
+  heroArms(ctx, x, cy, casting, '#3FB89A')
+  // 모래시계 (시간 마법, 왼손)
+  ctx.strokeStyle = '#C9A36A'; ctx.lineWidth = 2
+  ctx.beginPath(); ctx.moveTo(x - 36, cy + 8); ctx.lineTo(x - 28, cy + 8); ctx.moveTo(x - 36, cy + 22); ctx.lineTo(x - 28, cy + 22); ctx.stroke()
+  tri(ctx, x - 36, cy + 8, x - 28, cy + 8, x - 32, cy + 15, '#9AD8FF')
+  tri(ctx, x - 36, cy + 22, x - 28, cy + 22, x - 32, cy + 15, '#9AD8FF')
+  // 얼굴 (둥근 소년)
+  fillc(ctx, x, cy - 13, 15, '#FFE0C2')
+  // 머리 + 상투
+  ctx.fillStyle = '#3A2E26'
+  ctx.beginPath(); ctx.arc(x, cy - 15, 15, Math.PI * 1.05, Math.PI * 1.95); ctx.fill()
+  fillc(ctx, x, cy - 30, 4, '#3A2E26') // 상투
+  ctx.fillStyle = '#2E9079'; ctx.fillRect(x - 4, cy - 31, 8, 3) // 상투 띠
+  // 눈 (동글, 허당 느낌) + 발그레
+  fillc(ctx, x - 5, cy - 11, 2.8, '#222'); fillc(ctx, x + 5, cy - 11, 2.8, '#222')
+  fillc(ctx, x - 4, cy - 12, 1, '#fff'); fillc(ctx, x + 6, cy - 12, 1, '#fff')
+  fillc(ctx, x - 9, cy - 6, 2, 'rgba(255,150,120,0.5)'); fillc(ctx, x + 9, cy - 6, 2, 'rgba(255,150,120,0.5)')
+  ctx.strokeStyle = '#9C5A3C'; ctx.lineWidth = 1.5
+  ctx.beginPath(); ctx.arc(x, cy - 5, 2.6, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke()
   if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
 }
 
-const HERO_DRAW = [drawSonOhgong, drawJeopalgye, drawSaohjeong]
-const HERO_NAMES = ['손오공', '저팔계', '사오정']
+// 샤오공주 (하늘나라 공주 - 머리 장식 + 푸른 예복)
+function drawXiao(ctx, x, y, now, casting, char, color) {
+  const cy = y + Math.sin(now / 360) * 3
+  heroBase(ctx, x, y)
+  // 예복 치마 (넓게)
+  ctx.fillStyle = '#7FB8E8'
+  ctx.beginPath(); ctx.moveTo(x - 24, cy + 38); ctx.lineTo(x - 12, cy + 4); ctx.lineTo(x + 12, cy + 4); ctx.lineTo(x + 24, cy + 38); ctx.closePath(); ctx.fill()
+  ctx.fillStyle = '#EAF4FF'; ctx.fillRect(x - 12, cy + 4, 24, 8) // 흰 상의
+  ctx.fillStyle = '#E8C341'; ctx.fillRect(x - 13, cy + 12, 26, 5) // 금띠
+  // 치마 무늬
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  for (let i = -1; i <= 1; i++) fillc(ctx, x + i * 12, cy + 30, 2.2, 'rgba(255,255,255,0.4)')
+  heroArms(ctx, x, cy, casting, '#7FB8E8')
+  // 부채 (왼손)
+  ctx.fillStyle = '#E84F8A'
+  ctx.beginPath(); ctx.moveTo(x - 30, cy + 20); ctx.lineTo(x - 42, cy + 8); ctx.lineTo(x - 40, cy + 22); ctx.closePath(); ctx.fill()
+  // 얼굴
+  fillc(ctx, x, cy - 13, 14, '#FFE3CC')
+  // 올림머리 + 옆머리
+  ctx.fillStyle = '#241C30'
+  ctx.beginPath(); ctx.arc(x, cy - 15, 14, Math.PI * 1.0, Math.PI * 2.0); ctx.fill()
+  fillc(ctx, x, cy - 30, 6, '#241C30') // 쪽
+  // 작은 관/장식
+  ctx.fillStyle = '#F2C200'
+  tri(ctx, x - 7, cy - 24, x, cy - 34, x + 7, cy - 24, '#F2C200')
+  fillc(ctx, x, cy - 33, 2, '#7DD4F8')
+  fillc(ctx, x - 11, cy - 16, 2.2, '#FF7AA8'); fillc(ctx, x + 11, cy - 16, 2.2, '#FF7AA8') // 귀 장식
+  // 눈 (우아)
+  fillc(ctx, x - 5, cy - 12, 2.8, '#2A2238'); fillc(ctx, x + 5, cy - 12, 2.8, '#2A2238')
+  fillc(ctx, x - 4, cy - 13, 1, '#fff'); fillc(ctx, x + 6, cy - 13, 1, '#fff')
+  ctx.strokeStyle = '#C8607E'; ctx.lineWidth = 1.4
+  ctx.beginPath(); ctx.arc(x, cy - 5, 2.2, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke()
+  if (casting) drawMagicCircle(ctx, x + 40, cy - 22, now, color, char)
+}
+
+const HERO_DRAW = [drawSonOhgong, drawSamjang, drawOkdongja, drawXiao]
+const HERO_NAMES = ['손오공', '삼장', '옥동자', '샤오공주']
 
 function drawEnemy(ctx, e, now) {
   const dead = e.dying
