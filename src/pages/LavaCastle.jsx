@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
 import { useTouchLock } from '../hooks/useTouchLock'
-import roadArt from '../assets/lava-castle/volcanic-three-roads.webp'
+import roadArt from '../assets/lava-castle/volcanic-three-gates.webp'
 import villainArt from '../assets/lava-castle/villains.webp'
 import './LavaCastle.css'
 
@@ -13,21 +13,22 @@ const BOTTOM_H = 126
 const GAME_H = TOP_H + FIELD_H + BOTTOM_H
 const TOTAL_STAGES = 15
 const SPAWN_SHIELD_DISTANCE = 125
+const GATE_MAX_HP = 3
 
 const ROUTE_ORDER = ['left', 'center', 'right']
 const ROUTE_COLORS = { left: '#74dcff', center: '#ffd45f', right: '#ff7f9a' }
 const ROUTE_POINTS = {
   left: [
-    [35, 738], [50, 675], [72, 610], [104, 545], [142, 490],
-    [185, 440], [226, 403], [244, 356], [246, 304], [239, 252], [240, 170],
+    [42, 738], [54, 675], [68, 610], [84, 545], [101, 480],
+    [116, 415], [130, 350], [140, 285], [147, 225], [150, 174],
   ],
   center: [
-    [235, 738], [235, 675], [235, 610], [235, 545], [235, 485],
-    [238, 430], [244, 380], [246, 328], [244, 282], [239, 232], [240, 170],
+    [235, 738], [235, 675], [235, 610], [235, 545], [235, 480],
+    [236, 415], [237, 350], [238, 285], [239, 225], [240, 174],
   ],
   right: [
-    [445, 738], [430, 675], [410, 610], [382, 545], [346, 490],
-    [306, 442], [267, 405], [247, 358], [244, 306], [239, 252], [240, 170],
+    [438, 738], [426, 675], [412, 610], [396, 545], [379, 480],
+    [363, 415], [349, 350], [338, 285], [331, 225], [328, 174],
   ],
 }
 
@@ -164,7 +165,8 @@ function freshGame(profile, stage = 1) {
     phase: 'menu',
     enemies: [], puddles: [], particles: [], floaters: [], arcs: [],
     queue: [], spawnIndex: 0, spawnTimer: 0, ids: 0,
-    castleHp: 6, score: 0, coins: profile.coins, combo: 0, comboUntil: 0,
+    gateHp: { left: GATE_MAX_HP, center: GATE_MAX_HP, right: GATE_MAX_HP },
+    score: 0, coins: profile.coins, combo: 0, comboUntil: 0,
     ultimate: 0, weapon: profile.selected, lastShot: 0, flash: 0, shake: 0,
     stageEarned: 0, lastTime: 0,
   }
@@ -186,7 +188,10 @@ function LavaCastle() {
   const [phase, setPhase] = useState('menu')
   const [stage, setStage] = useState(1)
   const [muted, setMuted] = useState(false)
-  const [hud, setHud] = useState({ castleHp: 6, coins: profile.coins, score: 0, combo: 0, ultimate: 0, remaining: 0, earned: 0, routes: [0, 0, 0] })
+  const [hud, setHud] = useState({
+    gateHp: [GATE_MAX_HP, GATE_MAX_HP, GATE_MAX_HP],
+    coins: profile.coins, score: 0, combo: 0, ultimate: 0, remaining: 0, earned: 0, routes: [0, 0, 0],
+  })
   const [toast, setToast] = useState('')
 
   const persist = useCallback((next) => {
@@ -242,14 +247,17 @@ function LavaCastle() {
   const syncHud = useCallback(() => {
     const g = gameRef.current
     setHud({
-      castleHp: g.castleHp,
+      gateHp: ROUTE_ORDER.map((route) => g.gateHp[route]),
       coins: g.coins,
       score: g.score,
       combo: g.combo,
       ultimate: g.ultimate,
       earned: g.stageEarned,
       remaining: Math.max(0, g.queue.length - g.spawnIndex + g.enemies.filter((e) => !e.dead && !e.leaked).length),
-      routes: ROUTE_ORDER.map((route) => g.enemies.filter((enemy) => !enemy.dead && !enemy.leaked && enemy.route === route).length),
+      routes: ROUTE_ORDER.map((route) => (
+        g.queue.slice(g.spawnIndex).filter((entry) => entry.route === route).length
+        + g.enemies.filter((enemy) => !enemy.dead && !enemy.leaked && enemy.route === route).length
+      )),
     })
   }, [])
 
@@ -282,7 +290,8 @@ function LavaCastle() {
   const finishStage = useCallback(() => {
     const g = gameRef.current
     if (g.phase !== 'playing') return
-    const bonus = 65 + g.stage * 18 + g.castleHp * 7
+    const remainingGateHp = Object.values(g.gateHp).reduce((sum, hp) => sum + hp, 0)
+    const bonus = 65 + g.stage * 18 + remainingGateHp * 7
     g.coins += bonus
     g.stageEarned += bonus
     g.score += bonus * 5
@@ -497,17 +506,19 @@ function LavaCastle() {
 
       g.enemies.forEach((enemy) => {
         if (enemy.dead || enemy.leaked) return
-        const mercy = g.castleHp <= 2 ? 0.9 : 1
+        const mercy = g.gateHp[enemy.route] <= 1 ? 0.9 : 1
         enemy.distance += enemy.speed * (1 + (g.stage - 1) * 0.018) * mercy * dt
         const pos = pointOnRoute(enemy.route, enemy.distance, enemy.lane)
         enemy.x = pos.x; enemy.y = pos.y; enemy.hit = Math.max(0, enemy.hit - dt)
         if (enemy.distance >= ROUTES[enemy.route].length) {
           enemy.leaked = true
-          g.castleHp = Math.max(0, g.castleHp - enemy.damage)
+          const gateDamage = Math.min(g.gateHp[enemy.route], enemy.damage)
+          g.gateHp[enemy.route] -= gateDamage
           g.combo = 0; g.shake = 10; g.flash = 0.35
-          g.floaters.push({ x: 240, y: 154, text: `성벽 -${enemy.damage}`, life: 1.1, color: '#ff6868' })
+          const gate = pointOnRoute(enemy.route, ROUTES[enemy.route].length)
+          g.floaters.push({ x: gate.x, y: gate.y - 18, text: `성문 -${gateDamage}`, life: 1.1, color: '#ff6868' })
           playSound('leak')
-          if (g.castleHp <= 0) loseGame()
+          if (g.gateHp[enemy.route] <= 0) loseGame()
         }
       })
 
@@ -643,7 +654,11 @@ function LavaCastle() {
         <div className="lc-game" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})` }}>
           <header className="lc-hud" style={{ height: TOP_H }}>
             <div className="lc-brand"><span className="lc-brand-mark">🌋</span><div><b>용암 수호대</b><small>CASTLE GUARD</small></div></div>
-            <div className="lc-stat"><small>성벽</small><strong className="lc-hearts">{'♥'.repeat(hud.castleHp)}<i>{'♥'.repeat(6 - hud.castleHp)}</i></strong></div>
+            <div className="lc-stat"><small>세 성문</small><strong className="lc-gate-total">
+              {hud.gateHp.map((hp, index) => (
+                <span key={ROUTE_ORDER[index]} style={{ '--route': ROUTE_COLORS[ROUTE_ORDER[index]] }}><i>{index === 0 ? '좌' : index === 1 ? '중' : '우'}</i>{hp}</span>
+              ))}
+            </strong></div>
             <div className="lc-stat"><small>스테이지</small><strong>{stage}<em>/{TOTAL_STAGES}</em></strong></div>
             <div className="lc-stat lc-coin"><small>보유</small><strong>◆ {hud.coins}</strong></div>
             <button className="lc-sound" onClick={() => setMuted((value) => !value)} aria-label="소리 켜기/끄기">{muted ? '🔇' : '🔊'}</button>
@@ -656,12 +671,13 @@ function LavaCastle() {
             <canvas ref={canvasRef} className="lc-canvas" style={{ width: GAME_W, height: FIELD_H }} onPointerDown={shoot} />
             {phase === 'playing' && (
               <>
-                <div className="lc-wave-chip">남은 악당 <b>{hud.remaining}</b> · 3개 길</div>
-                <div className="lc-route-radar" aria-label="길마다 남아 있는 악당 수">
+                <div className="lc-wave-chip">남은 <b>{hud.remaining}</b></div>
+                <div className="lc-route-radar" aria-label="길마다 남은 악당 수와 성문 내구도">
                   {ROUTE_ORDER.map((route, index) => (
                     <span key={route} style={{ '--route': ROUTE_COLORS[route] }}>
                       <i>{index === 0 ? '↖' : index === 1 ? '↑' : '↗'}</i>
                       <b>{hud.routes[index]}</b>
+                      <small>🛡️{hud.gateHp[index]}</small>
                     </span>
                   ))}
                 </div>
@@ -669,7 +685,7 @@ function LavaCastle() {
                 <button className={`lc-eruption${hud.ultimate >= 100 ? ' ready' : ''}`} onClick={useEruption}>
                   <span>🌋</span><div><b>{hud.ultimate >= 100 ? '대분화!' : '분화 충전'}</b><i><em style={{ width: `${hud.ultimate}%` }} /></i></div>
                 </button>
-                <div className="lc-guide">🛡️ 세 입구를 번갈아 지키세요!</div>
+                <div className="lc-guide">⚠️ 성문 하나라도 무너지면 패배!</div>
               </>
             )}
 
@@ -680,15 +696,15 @@ function LavaCastle() {
                     <>
                       <div className="lc-kicker">IAN'S VOLCANIC DEFENSE</div>
                       <h1><span>용암</span> 수호대</h1>
-                      <p>세 갈래 화산길로 몰려오는 악당들을<br />뜨거운 용암으로 막아내세요!</p>
-                      <div className="lc-how"><span>🛣️<b>3개 길</b></span><span>🔥<b>터치 발사</b></span><span>◆<b>무기 강화</b></span></div>
+                      <p>서로 만나지 않는 세 길과 세 성문을<br />뜨거운 용암으로 모두 지켜내세요!</p>
+                      <div className="lc-how"><span>🏰<b>3개 성문</b></span><span>🔥<b>터치 발사</b></span><span>◆<b>무기 강화</b></span></div>
                     </>
                   )}
                   {phase === 'clear' && (
-                    <><div className="lc-result-icon">🏆</div><h2>스테이지 {stage} 방어 성공!</h2><p>성벽을 지키고 <b>◆ {hud.earned}</b>을 모았어요.</p></>
+                    <><div className="lc-result-icon">🏆</div><h2>스테이지 {stage} 방어 성공!</h2><p>세 성문을 지키고 <b>◆ {hud.earned}</b>을 모았어요.</p></>
                   )}
                   {phase === 'gameover' && (
-                    <><div className="lc-result-icon">🧱</div><h2>성벽이 무너졌어요!</h2><p>무기를 강화하고 스테이지 {stage}에 다시 도전해요.</p></>
+                    <><div className="lc-result-icon">🚪</div><h2>성문이 뚫렸어요!</h2><p>세 길을 골고루 지키며 스테이지 {stage}에 다시 도전해요.</p></>
                   )}
                   {phase === 'victory' && (
                     <><div className="lc-result-icon">👑</div><h2>전설의 수호자!</h2><p>모든 악당을 물리치고 화산 왕국을 지켰어요!</p></>

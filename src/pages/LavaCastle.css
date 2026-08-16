@@ -88,8 +88,9 @@
 .lc-stat small { font-size: 11px; color: #d4bdc8; font-weight: 800; }
 .lc-stat strong { font-family: 'Black Han Sans', sans-serif; font-weight: 400; font-size: 18px; color: #fff2d8; line-height: 1; white-space: nowrap; }
 .lc-stat strong em { font: 700 12px sans-serif; color: #bda5b8; }
-.lc-hearts { font-family: sans-serif !important; font-size: 13px !important; color: #ff595f !important; letter-spacing: 1px; }
-.lc-hearts i { color: #4c3649; font-style: normal; }
+.lc-gate-total { display: flex; gap: 4px; font-family: sans-serif !important; font-size: 14px !important; letter-spacing: 0; }
+.lc-gate-total span { color: var(--route); font-weight: 900; }
+.lc-gate-total i { color: #fff0d6; font-size: 12px; font-style: normal; margin-right: 1px; }
 .lc-coin strong { color: #ffd666; font-size: 15px; }
 .lc-sound { margin-left: auto; width: 31px; height: 31px; padding: 0; border-radius: 50%; color: white; background: #3d263e; border: 1px solid #684569; font-size: 14px; }
 
@@ -107,12 +108,13 @@
   border-radius: 999px; backdrop-filter: blur(5px); pointer-events: none;
 }
 .lc-route-radar span {
-  min-width: 34px; height: 25px; display: flex; align-items: center; justify-content: center; gap: 3px;
+  min-width: 55px; height: 28px; display: flex; align-items: center; justify-content: center; gap: 3px;
   border: 1px solid color-mix(in srgb, var(--route) 68%, transparent); border-radius: 999px;
   background: color-mix(in srgb, var(--route) 14%, #211027); box-shadow: inset 0 0 8px color-mix(in srgb, var(--route) 16%, transparent);
 }
 .lc-route-radar i { color: var(--route); font: 900 16px/1 sans-serif; font-style: normal; }
 .lc-route-radar b { min-width: 10px; font: 900 14px/1 sans-serif; }
+.lc-route-radar small { color: #dff7ff; font: 900 13px/1 sans-serif; white-space: nowrap; }
 .lc-combo {
   position: absolute; right: 14px; top: 13px; color: #ffd45f; font: 900 12px/1 sans-serif;
   transform: rotate(2deg); text-shadow: 0 2px 8px #3b0914; animation: lc-pop .18s ease-out;
