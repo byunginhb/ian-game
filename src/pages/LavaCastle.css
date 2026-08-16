@@ -1,0 +1,224 @@
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum:wght@400;700&display=swap');
+
+.lc-container {
+  --ink: #241426;
+  --cream: #fff3d6;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  position: fixed;
+  inset: 0;
+  overflow: clip;
+  font-family: 'Gowun Dodum', sans-serif;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(255, 100, 28, .28), transparent 28%),
+    radial-gradient(circle at 88% 80%, rgba(122, 42, 154, .3), transparent 30%),
+    linear-gradient(150deg, #170b1f 0%, #2d1129 48%, #120916 100%);
+}
+
+.lc-container::before,
+.lc-container::after {
+  content: '';
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border: 2px solid rgba(255, 111, 32, .15);
+  border-radius: 42% 58% 54% 46%;
+  animation: lc-drift 18s linear infinite;
+}
+.lc-container::before { left: -210px; bottom: -170px; box-shadow: 0 0 80px rgba(255, 69, 0, .18); }
+.lc-container::after { right: -230px; top: -180px; animation-direction: reverse; }
+@keyframes lc-drift { to { transform: rotate(360deg); } }
+
+.lc-back {
+  position: fixed;
+  top: 12px;
+  left: 14px;
+  z-index: 120;
+  color: #ffe1bb;
+  background: rgba(24, 8, 27, .78);
+  border: 1px solid rgba(255, 171, 82, .25);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+}
+
+.lc-shell { position: absolute; left: 50%; top: 50%; z-index: 2; min-width: 0; min-height: 0; overflow: clip; border-radius: 20px; transform: translate(-50%, -50%); }
+.lc-game {
+  position: relative;
+  overflow: hidden;
+  transform-origin: top left;
+  border: 2px solid #9a5828;
+  border-radius: 22px;
+  background: #1b0d21;
+  box-shadow: 0 0 0 5px #241229, 0 18px 65px rgba(0, 0, 0, .65), 0 0 50px rgba(255, 88, 24, .16);
+}
+.lc-game::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  border-radius: 20px;
+  box-shadow: inset 0 0 0 2px rgba(255, 214, 140, .1), inset 0 0 36px rgba(5, 0, 10, .42);
+}
+
+.lc-hud {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 10px 12px;
+  color: #fff1d5;
+  background: linear-gradient(180deg, #2c172f, #190c20);
+  border-bottom: 2px solid #8a4d27;
+  position: relative;
+  z-index: 12;
+}
+.lc-brand { display: flex; align-items: center; gap: 7px; padding-right: 12px; border-right: 1px solid rgba(255,255,255,.12); }
+.lc-brand-mark { font-size: 30px; filter: drop-shadow(0 0 7px #f75523); animation: lc-pulse 1.8s ease-in-out infinite; }
+@keyframes lc-pulse { 50% { transform: scale(1.12); filter: drop-shadow(0 0 13px #ffce53); } }
+.lc-brand b { display: block; font-family: 'Black Han Sans', sans-serif; font-size: 16px; font-weight: 400; line-height: 1; letter-spacing: -.5px; }
+.lc-brand small { display: block; font: 800 9px/1.3 sans-serif; letter-spacing: 1px; color: #e1aa82; margin-top: 3px; }
+.lc-stat { display: grid; gap: 1px; min-width: 60px; }
+.lc-stat small { font-size: 11px; color: #d4bdc8; font-weight: 800; }
+.lc-stat strong { font-family: 'Black Han Sans', sans-serif; font-weight: 400; font-size: 18px; color: #fff2d8; line-height: 1; white-space: nowrap; }
+.lc-stat strong em { font: 700 12px sans-serif; color: #bda5b8; }
+.lc-hearts { font-family: sans-serif !important; font-size: 13px !important; color: #ff595f !important; letter-spacing: 1px; }
+.lc-hearts i { color: #4c3649; font-style: normal; }
+.lc-coin strong { color: #ffd666; font-size: 15px; }
+.lc-sound { margin-left: auto; width: 31px; height: 31px; padding: 0; border-radius: 50%; color: white; background: #3d263e; border: 1px solid #684569; font-size: 14px; }
+
+.lc-field { position: relative; overflow: hidden; background: #1c1126; }
+.lc-canvas { display: block; touch-action: none; cursor: crosshair; }
+.lc-wave-chip {
+  position: absolute; top: 13px; left: 13px; padding: 7px 12px; color: #ffe9c6;
+  background: rgba(23, 8, 27, .72); border: 1px solid rgba(255, 189, 103, .28); border-radius: 999px;
+  backdrop-filter: blur(5px); font-size: 13px; font-weight: 800; pointer-events: none;
+}
+.lc-wave-chip b { color: #ffd65c; font-size: 13px; margin-left: 3px; }
+.lc-route-radar {
+  position: absolute; top: 11px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px;
+  padding: 4px; color: #fff6e5; background: rgba(23, 8, 27, .72); border: 1px solid rgba(255,255,255,.13);
+  border-radius: 999px; backdrop-filter: blur(5px); pointer-events: none;
+}
+.lc-route-radar span {
+  min-width: 34px; height: 25px; display: flex; align-items: center; justify-content: center; gap: 3px;
+  border: 1px solid color-mix(in srgb, var(--route) 68%, transparent); border-radius: 999px;
+  background: color-mix(in srgb, var(--route) 14%, #211027); box-shadow: inset 0 0 8px color-mix(in srgb, var(--route) 16%, transparent);
+}
+.lc-route-radar i { color: var(--route); font: 900 16px/1 sans-serif; font-style: normal; }
+.lc-route-radar b { min-width: 10px; font: 900 14px/1 sans-serif; }
+.lc-combo {
+  position: absolute; right: 14px; top: 13px; color: #ffd45f; font: 900 12px/1 sans-serif;
+  transform: rotate(2deg); text-shadow: 0 2px 8px #3b0914; animation: lc-pop .18s ease-out;
+}
+.lc-combo b { font-size: 27px; margin-right: 3px; font-style: italic; }
+@keyframes lc-pop { from { transform: scale(.5) rotate(-8deg); } }
+.lc-guide {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); color: rgba(255, 239, 206, .86);
+  font-size: 13px; font-weight: 800; background: rgba(24, 9, 28, .72); padding: 7px 13px; border-radius: 999px;
+  pointer-events: none; animation: lc-guide 2.4s ease-in-out infinite;
+}
+@keyframes lc-guide { 50% { transform: translateX(-50%) translateY(-4px); } }
+.lc-eruption {
+  position: absolute; right: 12px; bottom: 14px; display: flex; align-items: center; gap: 6px; width: 105px; height: 42px;
+  padding: 5px 8px; color: #f0cec4; background: rgba(35, 12, 31, .86); border: 1px solid #6c3b45; border-radius: 13px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.34);
+}
+.lc-eruption > span { font-size: 23px; filter: grayscale(.7); }
+.lc-eruption div { flex: 1; text-align: left; }
+.lc-eruption b { display: block; font-size: 11px; }
+.lc-eruption i { display: block; height: 4px; background: #301b31; border-radius: 9px; overflow: hidden; margin-top: 4px; }
+.lc-eruption i em { display: block; height: 100%; background: linear-gradient(90deg, #f34b1e, #ffd353); }
+.lc-eruption.ready { color: white; border-color: #ffd052; background: linear-gradient(135deg, #a62122, #e14c1f); animation: lc-ready .72s ease-in-out infinite alternate; }
+.lc-eruption.ready > span { filter: none; }
+@keyframes lc-ready { to { transform: scale(1.05); box-shadow: 0 0 22px rgba(255, 127, 34, .7); } }
+
+.lc-toolbar {
+  display: flex; align-items: center; gap: 10px; padding: 11px 12px 13px; color: #f7e6cc;
+  background: linear-gradient(180deg, #27152b, #160b1c); border-top: 2px solid #8a4d27; position: relative; z-index: 10;
+}
+.lc-score { width: 66px; flex: none; text-align: center; padding-right: 10px; border-right: 1px solid rgba(255,255,255,.1); }
+.lc-score small { display: block; color: #c5adbf; font: 900 10px sans-serif; letter-spacing: 1px; }
+.lc-score b { display: block; font-family: 'Black Han Sans', sans-serif; font-size: 18px; color: #ffd969; font-weight: 400; }
+.lc-live-weapons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; flex: 1; }
+.lc-live-weapons button {
+  min-width: 0; height: 86px; padding: 7px 3px 5px; display: grid; place-items: center; gap: 1px; color: #cbb9c7;
+  grid-template-rows: 28px 18px 16px; align-content: center;
+  background: #322035; border: 1px solid #543554; border-radius: 13px; box-shadow: inset 0 1px rgba(255,255,255,.06);
+}
+.lc-live-weapons button span { font-size: 24px; line-height: 1; filter: grayscale(.35); }
+.lc-live-weapons button b { font-size: 18px; line-height: 1; font-weight: 900; white-space: nowrap; }
+.lc-live-weapons button small { font: 800 15px/1 sans-serif; color: #e0c8da; white-space: nowrap; }
+.lc-live-weapons button.active { color: white; border-color: var(--weapon); background: color-mix(in srgb, var(--weapon) 24%, #28172d); box-shadow: 0 0 17px color-mix(in srgb, var(--weapon) 28%, transparent); transform: translateY(-3px); }
+.lc-live-weapons button.active span { filter: none; }
+.lc-live-weapons button:disabled { opacity: .42; cursor: not-allowed; }
+
+.lc-overlay {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 18px; z-index: 30;
+  background: linear-gradient(180deg, rgba(16,5,22,.25), rgba(16,5,22,.76)); backdrop-filter: blur(2px);
+}
+.lc-panel {
+  width: 100%; max-width: 416px; padding: 22px 20px 18px; text-align: center; color: #3a1b27;
+  background:
+    linear-gradient(135deg, transparent 11px, #fff0ce 0) top left,
+    linear-gradient(225deg, transparent 11px, #fff0ce 0) top right,
+    linear-gradient(315deg, transparent 11px, #fff0ce 0) bottom right,
+    linear-gradient(45deg, transparent 11px, #fff0ce 0) bottom left;
+  background-size: 52% 52%; background-repeat: no-repeat;
+  filter: drop-shadow(0 15px 28px rgba(0,0,0,.55)); position: relative;
+}
+.lc-panel::before { content: ''; position: absolute; inset: 7px; border: 1px solid rgba(120, 66, 38, .25); pointer-events: none; }
+.lc-kicker { font: 900 10px sans-serif; letter-spacing: 1.8px; color: #a04d31; margin-bottom: 5px; }
+.lc-panel h1 { font-family: 'Black Han Sans', sans-serif; font-size: 42px; line-height: 1; font-weight: 400; letter-spacing: -2px; color: #331827; text-shadow: 0 3px white; }
+.lc-panel h1 span { color: #ef481e; }
+.lc-panel h2 { font-family: 'Black Han Sans', sans-serif; font-size: 25px; font-weight: 400; letter-spacing: -.5px; margin: 3px 0 5px; }
+.lc-panel > p { font-size: 18px; font-weight: 700; line-height: 1.45; color: #66434a; margin: 7px 0 12px; }
+.lc-panel > p b { color: #c34222; }
+.lc-result-icon { font-size: 44px; filter: drop-shadow(0 5px 7px rgba(102, 41, 20, .22)); animation: lc-result .6s cubic-bezier(.2,.8,.2,1.3); }
+@keyframes lc-result { from { transform: translateY(-30px) scale(.4) rotate(-15deg); opacity: 0; } }
+.lc-how { display: flex; justify-content: center; gap: 7px; margin: 12px 0 13px; }
+.lc-how span { width: 31%; display: grid; gap: 2px; place-items: center; padding: 7px 3px; background: rgba(128,75,46,.09); border-radius: 10px; font-size: 17px; }
+.lc-how b { font-size: 18px; line-height: 1.2; color: #654047; white-space: nowrap; }
+
+.lc-loadout { background: #311b2d; border-radius: 14px; padding: 10px; color: #f9ead2; box-shadow: inset 0 0 0 1px #684152, 0 4px 12px rgba(54,20,31,.18); }
+.lc-loadout-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; padding: 0 3px; }
+.lc-loadout-head span { font-family: 'Black Han Sans', sans-serif; font-size: 17px; font-weight: 400; }
+.lc-loadout-head b { color: #ffd56c; font-size: 15px; }
+.lc-weapon-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lc-weapon-tabs button { height: 84px; padding: 6px 2px; display: grid; grid-template-rows: 28px 20px 18px; align-content: center; place-items: center; gap: 2px; color: #f1e2ec; background: #493048; border: 1px solid #795773; border-radius: 10px; }
+.lc-weapon-tabs button span { font-size: 23px; line-height: 1; }
+.lc-weapon-tabs button b { font-size: 18px; line-height: 1; font-weight: 900; white-space: nowrap; }
+.lc-weapon-tabs button small { font-size: 16px; line-height: 1; font-weight: 800; color: #f0d9e8; white-space: nowrap; }
+.lc-weapon-tabs button.active { border-color: var(--weapon); color: white; background: color-mix(in srgb, var(--weapon) 25%, #38233b); box-shadow: 0 0 10px color-mix(in srgb, var(--weapon) 24%, transparent); }
+.lc-weapon-tabs button.locked { background: #29202c; color: #8e7a89; }
+.lc-weapon-detail { min-height: 72px; display: grid; grid-template-columns: 45px 1fr auto; gap: 8px; align-items: center; text-align: left; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.1); }
+.lc-weapon-orb { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; font-size: 24px; background: color-mix(in srgb, var(--weapon) 25%, #211525); border: 1px solid var(--weapon); }
+.lc-weapon-detail > div:nth-child(2) > b { display: block; font-size: 18px; }
+.lc-weapon-detail b em { color: #ffd66d; font-style: normal; }
+.lc-weapon-detail p { font-size: 15px; line-height: 1.25; font-weight: 700; color: #ead4e2; margin: 2px 0; white-space: nowrap; }
+.lc-weapon-detail small { font-size: 14px; line-height: 1.2; font-weight: 800; color: #ffe3ad; white-space: nowrap; }
+.lc-weapon-detail > button { padding: 8px 10px; background: linear-gradient(#ffcf5b,#e89522); border: 1px solid #ffec9e; color: #522716; border-radius: 9px; font-size: 16px; font-weight: 900; line-height: 1.2; }
+.lc-weapon-detail > button b { font-size: 16px; }
+.lc-weapon-detail > button:disabled { filter: grayscale(1); opacity: .48; cursor: not-allowed; }
+.lc-max { font: 900 12px sans-serif; color: #ffdc68; border: 1px solid #99783f; padding: 7px; border-radius: 8px; }
+.lc-start { width: 100%; margin-top: 11px; padding: 13px 18px; color: white; font-family: 'Black Han Sans', sans-serif; font-size: 20px; font-weight: 400; letter-spacing: .3px; background: linear-gradient(135deg, #f0441d, #ff7c25); border: 1px solid #ffb56d; border-radius: 12px; box-shadow: 0 5px 0 #9e2e1d, 0 9px 18px rgba(134,41,25,.28); }
+.lc-start:hover { transform: translateY(-1px); border-color: #fff2b7; }
+.lc-start:active { transform: translateY(3px); box-shadow: 0 2px 0 #9e2e1d; }
+.lc-start span { float: right; }
+.lc-record { display: block; margin-top: 10px; color: #876664; font-size: 11px; font-weight: 800; }
+.lc-toast { position: absolute; left: 50%; top: 19%; transform: translateX(-50%); z-index: 80; padding: 10px 20px; border-radius: 999px; color: white; background: rgba(45,19,39,.92); border: 1px solid #ffb64f; font-weight: 800; font-size: 14px; box-shadow: 0 8px 25px rgba(0,0,0,.36); animation: lc-toast .28s ease-out; white-space: nowrap; }
+@keyframes lc-toast { from { opacity: 0; transform: translate(-50%, -12px) scale(.8); } }
+
+@media (max-height: 760px) {
+  .lc-back { top: 5px; left: 6px; padding: 5px 9px; font-size: 10px; opacity: .86; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-container::before, .lc-container::after, .lc-brand-mark, .lc-guide, .lc-eruption.ready { animation: none; }
+}

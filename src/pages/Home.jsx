@@ -28,6 +28,14 @@ function Home() {
 
   const games = [
     {
+      id: "lava-castle",
+      title: "용암 수호대",
+      emoji: "🌋",
+      description: "길을 터치해 용암을 쏘고, 악당들이 마왕성에 들어가지 못하게 막아라!",
+      color: "#f4511e",
+      tags: ["new", "hot", "action"],
+    },
+    {
       id: "magic-hanja",
       title: "한자 마법 배틀",
       emoji: "🔮",
