@@ -6,9 +6,10 @@
   align-items: center;
   justify-content: flex-start;
   background:
-    radial-gradient(circle at 18% 12%, rgba(139, 92, 246, 0.28), transparent 26%),
-    radial-gradient(circle at 84% 16%, rgba(240, 85, 58, 0.2), transparent 24%),
-    linear-gradient(160deg, #1b1638 0%, #2a2350 50%, #1d2244 100%);
+    radial-gradient(circle at 18% 12%, rgba(168, 72, 64, 0.32), transparent 25%),
+    radial-gradient(circle at 84% 18%, rgba(235, 181, 70, 0.16), transparent 24%),
+    repeating-linear-gradient(115deg, transparent 0 42px, rgba(255, 238, 190, 0.018) 43px 44px),
+    linear-gradient(160deg, #161327 0%, #29203c 50%, #171c30 100%);
 }
 
 .mh-back {
@@ -22,16 +23,17 @@
 }
 .mh-back:hover { opacity: 0.85; }
 
-.mh-wrapper { position: relative; overflow: hidden; border-radius: 14px; }
+.mh-wrapper { position: relative; overflow: hidden; border-radius: 18px; }
 .mh-stage {
   position: relative;
   transform-origin: top left;
   user-select: none;
   touch-action: manipulation;
-  border-radius: 14px;
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 22px 46px rgba(8, 6, 26, 0.5);
-  background: #1d1940;
+  border: 1px solid rgba(238, 194, 102, 0.34);
+  box-shadow: 0 24px 54px rgba(7, 4, 18, 0.62), inset 0 0 0 2px rgba(255,255,255,0.025);
+  background: #171429;
   display: flex;
   flex-direction: column;
 }
@@ -42,19 +44,24 @@
   align-items: center;
   gap: 8px;
   padding: 0 10px;
-  background: rgba(18, 14, 40, 0.92);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(90deg, rgba(92, 34, 42, 0.28), transparent 35% 65%, rgba(92, 34, 42, 0.28)),
+    #171326;
+  border-bottom: 2px solid rgba(218, 172, 79, 0.38);
+  box-shadow: 0 3px 12px rgba(7, 5, 18, 0.42);
+  z-index: 2;
 }
 .mh-hearts { font-size: 13px; letter-spacing: -1px; flex: 1; }
 .mh-stat { font-size: 13px; font-weight: 900; color: #ffe08a; }
 .mh-grade {
-  font-size: 12px; font-weight: 900; color: #9ad0ff;
-  padding: 3px 7px; border-radius: 8px; background: rgba(90, 150, 230, 0.16);
+  font-size: 12px; font-weight: 900; color: #f4d684;
+  padding: 3px 7px; border-radius: 4px; background: rgba(189, 135, 48, 0.13);
+  border: 1px solid rgba(232, 190, 103, 0.23);
   white-space: nowrap;
 }
 .mh-combo { font-size: 13px; font-weight: 900; color: #ff9472; }
 .mh-mute {
-  border: none; border-radius: 8px; padding: 5px 7px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 5px 7px;
   background: rgba(255, 255, 255, 0.12); font-size: 14px; cursor: pointer;
 }
 
@@ -62,11 +69,15 @@
 .mh-field { position: relative; }
 .mh-field canvas { display: block; }
 .mh-stagetag {
-  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-  padding: 3px 12px; border-radius: 12px;
-  background: rgba(18, 14, 40, 0.7); border: 1px solid rgba(255, 224, 138, 0.3);
-  font-size: 12px; font-weight: 900; color: #ffe08a; white-space: nowrap;
+  position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+  min-width: 150px; padding: 3px 13px 4px; border-radius: 4px 4px 10px 10px;
+  background: rgba(18, 14, 35, 0.84); border: 1px solid rgba(255, 224, 138, 0.34);
+  font-size: 11px; font-weight: 900; color: #ffe08a; white-space: nowrap;
+  text-align: center; line-height: 1.15;
+  box-shadow: 0 4px 12px rgba(8,5,20,0.32);
 }
+.mh-stagetag span, .mh-stagetag small { display: block; }
+.mh-stagetag small { margin-top: 2px; color: #c8bfd8; font-size: 8.5px; font-weight: 700; letter-spacing: .03em; }
 .mh-stagetag.boss {
   color: #ffd166; border-color: rgba(255, 100, 100, 0.6);
   background: rgba(60, 14, 40, 0.8);
@@ -76,12 +87,34 @@
 .mh-q {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 2px;
-  background: rgba(255, 255, 255, 0.04);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    linear-gradient(90deg, rgba(109, 65, 37, 0.07), transparent 25% 75%, rgba(109, 65, 37, 0.07)),
+    #f0e4c7;
+  border-top: 3px double rgba(102, 65, 36, 0.5);
+  border-bottom: 1px solid rgba(77, 44, 27, 0.26);
+  position: relative;
 }
-.mh-q-sub { font-size: 13px; font-weight: 700; color: #c9c2e8; }
+.mh-q::before, .mh-q::after { content: '◆'; position: absolute; top: 50%; transform: translateY(-50%); color: rgba(116,76,39,.25); font-size: 11px; }
+.mh-q::before { left: 17px; } .mh-q::after { right: 17px; }
+.mh-q-meta { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 18px; }
+.mh-q-sources { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+.mh-q-sub { font-size: 12px; font-weight: 800; color: #674c36; letter-spacing: .01em; }
+.mh-q-source {
+  padding: 2px 5px; border-radius: 4px;
+  font-size: 8px; font-weight: 900; line-height: 1.15; letter-spacing: -.02em;
+  border: 1px solid rgba(103, 76, 54, .28);
+  color: #684d36; background: rgba(103, 76, 54, .08);
+}
+.mh-q-source.magic {
+  color: #7c382f; border-color: rgba(153, 56, 45, .34);
+  background: rgba(166, 56, 44, .1);
+}
+.mh-q-source.grade {
+  color: #4f506b; border-color: rgba(75, 77, 111, .3);
+  background: rgba(75, 77, 111, .08);
+}
 .mh-q-prompt { font-size: 22px; font-weight: 900; line-height: 1; }
-.mh-q-prompt.big { font-size: 50px; font-family: serif; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); }
+.mh-q-prompt.big { font-size: 50px; font-family: "Songti SC", "Batang", serif; text-shadow: 0 2px 0 rgba(255,255,255,.55), 0 3px 7px rgba(49,30,18,.18); }
 
 /* 선택지 */
 .mh-opts {
@@ -89,22 +122,28 @@
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 9px 10px 10px;
   box-sizing: border-box;
+  background:
+    radial-gradient(circle at 50% -20%, rgba(173, 118, 56, .15), transparent 45%),
+    #211a2e;
 }
 .mh-opt {
   min-height: 0;
   min-width: 0;
-  border: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
+  border: 1px solid rgba(230, 199, 132, 0.3);
+  border-radius: 9px;
+  background: linear-gradient(145deg, rgba(255,255,255,.095), rgba(255,255,255,.035));
+  color: #fff4d4;
   font-size: 18px;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.08s, background 0.15s, border-color 0.15s;
+  text-shadow: 0 2px 4px rgba(0,0,0,.28);
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.018), 0 4px 9px rgba(7,4,16,.22);
+  transition: transform 0.08s, background 0.15s, border-color 0.15s, box-shadow .15s;
 }
-.mh-opt.big { font-size: 32px; font-family: serif; }
+.mh-opt:hover:not(:disabled) { border-color: rgba(255,221,145,.72); box-shadow: 0 0 0 2px rgba(213,159,65,.12), 0 5px 12px rgba(7,4,16,.3); }
+.mh-opt.big { font-size: 32px; font-family: "Songti SC", "Batang", serif; }
 .mh-opt:active { transform: scale(0.96); }
 .mh-opt.correct { background: #1f8b4c; border-color: #2ecc71; color: #fff; }
 .mh-opt.wrong { background: #9b2d24; border-color: #e74c3c; color: #fff; }
@@ -115,23 +154,36 @@
 .mh-overlay {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(10, 8, 28, 0.74);
-  backdrop-filter: blur(3px);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(123, 55, 62, .2), transparent 42%),
+    rgba(8, 6, 20, 0.8);
+  backdrop-filter: blur(2px);
+  z-index: 5;
 }
 .mh-box {
   width: 80%; max-width: 320px;
-  padding: 26px 20px; text-align: center;
-  background: rgba(28, 22, 58, 0.96);
-  border: 2px solid rgba(255, 224, 138, 0.25);
-  border-radius: 20px; color: #fff;
+  padding: 28px 20px 24px; text-align: center;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.04), transparent 38%),
+    rgba(28, 20, 43, 0.97);
+  border: 1px solid rgba(239, 197, 109, 0.55);
+  outline: 3px double rgba(239, 197, 109, 0.18);
+  outline-offset: -7px;
+  border-radius: 9px; color: #fff;
+  box-shadow: 0 22px 50px rgba(4,2,13,.58);
+  position: relative;
 }
-.mh-logo { font-size: 24px; font-weight: 900; color: #ffe08a; margin-bottom: 12px; }
+.mh-box::before { content: '法'; position: absolute; right: 12px; top: 10px; color: rgba(238,188,92,.11); font: 900 64px "Songti SC", serif; transform: rotate(8deg); }
+.mh-logo { font-size: 25px; font-weight: 950; color: #ffe08a; margin-bottom: 13px; letter-spacing: -.04em; text-shadow: 0 3px 12px rgba(218,92,65,.4); position: relative; }
 .mh-box p { margin: 6px 0; font-size: 14px; line-height: 1.5; color: #dcd8f0; }
-.mh-box .mh-tip { font-size: 12px; color: #a99fd0; }
+.mh-box .mh-tip { font-size: 12px; color: #bdb2d4; }
+.mh-box .mh-prog-magic { color: #f2cf7d; font-size: 12px; }
 .mh-box .mh-best { font-size: 12px; color: #ffcf6e; }
 .mh-start {
   margin-top: 16px; padding: 12px 30px;
-  border: none; border-radius: 14px;
-  background: #7c4dde; color: #fff; font-size: 16px; font-weight: 900; cursor: pointer;
+  border: 1px solid #f1ca72; border-radius: 7px;
+  background: linear-gradient(180deg, #b34743, #7f292f); color: #fff4d3; font-size: 16px; font-weight: 900; cursor: pointer;
+  box-shadow: inset 0 1px rgba(255,255,255,.2), 0 5px 14px rgba(4,2,10,.4);
+  letter-spacing: .04em;
 }
 .mh-start:active { transform: scale(0.96); }

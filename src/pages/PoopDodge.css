@@ -1,392 +1,1264 @@
+/* ─────────────────────────────────────────────────────────────
+   POOP DODGE — "cute disaster blockbuster" visual system
+   ───────────────────────────────────────────────────────────── */
 .poop-game-container {
-  text-align: center;
+  --acid: #d8ff45;
+  --warning: #ff6b24;
+  --danger: #ff3158;
+  --cyan: #5cecff;
+  --ink: #07121f;
+  --panel: rgba(5, 16, 29, 0.82);
   position: relative;
   display: flex;
+  min-height: 100vh;
+  width: 100%;
   flex-direction: column;
   align-items: center;
-  padding: 12px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 16px 16px 18px;
+  color: #f7fbff;
+  font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(92, 236, 255, 0.12), transparent 30%),
+    radial-gradient(circle at 85% 86%, rgba(255, 107, 36, 0.13), transparent 34%),
+    linear-gradient(145deg, #07101d 0%, #0d1b2d 48%, #050b13 100%);
+  isolation: isolate;
+}
+
+.poop-game-container::before,
+.poop-game-container::after {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+}
+
+.poop-game-container::before {
+  inset: 0;
+  opacity: 0.3;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 80%, transparent);
+}
+
+.poop-game-container::after {
+  width: 560px;
+  height: 560px;
+  border: 1px solid rgba(92, 236, 255, 0.08);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 90px rgba(92, 236, 255, 0.025),
+    0 0 0 180px rgba(92, 236, 255, 0.018);
+  animation: poopRadar 18s linear infinite;
+}
+
+.poop-page-heading {
+  display: flex;
+  width: min(400px, calc(100vw - 32px));
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
 .poop-back-button {
-  display: inline-block;
-  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(231, 245, 255, 0.72) !important;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
   text-decoration: none;
-  font-size: 16px;
-  margin-bottom: 8px;
-  opacity: 0.8;
-  transition: opacity 0.2s;
-  align-self: flex-start;
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+.poop-back-button span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  color: #fff;
+  font-family: Georgia, serif;
+  font-size: 22px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .poop-back-button:hover {
-  opacity: 1;
+  color: #fff !important;
+  transform: translateX(-2px);
+}
+
+.poop-page-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.poop-page-status i,
+.poop-danger-title i,
+.poop-start-kicker i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(255, 49, 88, 0.15), 0 0 12px var(--danger);
+  animation: poopSignal 1s ease-in-out infinite;
 }
 
 .poop-game-wrapper {
   position: relative;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 24px;
+  background: #07121f;
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 0 6px rgba(5, 13, 23, 0.72),
+    0 0 48px rgba(92, 236, 255, 0.08);
+}
+
+.poop-game-wrapper::before {
+  position: absolute;
+  z-index: 50;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: inherit;
+  pointer-events: none;
+  content: "";
 }
 
 .poop-game-area {
-  width: 400px;
-  height: 600px;
-  background: linear-gradient(to bottom, #2c3e50, #4a6741, #8B7355);
-  border: 3px solid rgba(255, 255, 255, 0.5);
-  border-radius: 12px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  border-radius: 24px;
+  background: #101d30;
+  touch-action: none;
 }
 
-/* ground */
-.poop-game-area::after {
-  content: '';
+/* atmospheric stage */
+.poop-atmosphere,
+.poop-lightning,
+.poop-rain,
+.poop-city,
+.poop-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.poop-atmosphere {
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 28% 23%, rgba(48, 174, 202, 0.22), transparent 27%),
+    linear-gradient(180deg, #111b30 0%, #18344a 43%, #274758 67%, #1c2933 100%);
+}
+
+.poop-lightning {
+  z-index: 8;
+  opacity: 0;
+  background: #c9f8ff;
+  mix-blend-mode: screen;
+  animation: poopLightning 8s linear infinite;
+}
+
+.poop-moon {
+  position: absolute;
+  top: 87px;
+  right: 48px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #c9eff2;
+  box-shadow: 0 0 30px rgba(145, 234, 255, 0.42), 0 0 70px rgba(145, 234, 255, 0.22);
+  opacity: 0.7;
+}
+
+.poop-moon::before,
+.poop-moon span {
+  position: absolute;
+  border-radius: 50%;
+  content: "";
+  background: rgba(59, 102, 122, 0.28);
+}
+
+.poop-moon::before {
+  top: 13px;
+  left: 9px;
+  width: 12px;
+  height: 12px;
+}
+
+.poop-moon span {
+  right: 11px;
+  bottom: 9px;
+  width: 18px;
+  height: 18px;
+}
+
+.poop-cloud {
+  position: absolute;
+  width: 210px;
+  height: 42px;
+  border-radius: 50%;
+  filter: blur(7px);
+  background: rgba(3, 12, 24, 0.85);
+}
+
+.poop-cloud::before,
+.poop-cloud::after {
+  position: absolute;
+  border-radius: 50%;
+  content: "";
+  background: inherit;
+}
+
+.poop-cloud::before {
+  top: -24px;
+  left: 38px;
+  width: 82px;
+  height: 62px;
+}
+
+.poop-cloud::after {
+  top: -13px;
+  right: 27px;
+  width: 96px;
+  height: 54px;
+}
+
+.poop-cloud-one {
+  top: 125px;
+  left: -60px;
+  animation: poopCloudDrift 16s ease-in-out infinite alternate;
+}
+
+.poop-cloud-two {
+  top: 205px;
+  right: -95px;
+  transform: scale(0.72);
+  opacity: 0.72;
+  animation: poopCloudDriftTwo 21s ease-in-out infinite alternate;
+}
+
+.poop-rain {
+  z-index: 6;
+  overflow: hidden;
+  opacity: 0.46;
+  transform: skewX(-9deg);
+}
+
+.poop-rain i {
+  position: absolute;
+  top: -90px;
+  width: 1px;
+  border-radius: 99px;
+  background: linear-gradient(to bottom, transparent, rgba(174, 237, 255, 0.9));
+  animation: poopRain linear infinite;
+}
+
+.poop-city {
+  z-index: 2;
+  top: auto;
+  height: 182px;
+  bottom: 35px;
+  opacity: 0.94;
+}
+
+.poop-city::before {
+  position: absolute;
+  right: 13%;
+  bottom: 108px;
+  width: 2px;
+  height: 88px;
+  background: #081522;
+  box-shadow: 0 -4px 12px rgba(255, 90, 45, 0.7);
+  content: "";
+}
+
+.poop-city i {
   position: absolute;
   bottom: 0;
-  left: 0;
-  right: 0;
-  height: 40px;
-  background: linear-gradient(to bottom, #6d5c3e, #5a4a30);
-  border-top: 2px solid #8B7355;
+  overflow: hidden;
+  border-top: 2px solid rgba(92, 236, 255, 0.1);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 8px, rgba(255, 207, 86, 0.38) 8px 11px, transparent 11px 16px),
+    repeating-linear-gradient(0deg, transparent 0 15px, rgba(4, 10, 18, 0.7) 15px 19px),
+    linear-gradient(100deg, #0a1623, #102638);
+  clip-path: polygon(0 7%, 14% 7%, 14% 0, 86% 0, 86% 7%, 100% 7%, 100% 100%, 0 100%);
+  box-shadow: inset 5px 0 rgba(255, 255, 255, 0.025);
 }
 
-/* HUD inside game area */
+.poop-rooftop {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 54px;
+  border-top: 3px solid #6c8390;
+  background:
+    linear-gradient(90deg, transparent 0 14%, rgba(255, 255, 255, 0.04) 14% 15%, transparent 15% 72%, rgba(255, 255, 255, 0.03) 72% 73%, transparent 73%),
+    linear-gradient(#2a3a43, #101a21 35%, #071018);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.poop-rooftop::after {
+  position: absolute;
+  top: 7px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  opacity: 0.38;
+  background: repeating-linear-gradient(90deg, #ffb43c 0 16px, transparent 16px 30px);
+  content: "";
+}
+
+.poop-rooftop-vent {
+  position: absolute;
+  top: -21px;
+  left: 43px;
+  width: 31px;
+  height: 21px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(90deg, #101c25, #536773 54%, #18262f);
+}
+
+.poop-rooftop-antenna {
+  position: absolute;
+  right: 37px;
+  bottom: 51px;
+  width: 3px;
+  height: 70px;
+  background: #182a35;
+  transform: rotate(3deg);
+}
+
+.poop-rooftop-antenna::before,
+.poop-rooftop-antenna::after {
+  position: absolute;
+  content: "";
+}
+
+.poop-rooftop-antenna::before {
+  top: 7px;
+  left: -13px;
+  width: 29px;
+  height: 3px;
+  background: #182a35;
+  transform: rotate(-7deg);
+}
+
+.poop-rooftop-antenna::after {
+  top: -2px;
+  left: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff435f;
+  box-shadow: 0 0 13px #ff3158;
+  animation: poopSignal 1.2s ease-in-out infinite;
+}
+
+.poop-vignette {
+  z-index: 9;
+  box-shadow: inset 0 0 76px rgba(0, 0, 0, 0.58), inset 0 -85px 80px rgba(0, 0, 0, 0.26);
+}
+
+/* HUD */
 .poop-hud {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
   z-index: 15;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: 86px 1fr 86px;
+  gap: 10px;
+  align-items: start;
+  padding: 16px 14px 35px;
+  background: linear-gradient(to bottom, rgba(2, 9, 17, 0.88), rgba(2, 9, 17, 0.3) 66%, transparent);
+}
+
+.poop-hud-left,
+.poop-hud-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.poop-hud-right {
+  align-items: flex-end;
+}
+
+.poop-hud-label {
+  margin-bottom: 1px;
+  color: rgba(222, 240, 250, 0.55);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+
+.poop-score,
+.poop-high-score {
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-shadow: 0 3px 12px rgba(0, 0, 0, 0.8);
 }
 
 .poop-score {
-  color: white;
-  font-size: 20px;
-  font-weight: bold;
-  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+  color: #fff;
 }
 
 .poop-high-score {
-  color: #ffd700;
-  font-size: 16px;
-  font-weight: bold;
-  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+  color: var(--acid);
+  text-shadow: 0 0 13px rgba(216, 255, 69, 0.2), 0 3px 12px rgba(0, 0, 0, 0.8);
 }
 
-/* shield bar inside game area */
-.poop-shield-bar {
-  position: absolute;
-  top: 40px;
-  left: 12px;
-  right: 12px;
+.poop-danger-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 1px;
+}
+
+.poop-danger-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  z-index: 15;
+  justify-content: center;
+  gap: 7px;
+  color: #ff879b;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.poop-danger-title i {
+  width: 5px;
+  height: 5px;
+}
+
+.poop-danger-track {
+  position: relative;
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  transform: skewX(-14deg);
+}
+
+.poop-danger-track > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffc845, var(--warning), var(--danger));
+  box-shadow: 0 0 12px var(--danger);
+  transition: width 300ms ease;
+}
+
+.poop-shield-bar {
+  position: absolute;
+  z-index: 18;
+  top: 78px;
+  right: 14px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(92, 236, 255, 0.38);
+  border-radius: 7px;
+  background: rgba(3, 21, 34, 0.76);
+  box-shadow: 0 0 22px rgba(92, 236, 255, 0.18), inset 0 0 15px rgba(92, 236, 255, 0.06);
+  backdrop-filter: blur(7px);
+  animation: poopPanelIn 240ms ease-out both;
 }
 
 .poop-shield-label {
-  color: white;
-  font-size: 13px;
-  font-weight: bold;
+  color: #d8fbff;
+  font-size: 10px;
+  font-weight: 900;
   white-space: nowrap;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.04em;
 }
 
 .poop-shield-timer {
   flex: 1;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  height: 5px;
   overflow: hidden;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .poop-shield-timer-fill {
   height: 100%;
-  background: linear-gradient(90deg, #00d2ff, #3a7bd5);
-  border-radius: 4px;
-  transition: width 0.1s linear;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2b99ff, #65f5ff, #fff);
+  box-shadow: 0 0 12px var(--cyan);
+  transition: width 100ms linear;
 }
 
 .poop-shield-time {
-  color: #00d2ff;
-  font-size: 13px;
-  font-weight: bold;
-  min-width: 32px;
+  min-width: 31px;
+  color: var(--cyan);
+  font-family: Impact, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   text-align: right;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-/* player */
+/* runner */
 .poop-player {
   position: absolute;
-  bottom: 16px;
-  font-size: 36px;
-  transform: translateX(-50%);
-  transition: left 0.05s linear;
-  z-index: 10;
-  filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.4));
+  z-index: 12;
+  bottom: 21px;
+  width: 58px;
+  height: 66px;
+  margin-left: -29px;
+  transition: left 50ms linear;
+  will-change: left;
 }
 
 .poop-player-emoji {
-  display: inline-block;
+  position: absolute;
+  z-index: 3;
+  bottom: 5px;
+  left: 50%;
+  display: block;
+  font-size: 43px;
+  line-height: 1;
+  filter: drop-shadow(0 5px 3px rgba(0, 0, 0, 0.65));
+  transform: translateX(-50%) scaleX(-1) rotate(-5deg);
+  transform-origin: 50% 100%;
+  animation: poopRunner 260ms ease-in-out infinite alternate;
 }
 
-.poop-player-shielded {
-  animation: shieldGlow 0.6s ease-in-out infinite alternate;
+.poop-player-shadow {
+  position: absolute;
+  z-index: 1;
+  bottom: 1px;
+  left: 50%;
+  width: 40px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.58);
+  filter: blur(3px);
+  transform: translateX(-50%);
+  animation: poopShadow 260ms ease-in-out infinite alternate;
+}
+
+.poop-player-trail {
+  position: absolute;
+  z-index: 2;
+  top: 36px;
+  left: -19px;
+  width: 28px;
+  height: 2px;
+  opacity: 0.76;
+  background: linear-gradient(90deg, transparent, rgba(216, 255, 69, 0.9));
+  box-shadow: -8px 8px rgba(216, 255, 69, 0.35), -16px -7px rgba(255, 255, 255, 0.2);
+  animation: poopSpeedTrail 420ms ease-in-out infinite alternate;
+}
+
+.poop-shield-bubble {
+  position: absolute;
+  z-index: 2;
+  inset: -7px -4px -1px;
+  border: 2px solid rgba(111, 244, 255, 0.9);
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.34), rgba(92, 236, 255, 0.07) 35%, rgba(44, 145, 255, 0.14));
+  box-shadow:
+    0 0 14px rgba(92, 236, 255, 0.9),
+    inset 0 0 19px rgba(92, 236, 255, 0.42),
+    0 0 36px rgba(53, 133, 255, 0.34);
+  animation: poopShieldPulse 600ms ease-in-out infinite alternate;
 }
 
 .poop-shield-effect {
   position: absolute;
+  z-index: 4;
   top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 18px;
-  animation: floatShield 1s ease-in-out infinite;
+  right: -5px;
+  font-size: 19px;
+  filter: drop-shadow(0 0 8px var(--cyan));
+  animation: poopShieldBadge 1.8s linear infinite;
 }
 
-@keyframes shieldGlow {
-  0% {
-    filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.6));
-  }
-  100% {
-    filter: drop-shadow(0 0 16px rgba(58, 123, 213, 0.8));
-  }
-}
-
-@keyframes floatShield {
-  0%,
-  100% {
-    transform: translateX(-50%) translateY(0);
-  }
-  50% {
-    transform: translateX(-50%) translateY(-4px);
-  }
-}
-
-/* falling items */
+/* falling objects */
 .poop-falling-item {
   position: absolute;
-  transform: translateX(-50%);
+  z-index: 7;
+  width: 1em;
+  height: 1em;
   pointer-events: none;
-  z-index: 5;
+  line-height: 1;
+  transform: translateX(-50%);
+}
+
+.poop-item-core {
+  position: relative;
+  z-index: 2;
+  display: block;
   line-height: 1;
 }
 
-.poop-falling-poop {
-  animation: poopFall 0.3s ease-in-out infinite alternate;
-  filter: drop-shadow(1px 2px 3px rgba(0, 0, 0, 0.3));
+.poop-item-trail {
+  position: absolute;
+  z-index: 1;
+  bottom: 58%;
+  left: 50%;
+  width: 8px;
+  height: 52px;
+  border-radius: 50% 50% 0 0;
+  background: linear-gradient(to top, rgba(255, 118, 48, 0.65), rgba(255, 213, 77, 0.21) 55%, transparent);
+  filter: blur(2px);
+  transform: translateX(-50%);
+  transform-origin: bottom;
+  animation: poopTrailFlicker 180ms ease-in-out infinite alternate;
 }
 
-.poop-falling-shield {
-  animation: shieldFloat 0.8s ease-in-out infinite;
-  filter: drop-shadow(0 0 6px rgba(0, 210, 255, 0.5));
+.poop-falling-poop .poop-item-core {
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 7px rgba(255, 100, 38, 0.35));
+  animation: poopTumble 580ms ease-in-out infinite alternate;
 }
 
-.poop-falling-star {
-  animation: starSpin 1s linear infinite;
-  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.7));
+.poop-falling-poop.is-critical .poop-item-core {
+  filter: drop-shadow(0 0 10px rgba(255, 49, 88, 0.75));
 }
 
-@keyframes starSpin {
-  0% {
-    transform: translateX(-50%) rotate(0deg) scale(1);
-  }
-  50% {
-    transform: translateX(-50%) rotate(180deg) scale(1.2);
-  }
-  100% {
-    transform: translateX(-50%) rotate(360deg) scale(1);
-  }
+.poop-falling-poop.is-critical::after {
+  position: absolute;
+  z-index: 0;
+  inset: -7px;
+  border: 1px solid rgba(255, 62, 86, 0.7);
+  border-radius: 50%;
+  content: "";
+  animation: poopCritical 600ms ease-out infinite;
 }
 
-/* firework particles */
+.poop-falling-shield .poop-item-trail {
+  background: linear-gradient(to top, rgba(92, 236, 255, 0.8), transparent);
+}
+
+.poop-falling-shield .poop-item-core {
+  filter: drop-shadow(0 0 10px rgba(92, 236, 255, 0.92));
+  animation: poopPowerupFloat 800ms ease-in-out infinite;
+}
+
+.poop-falling-star .poop-item-trail {
+  width: 14px;
+  background: linear-gradient(to top, rgba(255, 225, 78, 0.9), transparent);
+}
+
+.poop-falling-star .poop-item-core {
+  filter: drop-shadow(0 0 10px rgba(255, 221, 51, 0.94));
+  animation: poopStarSpin 900ms linear infinite;
+}
+
+.poop-size-xlarge .poop-item-trail {
+  height: 72px;
+}
+
 .poop-firework-particle {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  z-index: 14;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
   pointer-events: none;
-  z-index: 12;
-  box-shadow: 0 0 6px currentColor;
-  transition: none;
-}
-
-@keyframes poopFall {
-  0% {
-    transform: translateX(-50%) rotate(-5deg);
-  }
-  100% {
-    transform: translateX(-50%) rotate(5deg);
-  }
-}
-
-@keyframes shieldFloat {
-  0%,
-  100% {
-    transform: translateX(-50%) scale(1);
-  }
-  50% {
-    transform: translateX(-50%) scale(1.15);
-  }
+  box-shadow: 0 0 9px currentColor;
 }
 
 /* start screen */
 .poop-start-screen {
   position: absolute;
+  z-index: 30;
   inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 25px 23px;
+  color: #fff;
+  background:
+    linear-gradient(130deg, rgba(3, 10, 18, 0.82), rgba(7, 20, 33, 0.52)),
+    repeating-linear-gradient(-62deg, transparent 0 12px, rgba(216, 255, 69, 0.025) 12px 13px);
+  backdrop-filter: blur(3px);
+}
+
+.poop-start-screen::before,
+.poop-start-screen::after {
+  position: absolute;
+  pointer-events: none;
+  content: "";
+}
+
+.poop-start-screen::before {
+  top: -80px;
+  width: 290px;
+  height: 290px;
+  border: 1px solid rgba(216, 255, 69, 0.13);
+  border-radius: 50%;
+  box-shadow: 0 0 0 42px rgba(216, 255, 69, 0.025), 0 0 0 84px rgba(216, 255, 69, 0.018);
+  animation: poopRadar 12s linear infinite;
+}
+
+.poop-start-screen::after {
+  top: 0;
+  right: 14px;
+  width: 36px;
+  height: 85px;
+  border-right: 2px solid rgba(216, 255, 69, 0.7);
+  border-bottom: 2px solid rgba(216, 255, 69, 0.7);
+  opacity: 0.35;
+  transform: skewY(-46deg);
+}
+
+.poop-start-content {
+  position: relative;
+  z-index: 2;
   display: flex;
+  width: 100%;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 20;
-  color: white;
-  border-radius: 8px;
-  padding: 20px;
+  animation: poopBriefingIn 700ms cubic-bezier(0.18, 0.9, 0.24, 1.12) both;
+}
+
+.poop-start-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 13px;
+  color: var(--acid);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
 }
 
 .poop-start-emoji {
-  font-size: 64px;
-  margin-bottom: 12px;
-  animation: bounce 1s ease-in-out infinite;
-}
-
-@keyframes bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-16px);
-  }
-}
-
-.poop-start-screen h2 {
-  font-size: 28px;
+  position: relative;
+  display: grid;
+  width: 110px;
+  height: 110px;
+  place-items: center;
   margin-bottom: 8px;
 }
 
-.poop-start-screen p {
-  font-size: 16px;
-  margin-bottom: 6px;
-  color: rgba(255, 255, 255, 0.8);
+.poop-start-halo {
+  position: absolute;
+  inset: 10px;
+  border: 2px dashed rgba(216, 255, 69, 0.56);
+  border-radius: 50%;
+  box-shadow: inset 0 0 35px rgba(255, 107, 36, 0.12), 0 0 30px rgba(216, 255, 69, 0.08);
+  animation: poopStartHalo 9s linear infinite;
 }
 
-.poop-start-hint {
-  color: #00d2ff !important;
-  font-weight: bold;
-  margin-bottom: 16px !important;
+.poop-start-halo::before,
+.poop-start-halo::after {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  content: "";
 }
 
-.poop-start-screen button {
-  background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
-  color: white;
-  border: none;
-  padding: 12px 36px;
-  font-size: 18px;
-  border-radius: 25px;
+.poop-start-halo::before { inset: 8px; }
+.poop-start-halo::after { inset: -10px; border-style: dotted; }
+
+.poop-start-poop {
+  position: relative;
+  z-index: 2;
+  font-size: 66px;
+  filter: drop-shadow(0 13px 10px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 12px rgba(255, 107, 36, 0.28));
+  animation: poopHeroFloat 1.7s ease-in-out infinite;
+}
+
+.poop-start-screen h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 40px;
+  font-weight: 1000;
+  line-height: 0.92;
+  letter-spacing: -0.08em;
+  text-shadow: 0 5px 20px rgba(0, 0, 0, 0.65);
+}
+
+.poop-start-screen h2 small {
+  display: block;
+  margin: 0 0 6px 3px;
+  color: var(--warning);
+  font-family: Impact, Haettenschweiler, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.42em;
+}
+
+.poop-start-copy {
+  margin: 17px 0 15px;
+  color: rgba(236, 247, 253, 0.72) !important;
+  font-size: 13px !important;
+  font-weight: 700;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.poop-start-items {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+
+.poop-start-items > span {
+  display: flex;
+  min-width: 112px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.poop-start-items b {
+  font-size: 20px;
+  filter: drop-shadow(0 0 6px rgba(92, 236, 255, 0.45));
+}
+
+.poop-start-items small {
+  color: rgba(255, 255, 255, 0.73);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.poop-start-screen button,
+.poop-game-over button {
+  position: relative;
+  display: flex;
+  min-width: 214px;
+  align-items: center;
+  justify-content: center;
+  gap: 17px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 7px;
+  padding: 13px 24px;
+  color: #14200a;
+  font-size: 15px;
+  font-weight: 1000;
+  letter-spacing: -0.02em;
+  background: linear-gradient(105deg, #bfe62c, var(--acid) 45%, #f4ff9a);
+  box-shadow: 0 8px 26px rgba(216, 255, 69, 0.24), inset 0 1px rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  font-weight: bold;
-  white-space: nowrap;
+  transform: skewX(-5deg);
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
-.poop-start-screen button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 5px 20px rgba(139, 69, 19, 0.5);
+.poop-start-screen button::before,
+.poop-game-over button::before {
+  position: absolute;
+  top: -50%;
+  left: -35%;
+  width: 25px;
+  height: 200%;
+  background: rgba(255, 255, 255, 0.65);
+  content: "";
+  transform: rotate(22deg);
+  animation: poopButtonShine 3.6s ease-in-out infinite;
+}
+
+.poop-start-screen button > span,
+.poop-start-screen button > i {
+  font-style: normal;
+  transform: skewX(5deg);
+}
+
+.poop-start-screen button:hover,
+.poop-game-over button:hover {
+  border-color: transparent;
+  box-shadow: 0 10px 34px rgba(216, 255, 69, 0.38), inset 0 1px rgba(255, 255, 255, 0.7);
+  transform: skewX(-5deg) translateY(-2px) scale(1.02);
 }
 
 .poop-start-key {
-  font-size: 13px !important;
-  color: rgba(255, 255, 255, 0.5) !important;
-  margin-top: 8px !important;
+  margin-top: 11px !important;
+  color: rgba(255, 255, 255, 0.36) !important;
+  font-size: 8px !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
-/* game over - overlay covers the game area */
+.poop-start-key kbd,
+.poop-instructions kbd {
+  display: inline-grid;
+  min-width: 23px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.21);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 4px;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* game over */
 .poop-game-over-overlay {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
   z-index: 100;
-  border-radius: 8px;
-  padding: 16px;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 68, 53, 0.17), transparent 34%),
+    rgba(3, 7, 12, 0.78);
+  backdrop-filter: blur(6px) saturate(0.7);
+  animation: poopGameOverFlash 600ms ease-out both;
 }
 
+.poop-game-over-overlay::before,
+.poop-game-over-overlay::after {
+  position: absolute;
+  width: 180%;
+  height: 34px;
+  color: rgba(255, 189, 57, 0.16);
+  background: repeating-linear-gradient(135deg, currentColor 0 21px, transparent 21px 42px);
+  content: "";
+  transform: rotate(-8deg);
+}
+
+.poop-game-over-overlay::before { top: 56px; }
+.poop-game-over-overlay::after { bottom: 55px; }
+
 .poop-game-over {
-  background: rgba(0, 0, 0, 0.92);
-  color: white;
-  padding: 28px 32px;
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding: 28px 21px 22px;
+  border: 1px solid rgba(255, 91, 69, 0.42);
+  border-radius: 14px;
+  color: #fff;
   text-align: center;
-  max-width: calc(100% - 32px);
+  background: linear-gradient(145deg, rgba(21, 21, 26, 0.96), rgba(7, 12, 19, 0.96));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.68), inset 0 1px rgba(255, 255, 255, 0.07), 0 0 32px rgba(255, 55, 45, 0.12);
+  animation: poopGameOverCard 520ms cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+}
+
+.poop-game-over-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--danger);
+  font-family: Impact, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.32em;
+}
+
+.poop-game-over-icon {
+  margin: 2px 0 -3px;
+  font-size: 58px;
+  filter: drop-shadow(0 0 22px rgba(255, 69, 48, 0.64));
+  animation: poopImpactIcon 1.2s ease-in-out infinite;
 }
 
 .poop-game-over h2 {
+  margin-bottom: 14px;
+  color: #fff;
   font-size: 24px;
-  margin-bottom: 12px;
-  color: #cd853f;
+  font-weight: 1000;
+  letter-spacing: -0.06em;
   white-space: nowrap;
+}
+
+.poop-final-label {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
 }
 
 .poop-final-score {
-  font-size: 20px;
-  margin-bottom: 12px;
+  margin: 3px 0 10px;
+  color: var(--acid);
+  font-family: Impact, Haettenschweiler, sans-serif;
+  font-size: 58px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 23px rgba(216, 255, 69, 0.22);
 }
 
 .poop-new-record {
-  color: #ffd700 !important;
-  font-size: 16px !important;
-  font-weight: bold;
-  margin-bottom: 12px;
-  animation: pulse 0.5s ease-in-out infinite alternate;
+  margin: -1px 0 10px !important;
+  color: #ffe46d !important;
+  font-size: 10px !important;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  animation: poopRecordPulse 600ms ease-in-out infinite alternate;
 }
 
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  100% {
-    transform: scale(1.1);
-  }
+.poop-game-over .overlay-btns {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+  margin-top: 12px;
+  flex-wrap: nowrap;
 }
 
 .poop-game-over button {
-  background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
-  color: white;
-  border: none;
-  padding: 12px 36px;
-  font-size: 18px;
-  border-radius: 25px;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  font-weight: bold;
+  min-width: auto;
+  flex: 1.2;
+  gap: 7px;
+  padding: 11px 13px;
+  font-size: 12px;
+}
+
+.poop-game-over .overlay-btn-home {
+  display: inline-grid;
+  flex: 0.8;
+  min-width: 0;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 6px !important;
+  padding: 10px 12px !important;
+  color: rgba(255, 255, 255, 0.67) !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.poop-game-over .overlay-btn-home:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* footer guide */
+.poop-instructions {
+  display: flex;
+  width: min(400px, calc(100vw - 32px));
+  align-items: center;
+  gap: 8px;
+  margin-top: 13px;
+  color: rgba(226, 241, 250, 0.48);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.poop-instructions > span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
   white-space: nowrap;
 }
 
-.poop-game-over button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 5px 20px rgba(139, 69, 19, 0.5);
+.poop-instructions > i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
 }
 
-.poop-game-over button:active {
-  transform: scale(0.98);
+.poop-instructions strong {
+  margin-left: auto;
+  color: var(--acid);
+  font-size: 9px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
-.poop-instructions {
-  color: white;
-  font-size: 14px;
-  margin-top: 12px;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-  opacity: 0.8;
+.poop-instructions kbd {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+}
+
+/* active-state drama */
+.poop-game-container.is-running .poop-game-wrapper {
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 0 6px rgba(5, 13, 23, 0.72),
+    0 0 55px rgba(255, 49, 88, 0.09);
+}
+
+.poop-game-container.is-shielded .poop-game-wrapper {
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(119, 247, 255, 0.58),
+    0 0 0 6px rgba(17, 83, 103, 0.22),
+    0 0 58px rgba(92, 236, 255, 0.23);
+}
+
+.poop-game-container.is-game-over .poop-game-wrapper {
+  animation: poopScreenShake 480ms linear both;
+}
+
+/* animation choreography */
+@keyframes poopRadar {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes poopSignal {
+  0%, 100% { opacity: 0.48; transform: scale(0.82); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes poopLightning {
+  0%, 41%, 43%, 45%, 100% { opacity: 0; }
+  41.5% { opacity: 0.1; }
+  42.2% { opacity: 0.32; }
+  44% { opacity: 0.08; }
+}
+
+@keyframes poopCloudDrift {
+  to { transform: translateX(100px) scale(1.08); }
+}
+
+@keyframes poopCloudDriftTwo {
+  to { transform: translateX(-95px) scale(0.78); }
+}
+
+@keyframes poopRain {
+  from { transform: translateY(-50px); }
+  to { transform: translateY(760px); }
+}
+
+@keyframes poopPanelIn {
+  from { opacity: 0; transform: translateY(-8px); }
+}
+
+@keyframes poopRunner {
+  from { transform: translateX(-50%) scaleX(-1) rotate(-8deg) translateY(0); }
+  to { transform: translateX(-50%) scaleX(-1) rotate(1deg) translateY(-4px); }
+}
+
+@keyframes poopShadow {
+  to { width: 31px; opacity: 0.72; }
+}
+
+@keyframes poopSpeedTrail {
+  to { transform: scaleX(1.45); opacity: 0.33; }
+}
+
+@keyframes poopShieldPulse {
+  to { transform: scale(1.06); opacity: 0.72; }
+}
+
+@keyframes poopShieldBadge {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes poopTrailFlicker {
+  to { height: 67px; opacity: 0.42; transform: translateX(-50%) scaleX(0.7); }
+}
+
+@keyframes poopTumble {
+  from { transform: rotate(-9deg) scale(0.96); }
+  to { transform: rotate(11deg) scale(1.04); }
+}
+
+@keyframes poopPowerupFloat {
+  0%, 100% { transform: scale(0.96) rotate(-5deg); }
+  50% { transform: scale(1.14) rotate(6deg); }
+}
+
+@keyframes poopStarSpin {
+  50% { transform: rotate(180deg) scale(1.2); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes poopCritical {
+  from { opacity: 0.9; transform: scale(0.62); }
+  to { opacity: 0; transform: scale(1.35); }
+}
+
+@keyframes poopBriefingIn {
+  from { opacity: 0; transform: translateY(22px) scale(0.96); }
+}
+
+@keyframes poopStartHalo {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes poopHeroFloat {
+  0%, 100% { transform: translateY(3px) rotate(-3deg); }
+  50% { transform: translateY(-9px) rotate(4deg); }
+}
+
+@keyframes poopButtonShine {
+  0%, 61% { left: -35%; }
+  82%, 100% { left: 130%; }
+}
+
+@keyframes poopGameOverFlash {
+  from { background-color: rgba(255, 54, 33, 0.7); }
+}
+
+@keyframes poopGameOverCard {
+  from { opacity: 0; transform: scale(0.72) rotate(-2deg); }
+}
+
+@keyframes poopImpactIcon {
+  0%, 100% { transform: scale(1) rotate(-3deg); }
+  50% { transform: scale(1.12) rotate(3deg); }
+}
+
+@keyframes poopRecordPulse {
+  to { transform: scale(1.05); text-shadow: 0 0 12px rgba(255, 224, 89, 0.45); }
+}
+
+@keyframes poopScreenShake {
+  0%, 100% { transform: translate(0); }
+  14% { transform: translate(-5px, 3px); }
+  28% { transform: translate(6px, -3px); }
+  42% { transform: translate(-4px, -2px); }
+  58% { transform: translate(4px, 3px); }
+  72% { transform: translate(-2px, 0); }
+}
+
+@media (max-height: 720px) {
+  .poop-game-container {
+    justify-content: flex-start;
+    padding-top: 8px;
+  }
+
+  .poop-page-heading { margin-bottom: 7px; }
+  .poop-instructions { margin-top: 9px; }
+}
+
+@media (max-width: 420px) {
+  .poop-game-container { padding-right: 10px; padding-left: 10px; }
+
+  .poop-page-heading,
+  .poop-instructions { width: min(400px, calc(100vw - 20px)); }
+
+  .poop-page-status { font-size: 8px; }
+
+  .poop-instructions > span:nth-of-type(2),
+  .poop-instructions > i { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poop-game-container *,
+  .poop-game-container *::before,
+  .poop-game-container *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }

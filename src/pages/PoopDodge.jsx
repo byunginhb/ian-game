@@ -20,6 +20,25 @@ const FALL_SPEED_INITIAL = 1.5
 const FALL_SPEED_INCREMENT = 0.0005
 const DIFFICULTY_INTERVAL_DECREMENT = 0.3
 
+const ATMOSPHERE_STREAKS = Array.from({ length: 18 }, (_, i) => ({
+  id: i,
+  left: (i * 29 + 7) % 100,
+  delay: -((i * 0.37) % 3.2),
+  duration: 1.45 + (i % 5) * 0.18,
+  height: 34 + (i % 4) * 14,
+}))
+
+const CITY_BUILDINGS = [
+  { left: 0, width: 15, height: 92 },
+  { left: 12, width: 13, height: 128 },
+  { left: 22, width: 18, height: 76 },
+  { left: 36, width: 11, height: 146 },
+  { left: 45, width: 17, height: 108 },
+  { left: 59, width: 13, height: 82 },
+  { left: 70, width: 18, height: 136 },
+  { left: 86, width: 14, height: 102 },
+]
+
 const POOP_SIZES = [
   { scale: 0.7, label: 'small' },
   { scale: 1.0, label: 'medium' },
@@ -152,12 +171,8 @@ function PoopDodge() {
   }, [started, gameOver, startGame])
 
   useEffect(() => {
-    if (!shieldActive) {
-      setShieldTimeLeft(0)
-      return
-    }
+    if (!shieldActive) return
 
-    setShieldTimeLeft(SHIELD_DURATION)
     const start = Date.now()
     const interval = setInterval(() => {
       const elapsed = Date.now() - start
@@ -302,6 +317,7 @@ function PoopDodge() {
         }
 
         if (gotShield) {
+          setShieldTimeLeft(SHIELD_DURATION)
           setShieldActive(true)
           if (shieldTimerRef.current) {
             clearTimeout(shieldTimerRef.current)
@@ -326,9 +342,11 @@ function PoopDodge() {
     return () => clearInterval(interval)
   }, [started, gameOver, playerX, shieldActive])
 
+  const hasFireworks = fireworks.length > 0
+
   // firework particle animation
   useEffect(() => {
-    if (fireworks.length === 0) return
+    if (!hasFireworks) return
 
     const interval = setInterval(() => {
       setFireworks((prev) => {
@@ -346,13 +364,17 @@ function PoopDodge() {
     }, GAME_TICK)
 
     return () => clearInterval(interval)
-  }, [fireworks.length > 0])
+  }, [hasFireworks])
 
   useEffect(() => {
-    if (gameOver && score > highScore) {
+    if (!gameOver || score <= highScore) return
+
+    const timeout = window.setTimeout(() => {
       setHighScore(score)
       localStorage.setItem('poopDodge_highScore', String(score))
-    }
+    }, 0)
+
+    return () => window.clearTimeout(timeout)
   }, [gameOver, score, highScore])
 
   useEffect(() => {
@@ -364,20 +386,73 @@ function PoopDodge() {
   }, [])
 
   const shieldPercent = (shieldTimeLeft / SHIELD_DURATION) * 100
+  const dangerLevel = Math.min(100, 18 + score * 2.6)
+  const dangerLabel = score >= 25 ? '극한' : score >= 12 ? '위험' : '경계'
 
   return (
-    <div ref={containerRef} className="poop-game-container">
-      <Link to="/" className="poop-back-button">← 홈으로</Link>
+    <div
+      ref={containerRef}
+      className={`poop-game-container ${started ? 'is-running' : ''} ${gameOver ? 'is-game-over' : ''} ${shieldActive ? 'is-shielded' : ''}`}
+    >
+      <div className="poop-page-heading">
+        <Link to="/" className="poop-back-button" aria-label="홈으로 돌아가기">
+          <span aria-hidden="true">‹</span> 게임 선택
+        </Link>
+        <div className="poop-page-status"><i /> 기상 특보 발효 중</div>
+      </div>
 
       <div className="poop-game-wrapper" style={{ width: POOP_GAME_W * scale, height: POOP_GAME_H * scale }}>
         <div ref={gameAreaRef} className="poop-game-area" style={{ width: POOP_GAME_W, height: POOP_GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <div className="poop-atmosphere" aria-hidden="true">
+          <div className="poop-lightning" />
+          <div className="poop-moon"><span /></div>
+          <div className="poop-cloud poop-cloud-one" />
+          <div className="poop-cloud poop-cloud-two" />
+          <div className="poop-rain">
+            {ATMOSPHERE_STREAKS.map((streak) => (
+              <i
+                key={streak.id}
+                style={{
+                  left: `${streak.left}%`,
+                  height: `${streak.height}px`,
+                  animationDelay: `${streak.delay}s`,
+                  animationDuration: `${streak.duration}s`,
+                }}
+              />
+            ))}
+          </div>
+          <div className="poop-city">
+            {CITY_BUILDINGS.map((building, index) => (
+              <i
+                key={index}
+                style={{
+                  left: `${building.left}%`,
+                  width: `${building.width}%`,
+                  height: `${building.height}px`,
+                }}
+              />
+            ))}
+          </div>
+          <div className="poop-rooftop">
+            <i className="poop-rooftop-vent" />
+            <i className="poop-rooftop-antenna" />
+          </div>
+          <div className="poop-vignette" />
+        </div>
+
         {/* HUD inside game area */}
         <div className="poop-hud">
           <div className="poop-hud-left">
-            <span className="poop-score">점수: {score}</span>
+            <span className="poop-hud-label">생존 점수</span>
+            <span className="poop-score">{String(score).padStart(3, '0')}</span>
+          </div>
+          <div className="poop-danger-meter" aria-label={`위험도 ${Math.round(dangerLevel)}퍼센트`}>
+            <span className="poop-danger-title"><i /> 위험도 · {dangerLabel}</span>
+            <span className="poop-danger-track"><i style={{ width: `${dangerLevel}%` }} /></span>
           </div>
           <div className="poop-hud-right">
-            <span className="poop-high-score">최고: {highScore}</span>
+            <span className="poop-hud-label">최고 기록</span>
+            <span className="poop-high-score">{String(highScore).padStart(3, '0')}</span>
           </div>
         </div>
 
@@ -400,12 +475,21 @@ function PoopDodge() {
         {/* start screen */}
         {!started && !gameOver && (
           <div className="poop-start-screen">
-            <div className="poop-start-emoji">💩</div>
-            <h2>똥 피하기</h2>
-            <p>하늘에서 내리는 똥을 피하세요!</p>
-            <p className="poop-start-hint">🛡️ 보호막 = 무적 | ⭐ 별 = +5점</p>
-            <button onClick={startGame}>시작하기</button>
-            <p className="poop-start-key">Enter 또는 Space로 시작</p>
+            <div className="poop-start-content">
+              <span className="poop-start-kicker"><i /> 재난 생존 훈련 07</span>
+              <div className="poop-start-emoji" aria-hidden="true">
+                <span className="poop-start-halo" />
+                <span className="poop-start-poop">💩</span>
+              </div>
+              <h2><small>OPERATION</small>똥 피하기</h2>
+              <p className="poop-start-copy">도시의 마지막 옥상.<br />끝까지 살아남아 전설이 되어라!</p>
+              <div className="poop-start-items">
+                <span><b>🛡️</b><small>3초 무적</small></span>
+                <span><b>⭐</b><small>보너스 +5</small></span>
+              </div>
+              <button onClick={startGame}><span>생존 시작</span><i aria-hidden="true">▶</i></button>
+              <p className="poop-start-key"><kbd>ENTER</kbd> 또는 <kbd>SPACE</kbd></p>
+            </div>
           </div>
         )}
 
@@ -414,24 +498,34 @@ function PoopDodge() {
           className={`poop-player ${shieldActive ? 'poop-player-shielded' : ''}`}
           style={{ left: `${playerX}%` }}
         >
-          <span className="poop-player-emoji">🏃</span>
-          {shieldActive && <span className="poop-shield-effect">🛡️</span>}
+          <span className="poop-player-trail" aria-hidden="true" />
+          <span className="poop-player-shadow" aria-hidden="true" />
+          <span className="poop-player-emoji">🏃‍♂️</span>
+          {shieldActive && (
+            <>
+              <span className="poop-shield-bubble" aria-hidden="true" />
+              <span className="poop-shield-effect">🛡️</span>
+            </>
+          )}
         </div>
 
         {/* falling items */}
         {items.map((item) => (
           <div
             key={item.id}
-            className={`poop-falling-item poop-falling-${item.type} poop-size-${item.size.label}`}
+            className={`poop-falling-item poop-falling-${item.type} poop-size-${item.size.label} ${item.type === 'poop' && item.y > 70 ? 'is-critical' : ''}`}
             style={{
               left: `${item.x}%`,
               top: `${item.y}%`,
               fontSize: `${32 * item.size.scale}px`,
             }}
           >
-            {item.type === 'poop' && '💩'}
-            {item.type === 'shield' && '🛡️'}
-            {item.type === 'star' && '⭐'}
+            <span className="poop-item-trail" aria-hidden="true" />
+            <span className="poop-item-core">
+              {item.type === 'poop' && '💩'}
+              {item.type === 'shield' && '🛡️'}
+              {item.type === 'star' && '⭐'}
+            </span>
           </div>
         ))}
 
@@ -454,23 +548,31 @@ function PoopDodge() {
         {gameOver && (
           <div className="poop-game-over-overlay">
             <div className="poop-game-over">
-              <h2>💩 게임 오버!</h2>
-              <p className="poop-final-score">점수: {score}</p>
+              <span className="poop-game-over-kicker">MISSION FAILED</span>
+              <div className="poop-game-over-icon">💥</div>
+              <h2>옥상이 무너졌다!</h2>
+              <p className="poop-final-label">최종 생존 점수</p>
+              <p className="poop-final-score">{String(score).padStart(3, '0')}</p>
               {score >= highScore && score > 0 && (
-                <p className="poop-new-record">🎉 새로운 최고 기록!</p>
+                <p className="poop-new-record">★ 새로운 최고 기록 ★</p>
               )}
               <div className="overlay-btns">
-                <button onClick={startGame}>다시 시작</button>
-                <Link to="/" className="overlay-btn-home">홈으로</Link>
+                <button onClick={startGame}>다시 도전 <span>↻</span></button>
+                <Link to="/" className="overlay-btn-home">작전 종료</Link>
               </div>
-              <p className="poop-start-key">Enter 또는 Space로 재시작</p>
+              <p className="poop-start-key"><kbd>ENTER</kbd> 또는 <kbd>SPACE</kbd></p>
             </div>
           </div>
         )}
         </div>
       </div>
 
-      <div className="poop-instructions">← → 방향키 또는 터치로 이동 | 🛡️ 보호막 | ⭐ 별 +5점</div>
+      <div className="poop-instructions">
+        <span><kbd>←</kbd><kbd>→</kbd> 방향키</span>
+        <i />
+        <span>화면을 밀어 이동</span>
+        <strong>떨어지는 똥을 피하세요!</strong>
+      </div>
     </div>
   )
 }

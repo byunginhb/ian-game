@@ -9,16 +9,17 @@ const GAME_H = 600
 const TICK = 16
 const PLAYER_W = 40
 const PLAYER_H = 40
-const PLAYER_SPEED = 5
+const PLAYER_SPEED = 6
 const MISSILE_BASE_SPEED = 9
 const MISSILE_BASE_INTERVAL = 280
+const MAX_MISSILES = 70
 
-const BOMB_DAMAGE = 30
+const BOMB_DAMAGE = 8
 
 const ITEM_TYPES = ['powerup', 'multishot', 'bomb']
-const ITEM_SIZE = 24
-const ITEM_FALL_SPEED = 1.8
-const ITEM_DROP_CHANCE = 0.2
+const ITEM_SIZE = 32
+const ITEM_FALL_SPEED = 2
+const ITEM_DROP_CHANCE = 0.32
 
 const SNAKE_SEGMENT_W = 30
 const SNAKE_SEGMENT_H = 30
@@ -95,9 +96,21 @@ function getPositionOnPath(path, distance) {
   return { x: path[path.length - 1].x, y: path[path.length - 1].y }
 }
 
+function getPositionOnSideTrack(path, distance, track) {
+  const pathPosition = getPositionOnPath(path, distance)
+  const pathRange = GAME_W - PATH_PADDING * 2 - SNAKE_SEGMENT_W
+  const progress = Math.max(0, Math.min(1, (pathPosition.x - PATH_PADDING) / pathRange))
+  const sideOffset = 8 + progress * 118
+
+  return {
+    x: track === 'left' ? sideOffset : GAME_W - SNAKE_SEGMENT_W - sideOffset,
+    y: pathPosition.y,
+  }
+}
+
 function buildSnakeData(stage) {
-  const bodyCount = Math.min(15 + stage * 5, 55)
-  const hpPerSeg = Math.ceil(12 + stage * 8)
+  const bodyCount = Math.min(12 + stage * 3, 36)
+  const hpPerSeg = Math.ceil(4 + stage * 3)
   const segments = []
 
   // head - invincible dragon
@@ -121,6 +134,7 @@ function buildSnakeData(stage) {
       maxHp: hpPerSeg,
       isHead: false,
       alive: true,
+      track: i % 2 === 1 ? 'left' : 'right',
     })
   }
 
@@ -153,6 +167,30 @@ function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 }
 
+function ItemPickup({ type }) {
+  return (
+    <>
+      <span className="ms-item-orbit" />
+      <span className="ms-item-shell">
+        {type === 'powerup' && (
+          <span className="ms-item-power-icon" aria-hidden="true">
+            <i />
+            <i />
+          </span>
+        )}
+        {type === 'multishot' && (
+          <span className="ms-item-multi-icon" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+        )}
+        {type === 'bomb' && <span className="ms-item-bomb-icon" aria-hidden="true">✦</span>}
+      </span>
+    </>
+  )
+}
+
 function MissileShoot() {
   const containerRef = useRef(null)
   useTouchLock(containerRef)
@@ -177,6 +215,8 @@ function MissileShoot() {
   const playerXRef = useRef(GAME_W / 2 - PLAYER_W / 2)
   const pathRef = useRef([])
   const headDistRef = useRef(0)
+  const snakeRef = useRef([])
+  const missilesRef = useRef([])
 
   const startGame = useCallback(() => {
     nextId = 1000
@@ -184,12 +224,15 @@ function MissileShoot() {
     setScore(0)
     setMissileLevel(1)
     setMultiShot(0)
-    setBombs(3)
+    setBombs(1)
     setPlayerX(GAME_W / 2 - PLAYER_W / 2)
     playerXRef.current = GAME_W / 2 - PLAYER_W / 2
     pathRef.current = buildZigzagPath(1)
     headDistRef.current = 0
-    setSnake(buildSnakeData(1))
+    const nextSnake = buildSnakeData(1)
+    snakeRef.current = nextSnake
+    missilesRef.current = []
+    setSnake(nextSnake)
     setMissiles([])
     setItems([])
     setExplosions([])
@@ -204,7 +247,10 @@ function MissileShoot() {
   const startStage = useCallback((stageNum) => {
     pathRef.current = buildZigzagPath(stageNum)
     headDistRef.current = 0
-    setSnake(buildSnakeData(stageNum))
+    const nextSnake = buildSnakeData(stageNum)
+    snakeRef.current = nextSnake
+    missilesRef.current = []
+    setSnake(nextSnake)
     setMissiles([])
     setItems([])
     setExplosions([])
@@ -312,29 +358,24 @@ function MissileShoot() {
         setBombs((b) => {
           if (b <= 0) return b
           setBombEffect({ time: now })
-          setSnake((prev) =>
-            prev.map((seg) => {
+          setSnake((prev) => {
+            const nextSnake = prev.map((seg) => {
               if (!seg.alive || seg.isHead) return seg
-              const newHp = seg.hp - BOMB_DAMAGE
-              if (newHp <= 0) {
-                setScore((s) => s + seg.maxHp * 10)
-                setExplosions((ex) => [
-                  ...ex,
-                  { id: uid(), x: seg.x + SNAKE_SEGMENT_W / 2, y: seg.y + SNAKE_SEGMENT_H / 2, time: now },
-                ])
-                if (Math.random() < ITEM_DROP_CHANCE) {
-                  const type = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)]
-                  setItems((it) => [...it, { id: uid(), x: seg.x + SNAKE_SEGMENT_W / 2 - ITEM_SIZE / 2, y: seg.y, type }])
-                }
-                return { ...seg, hp: 0, alive: false }
-              }
-              return { ...seg, hp: newHp }
+              // 폭탄은 갑옷을 약화시키지만 코어를 파괴할 수는 없다.
+              // 마지막 타격은 반드시 플레이어가 직접 조준해야 한다.
+              return { ...seg, hp: Math.max(1, seg.hp - BOMB_DAMAGE) }
             })
-          )
+            snakeRef.current = nextSnake
+            return nextSnake
+          })
           setTimeout(() => setBombEffect(null), 400)
           return b - 1
         })
       }
+
+      // Build the whole combat frame locally, then commit each state once.
+      // This keeps multishot from scheduling one React update per missile.
+      let nextMissiles = missilesRef.current
 
       // fire missiles
       if (now - lastFireRef.current > getMissileInterval(missileLevel)) {
@@ -342,111 +383,113 @@ function MissileShoot() {
         const props = getMissileProps(missileLevel)
         const cx = playerXRef.current + PLAYER_W / 2
 
-        setMissiles((prev) => {
-          const newMissiles = []
-          newMissiles.push({
-            id: uid(),
-            x: cx - props.width / 2,
-            y: GAME_H - PLAYER_H - 10,
-            ...props,
-            damage: getMissileDamage(missileLevel),
-          })
+        const offsets = [0, 14, -14]
+        const shotCount = multiShot > 0 ? 3 : 1
+        const newMissiles = offsets.slice(0, shotCount).map((offset) => ({
+          id: uid(),
+          x: cx + offset - props.width / 2,
+          y: GAME_H - PLAYER_H - 10,
+          ...props,
+          damage: getMissileDamage(missileLevel),
+        }))
 
-          const extraCount = multiShot > 0 ? Math.min(multiShot, 4) : 0
-          for (let i = 0; i < extraCount; i++) {
-            const angle = ((i % 2 === 0 ? 1 : -1) * (Math.floor(i / 2) + 1) * 12 * Math.PI) / 180
-            newMissiles.push({
-              id: uid(),
-              x: cx - props.width / 2,
-              y: GAME_H - PLAYER_H - 10,
-              ...props,
-              damage: getMissileDamage(missileLevel),
-              angle,
-            })
-          }
-
-          return [...prev, ...newMissiles]
-        })
+        nextMissiles = [...nextMissiles, ...newMissiles].slice(-MAX_MISSILES)
       }
 
-      // update missiles
-      setMissiles((prev) =>
-        prev
-          .map((m) => ({
-            ...m,
-            x: m.x + (m.angle ? Math.sin(m.angle) * MISSILE_BASE_SPEED * 0.5 : 0),
-            y: m.y - MISSILE_BASE_SPEED,
-          }))
-          .filter((m) => m.y > -30 && m.x > -20 && m.x < GAME_W + 20)
-      )
+      nextMissiles = nextMissiles
+        .map((m) => ({ ...m, y: m.y - MISSILE_BASE_SPEED }))
+        .filter((m) => m.y > -30 && m.x > -20 && m.x < GAME_W + 20)
 
-      // update snake positions from path
-      // head at front, alive body segments compress behind head
-      setSnake((prev) => {
-        const path = pathRef.current
-        const hd = headDistRef.current
-
-        let aliveBodyIndex = 0
-        return prev.map((seg) => {
-          if (seg.isHead) {
-            const pos = getPositionOnPath(path, hd)
-            return { ...seg, x: pos.x, y: pos.y }
-          }
-          if (!seg.alive) return seg
-          aliveBodyIndex++
-          const dist = hd - aliveBodyIndex * SEGMENT_PATH_SPACING
-          const pos = getPositionOnPath(path, dist)
+      // Body cores travel inside two separated side tracks. They are always
+      // vulnerable; the player moves because the targets physically are there.
+      const path = pathRef.current
+      const hd = headDistRef.current
+      let aliveBodyIndex = 0
+      const combatSnake = snakeRef.current.map((seg) => {
+        if (seg.isHead) {
+          const pos = getPositionOnPath(path, hd)
           return { ...seg, x: pos.x, y: pos.y }
-        })
+        }
+        if (!seg.alive) return seg
+        aliveBodyIndex++
+        const dist = hd - aliveBodyIndex * SEGMENT_PATH_SPACING
+        const pos = getPositionOnSideTrack(path, dist, seg.track)
+        return { ...seg, x: pos.x, y: pos.y }
       })
 
-      // collision: missiles vs snake
-      // missiles pass through the head (invincible)
-      setMissiles((prevMissiles) => {
-        const survivingMissiles = []
+      const survivingMissiles = []
+      const frameHitFlashes = []
+      const frameExplosions = []
+      const frameItems = []
+      let frameScore = 0
 
-        prevMissiles.forEach((m) => {
-          let hit = false
-          setSnake((prevSnake) => {
-            const newSnake = prevSnake.map((seg) => {
-              if (!seg.alive || hit || seg.isHead) return seg
-              if (
-                rectsOverlap(
-                  { x: m.x, y: m.y, w: m.width, h: m.height },
-                  { x: seg.x, y: seg.y, w: SNAKE_SEGMENT_W, h: SNAKE_SEGMENT_H }
-                )
-              ) {
-                hit = true
-                const newHp = seg.hp - m.damage
-                setHitFlashes((hf) => [...hf, { id: uid(), x: m.x, y: m.y, time: now }])
-                if (newHp <= 0) {
-                  setScore((s) => s + seg.maxHp * 10)
-                  setExplosions((ex) => [
-                    ...ex,
-                    { id: uid(), x: seg.x + SNAKE_SEGMENT_W / 2, y: seg.y + SNAKE_SEGMENT_H / 2, time: now },
-                  ])
-                  if (Math.random() < ITEM_DROP_CHANCE) {
-                    const type = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)]
-                    setItems((it) => [
-                      ...it,
-                      { id: uid(), x: seg.x + SNAKE_SEGMENT_W / 2 - ITEM_SIZE / 2, y: seg.y, type },
-                    ])
-                  }
-                  return { ...seg, hp: 0, alive: false }
-                }
-                return { ...seg, hp: newHp }
-              }
-              return seg
-            })
-            return newSnake
+      nextMissiles.forEach((m) => {
+        const hitIndex = combatSnake.findIndex((seg) =>
+          seg.alive &&
+          !seg.isHead &&
+          rectsOverlap(
+            { x: m.x, y: m.y, w: m.width, h: m.height },
+            { x: seg.x, y: seg.y, w: SNAKE_SEGMENT_W, h: SNAKE_SEGMENT_H }
+          )
+        )
+
+        if (hitIndex === -1) {
+          survivingMissiles.push(m)
+          return
+        }
+
+        const seg = combatSnake[hitIndex]
+        const newHp = seg.hp - m.damage
+        frameHitFlashes.push({ id: uid(), x: m.x, y: m.y, time: now })
+
+        if (newHp <= 0) {
+          frameScore += seg.maxHp * 10
+          frameExplosions.push({
+            id: uid(),
+            x: seg.x + SNAKE_SEGMENT_W / 2,
+            y: seg.y + SNAKE_SEGMENT_H / 2,
+            time: now,
           })
-          if (!hit) {
-            survivingMissiles.push(m)
+          if (Math.random() < ITEM_DROP_CHANCE) {
+            const type = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)]
+            frameItems.push({
+              id: uid(),
+              x: seg.x + SNAKE_SEGMENT_W / 2 - ITEM_SIZE / 2,
+              y: seg.y,
+              type,
+            })
           }
-        })
-
-        return survivingMissiles
+          combatSnake[hitIndex] = { ...seg, hp: 0, alive: false }
+        } else {
+          combatSnake[hitIndex] = { ...seg, hp: newHp }
+        }
       })
+
+      snakeRef.current = combatSnake
+      missilesRef.current = survivingMissiles
+      setSnake(combatSnake)
+      setMissiles(survivingMissiles)
+
+      if (frameScore > 0) setScore((s) => s + frameScore)
+      if (frameHitFlashes.length > 0) {
+        setHitFlashes((prev) => [...prev, ...frameHitFlashes])
+      }
+      if (frameExplosions.length > 0) {
+        setExplosions((prev) => [...prev, ...frameExplosions])
+      }
+      if (frameItems.length > 0) {
+        setItems((prev) => [...prev, ...frameItems])
+      }
+
+      const bodyAlive = combatSnake.some((seg) => !seg.isHead && seg.alive)
+      if (!bodyAlive && combatSnake.length > 1) {
+        setGameState('stageClear')
+      }
+
+      const head = combatSnake.find((seg) => seg.isHead)
+      if (head && head.y >= GAME_OVER_Y) {
+        setGameState('gameOver')
+      }
 
       // update items
       setItems((prev) =>
@@ -464,7 +507,7 @@ function MissileShoot() {
             if (it.type === 'powerup') {
               setMissileLevel((l) => Math.min(l + 1, 6))
             } else if (it.type === 'multishot') {
-              setMultiShot((ms) => Math.min(ms + 2, 4))
+              setMultiShot(1)
             } else if (it.type === 'bomb') {
               setBombs((b) => Math.min(b + 1, 9))
             }
@@ -479,23 +522,6 @@ function MissileShoot() {
       setExplosions((prev) => prev.filter((e) => now - e.time < 500))
       setHitFlashes((prev) => prev.filter((h) => now - h.time < 150))
 
-      // check stage clear - all body segments destroyed
-      setSnake((prev) => {
-        const bodyAlive = prev.some((s) => !s.isHead && s.alive)
-        if (!bodyAlive && prev.length > 1) {
-          setGameState('stageClear')
-        }
-        return prev
-      })
-
-      // check game over - dragon head reached bottom
-      setSnake((prev) => {
-        const head = prev.find((s) => s.isHead)
-        if (head && head.y >= GAME_OVER_Y) {
-          setGameState('gameOver')
-        }
-        return prev
-      })
     }, TICK)
 
     return () => clearInterval(loop)
@@ -507,6 +533,8 @@ function MissileShoot() {
   // count remaining body segments
   const bodyRemaining = snake.filter((s) => !s.isHead && s.alive).length
   const bodyTotal = snake.filter((s) => !s.isHead).length
+  const leftRemaining = snake.filter((s) => !s.isHead && s.alive && s.track === 'left').length
+  const rightRemaining = snake.filter((s) => !s.isHead && s.alive && s.track === 'right').length
 
   return (
     <div ref={containerRef} className="ms-container">
@@ -526,13 +554,19 @@ function MissileShoot() {
 
         {/* body remaining bar */}
         {gameState === 'playing' && bodyTotal > 0 && (
-          <div className="ms-body-bar">
-            <span className="ms-body-label">🐉 {bodyRemaining}/{bodyTotal}</span>
-            <div className="ms-body-gauge">
-              <div
-                className="ms-body-gauge-fill"
-                style={{ width: `${(bodyRemaining / bodyTotal) * 100}%` }}
-              />
+          <div className="ms-mission-hud">
+            <div className="ms-body-bar">
+              <span className="ms-body-label">DRAGON {bodyRemaining}/{bodyTotal}</span>
+              <div className="ms-body-gauge">
+                <div
+                  className="ms-body-gauge-fill"
+                  style={{ width: `${(bodyRemaining / bodyTotal) * 100}%` }}
+                />
+              </div>
+            </div>
+            <div className="ms-core-counts" aria-label="남은 좌우 코어">
+              <span className="ms-core-count-left">◀ LEFT {leftRemaining}</span>
+              <span className="ms-core-count-right">RIGHT {rightRemaining} ▶</span>
             </div>
           </div>
         )}
@@ -542,8 +576,8 @@ function MissileShoot() {
             Lv.{missileLevel} {mProps.name}
           </div>
           <div className="ms-hud-items">
-            {multiShot > 0 && <span className="ms-hud-multi">x{multiShot}</span>}
-            <span className="ms-hud-bomb">💣x{bombs}</span>
+            {multiShot > 0 && <span className="ms-hud-multi">TRIPLE</span>}
+            <span className="ms-hud-bomb">✦ EMP {bombs}</span>
           </div>
         </div>
 
@@ -562,7 +596,7 @@ function MissileShoot() {
           seg.alive ? (
             <div
               key={seg.id}
-              className={`ms-segment ${seg.isHead ? 'ms-segment-head' : ''}`}
+              className={`ms-segment ${seg.isHead ? 'ms-segment-head' : `ms-segment-${seg.track}`}`}
               style={{
                 left: seg.x,
                 top: seg.y,
@@ -580,6 +614,9 @@ function MissileShoot() {
                       style={{ width: `${(seg.hp / seg.maxHp) * 100}%` }}
                     />
                   </div>
+                  <span className="ms-segment-core" aria-hidden="true">
+                    <b>{seg.track === 'left' ? 'L' : 'R'}</b>
+                  </span>
                   <span className="ms-segment-hp-text">{seg.hp}</span>
                 </>
               )}
@@ -609,10 +646,9 @@ function MissileShoot() {
             key={it.id}
             className={`ms-item ms-item-${it.type}`}
             style={{ left: it.x, top: it.y, width: ITEM_SIZE, height: ITEM_SIZE }}
+            aria-label={it.type === 'powerup' ? '미사일 강화' : it.type === 'multishot' ? '멀티샷' : 'EMP 폭탄'}
           >
-            {it.type === 'powerup' && '⬆️'}
-            {it.type === 'multishot' && '🔱'}
-            {it.type === 'bomb' && '💣'}
+            <ItemPickup type={it.type} />
           </div>
         ))}
 
@@ -644,6 +680,9 @@ function MissileShoot() {
         >
           <div className="ms-player-body" style={{ borderColor: mProps.color }}>
             <div className="ms-player-turret" style={{ backgroundColor: mProps.color }} />
+            <div className="ms-player-cockpit" />
+            <div className="ms-player-wing ms-player-wing-left" />
+            <div className="ms-player-wing ms-player-wing-right" />
           </div>
         </div>
 
@@ -653,9 +692,15 @@ function MissileShoot() {
             <div className="ms-menu">
               <div className="ms-menu-icon">🐉</div>
               <h2>미사일 슈팅</h2>
-              <p>용의 몸통을 모두 파괴하세요!</p>
+              <p>양쪽 길의 코어를 모두 추격하세요!</p>
+              <div className="ms-menu-mission">
+                <span className="ms-menu-left">왼쪽 코어 추격</span>
+                <b>↔</b>
+                <span className="ms-menu-right">오른쪽 코어 추격</span>
+              </div>
+              <p className="ms-menu-warning">코어가 양쪽 길로 흩어져 내려와요</p>
               <p className="ms-menu-sub">🐉 머리가 바닥에 닿으면 게임 오버</p>
-              <p className="ms-menu-controls">← → 이동 | 자동 발사 | Z 폭탄</p>
+              <p className="ms-menu-controls">← → 빠르게 이동 · 자동 발사 · Z EMP</p>
               <button onClick={startGame}>시작하기</button>
               <p className="ms-menu-hint">Enter / Space로 시작</p>
             </div>
@@ -701,10 +746,10 @@ function MissileShoot() {
           onTouchEnd={() => keysRef.current.delete('z')}
           onClick={() => { keysRef.current.add('z'); setTimeout(() => keysRef.current.delete('z'), 50) }}
         >
-          💣 폭탄 ({bombs})
+          ✦ EMP ({bombs})
         </button>
       )}
-      <div className="ms-instructions">터치로 이동 · 자동 발사 · 💣 폭탄 버튼</div>
+      <div className="ms-instructions">화면 좌우로 움직여 양쪽 코어를 추격하세요</div>
     </div>
   )
 }
