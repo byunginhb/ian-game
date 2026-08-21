@@ -332,18 +332,21 @@
 }
 
 .swim-racer {
+  --racer-scale: 1;
+  --racer-x: 0px;
   position: absolute;
   z-index: 8;
+  left: 0;
   top: 50%;
   width: 68px;
   height: 34px;
-  transform: translate(-50%, -50%);
-  transition: left 0.06s linear;
+  transform: translate3d(var(--racer-x), -50%, 0) translateX(-50%) scale(var(--racer-scale));
+  will-change: transform;
   filter: drop-shadow(0 5px 4px rgba(0, 59, 93, 0.3));
 }
 
-.swim-racer.is-player { z-index: 10; transform: translate(-50%, -50%) scale(1.08); }
-.swim-racer.is-finished { animation: swimFinishBob 0.5s ease-in-out infinite alternate; }
+.swim-racer.is-player { --racer-scale: 1.08; z-index: 10; }
+.swim-racer.is-finished .swim-figure { animation: swimFinishBob 0.38s ease-in-out infinite alternate; }
 
 .swim-figure {
   position: absolute;
@@ -393,6 +396,22 @@
 .swim-arm-bottom {
   top: 23px;
   animation: swimArmBottom 0.64s ease-in-out infinite;
+}
+
+.swim-racer.is-player.is-stroke-left .swim-arm-top {
+  animation: swimPlayerArmPull 0.22s ease-out both;
+}
+
+.swim-racer.is-player.is-stroke-left .swim-arm-bottom {
+  animation: swimPlayerArmReach 0.22s ease-out both;
+}
+
+.swim-racer.is-player.is-stroke-right .swim-arm-top {
+  animation: swimPlayerArmReach 0.22s ease-out both;
+}
+
+.swim-racer.is-player.is-stroke-right .swim-arm-bottom {
+  animation: swimPlayerArmPull 0.22s ease-out both;
 }
 
 .swim-wake {
@@ -445,6 +464,20 @@
 
 .is-boosting .swim-racer.is-player .swim-figure {
   filter: drop-shadow(0 0 7px var(--yellow));
+}
+
+.swim-pool-wrap.is-touching .swim-finish-line::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 84px;
+  height: 84px;
+  border: 5px solid #fff6a8;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 34px #fff, inset 0 0 24px #5ee7f7;
+  animation: swimTouchRing 0.68s ease-out forwards;
 }
 
 .swim-overlay {
@@ -602,7 +635,7 @@
 .swim-controls {
   min-height: 84px;
   display: grid;
-  grid-template-columns: minmax(120px, 170px) minmax(240px, 1fr) minmax(120px, 170px) minmax(120px, 170px);
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
   gap: 8px;
 }
 
@@ -668,42 +701,6 @@
   letter-spacing: 0.14em;
 }
 
-.swim-rhythm-panel {
-  min-width: 0;
-  padding: 11px 18px;
-  border: 1px solid rgba(155,237,248,0.2);
-  border-radius: 5px;
-  background: rgba(2, 28, 44, 0.78);
-}
-
-.swim-rhythm-copy {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.swim-rhythm-copy span { color: #75d9e8; font: 9px 'Russo One', sans-serif; letter-spacing: 0.13em; }
-.swim-rhythm-copy b { color: var(--yellow); font: 21px 'Russo One', sans-serif; }
-.swim-rhythm-copy i { color: #6ac9d9; font-size: 10px; font-style: normal; }
-
-.swim-rhythm-track {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 4px;
-  margin: 4px 0 8px;
-}
-
-.swim-rhythm-track span {
-  height: 7px;
-  transform: skewX(-18deg);
-  background: rgba(255,255,255,0.14);
-}
-
-.swim-rhythm-track span.is-filled { background: var(--yellow); box-shadow: 0 0 7px rgba(255,224,82,0.55); }
-.swim-boost-stock { display: flex; gap: 5px; }
-.swim-boost-stock i { filter: grayscale(1); opacity: 0.22; font-style: normal; font-size: 13px; }
-.swim-boost-stock i.is-ready { filter: none; opacity: 1; animation: swimBoostReady 0.75s ease-in-out infinite alternate; }
-
 .swim-boost-button {
   border-color: rgba(255,224,82,0.16);
 }
@@ -733,6 +730,16 @@
   50% { transform: rotate(-30deg) scaleX(0.65); }
 }
 
+@keyframes swimPlayerArmPull {
+  0% { transform: rotate(-48deg) scaleX(1.08); }
+  100% { transform: rotate(42deg) scaleX(0.7); }
+}
+
+@keyframes swimPlayerArmReach {
+  0% { transform: rotate(38deg) scaleX(0.7); }
+  100% { transform: rotate(-42deg) scaleX(1.08); }
+}
+
 @keyframes swimBodyBob {
   to { transform: translateY(2px); }
 }
@@ -748,7 +755,12 @@
 }
 
 @keyframes swimFinishBob {
-  to { transform: translate(-50%, -50%) rotate(-4deg); }
+  to { transform: translateY(-3px) rotate(-4deg); }
+}
+
+@keyframes swimTouchRing {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.18); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8); }
 }
 
 @keyframes swimCountPop {
@@ -765,10 +777,6 @@
 
 @keyframes swimButtonFlash {
   to { transform: translateX(100%); }
-}
-
-@keyframes swimBoostReady {
-  to { transform: scale(1.2); filter: drop-shadow(0 0 5px #ffe052); }
 }
 
 @keyframes swimBoostButton {
@@ -806,7 +814,6 @@
   .swim-wake { right: 37px; width: 35px; }
   .swim-you { left: 27px; top: -9px; }
   .swim-controls { min-height: 72px; grid-template-columns: 1fr 0.78fr 1fr; gap: 5px; }
-  .swim-rhythm-panel { display: none; }
   .swim-stroke-button, .swim-boost-button { min-height: 72px; padding: 6px 8px; column-gap: 5px; }
   .swim-stroke-button > span, .swim-boost-button > span { font-size: 25px; }
   .swim-stroke-button b, .swim-boost-button b { font-size: 14px; }

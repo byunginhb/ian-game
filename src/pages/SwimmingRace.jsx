@@ -4,7 +4,9 @@ import { useTouchLock } from '../hooks/useTouchLock'
 import './SwimmingRace.css'
 
 const FINISH = 100
-const MAX_BOOSTS = 3
+const HUD_UPDATE_INTERVAL = 100
+const FINISH_HOLD_MS = 700
+const STROKE_NUDGE = 0.38
 const ROUND_INFO = [
   { label: '예선', level: 'EASY', aiSpeed: 4.15 },
   { label: '준결승', level: 'NORMAL', aiSpeed: 4.85 },
@@ -36,6 +38,7 @@ function ordinal(rank) {
 
 function SwimmingRace() {
   const containerRef = useRef(null)
+  const poolRef = useRef(null)
   useTouchLock(containerRef)
 
   const [phase, setPhase] = useState('menu')
@@ -43,7 +46,6 @@ function SwimmingRace() {
   const [countdown, setCountdown] = useState(3)
   const [racers, setRacers] = useState(makeRacers)
   const [speed, setSpeed] = useState(0)
-  const [streak, setStreak] = useState(0)
   const [boosts, setBoosts] = useState(0)
   const [lastStroke, setLastStroke] = useState(null)
   const [feedback, setFeedback] = useState(null)
@@ -63,6 +65,32 @@ function SwimmingRace() {
   const lastFrameRef = useRef(0)
   const animationRef = useRef(0)
   const feedbackTimerRef = useRef(0)
+  const finishTimerRef = useRef(0)
+  const lastHudUpdateRef = useRef(0)
+  const boostingRef = useRef(false)
+  const racerElementRefs = useRef(new Map())
+
+  const racerRefCallbacks = useMemo(
+    () => Object.fromEntries(SWIMMERS.map((swimmer) => [
+      swimmer.id,
+      (node) => {
+        if (node) racerElementRefs.current.set(swimmer.id, node)
+        else racerElementRefs.current.delete(swimmer.id)
+      },
+    ])),
+    [],
+  )
+
+  const paintRacers = useCallback((nextRacers) => {
+    const poolWidth = poolRef.current?.clientWidth ?? 0
+    nextRacers.forEach((racer) => {
+      const element = racerElementRefs.current.get(racer.id)
+      if (element && poolWidth > 0) {
+        const trackX = poolWidth * (0.065 + racer.progress * 0.00855)
+        element.style.setProperty('--racer-x', `${trackX}px`)
+      }
+    })
+  }, [])
 
   const sortedRacers = useMemo(
     () => [...racers].sort((a, b) => b.progress - a.progress),
@@ -80,8 +108,8 @@ function SwimmingRace() {
   }, [round])
 
   useEffect(() => {
-    racersRef.current = racers
-  }, [racers])
+    paintRacers(racersRef.current)
+  }, [paintRacers, phase, round])
 
   useEffect(() => {
     try {
@@ -99,6 +127,7 @@ function SwimmingRace() {
 
   const startRound = useCallback((targetRound = roundRef.current) => {
     window.cancelAnimationFrame(animationRef.current)
+    window.clearTimeout(finishTimerRef.current)
     roundRef.current = targetRound
     setRound(targetRound)
     const freshRacers = makeRacers()
@@ -108,9 +137,10 @@ function SwimmingRace() {
     boostsRef.current = 0
     lastStrokeRef.current = null
     boostUntilRef.current = 0
+    lastHudUpdateRef.current = 0
+    boostingRef.current = false
     setRacers(freshRacers)
     setSpeed(0)
-    setStreak(0)
     setBoosts(0)
     setLastStroke(null)
     setBoosting(false)
@@ -119,7 +149,8 @@ function SwimmingRace() {
     setCountdown(3)
     setPhase('countdown')
     phaseRef.current = 'countdown'
-  }, [])
+    window.requestAnimationFrame(() => paintRacers(freshRacers))
+  }, [paintRacers])
 
   useEffect(() => {
     if (phase !== 'countdown') return undefined
@@ -130,6 +161,7 @@ function SwimmingRace() {
       } else {
         raceStartedAtRef.current = performance.now()
         lastFrameRef.current = performance.now()
+        lastHudUpdateRef.current = performance.now()
         setPhase('racing')
         phaseRef.current = 'racing'
       }
@@ -139,7 +171,7 @@ function SwimmingRace() {
   }, [countdown, phase])
 
   const finishRace = useCallback((finalRacers) => {
-    if (phaseRef.current !== 'racing') return
+    if (phaseRef.current !== 'racing' && phaseRef.current !== 'touching') return
 
     const ranked = [...finalRacers].sort((a, b) => {
       if (a.finishedAt !== null && b.finishedAt !== null) return a.finishedAt - b.finishedAt
@@ -202,13 +234,26 @@ function SwimmingRace() {
       })
 
       racersRef.current = nextRacers
-      setRacers(nextRacers)
-      setSpeed(nextSpeed)
-      setBoosting(activeBoost)
+      paintRacers(nextRacers)
+
+      if (activeBoost !== boostingRef.current) {
+        boostingRef.current = activeBoost
+        setBoosting(activeBoost)
+      }
+
+      if (now - lastHudUpdateRef.current >= HUD_UPDATE_INTERVAL) {
+        lastHudUpdateRef.current = now
+        setRacers(nextRacers)
+        setSpeed(nextSpeed)
+      }
 
       const playerRacer = nextRacers.find((racer) => racer.player)
       if (playerRacer?.progress >= FINISH) {
-        finishRace(nextRacers)
+        setRacers(nextRacers)
+        setSpeed(nextSpeed)
+        setPhase('touching')
+        phaseRef.current = 'touching'
+        finishTimerRef.current = window.setTimeout(() => finishRace(nextRacers), FINISH_HOLD_MS)
         return
       }
 
@@ -217,7 +262,7 @@ function SwimmingRace() {
 
     animationRef.current = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(animationRef.current)
-  }, [finishRace, phase])
+  }, [finishRace, paintRacers, phase])
 
   const stroke = useCallback((side) => {
     if (phaseRef.current !== 'racing') return
@@ -226,7 +271,6 @@ function SwimmingRace() {
       speedRef.current *= 0.58
       streakRef.current = 0
       setSpeed(speedRef.current)
-      setStreak(0)
       showFeedback('miss', '같은 팔! 속도 DOWN')
       return
     }
@@ -237,32 +281,33 @@ function SwimmingRace() {
     setSpeed(speedRef.current)
     setLastStroke(side)
 
+    const nudgedRacers = racersRef.current.map((racer) => (
+      racer.player && racer.progress < FINISH
+        ? { ...racer, progress: Math.min(FINISH, racer.progress + STROKE_NUDGE) }
+        : racer
+    ))
+    racersRef.current = nudgedRacers
+    paintRacers(nudgedRacers)
+
     if (nextStreak >= 10) {
       streakRef.current = 0
-      const nextBoosts = Math.min(MAX_BOOSTS, boostsRef.current + 1)
-      boostsRef.current = nextBoosts
-      setStreak(0)
-      setBoosts(nextBoosts)
-      showFeedback('boost', nextBoosts === MAX_BOOSTS ? '부스터 가득!' : '부스터 충전!')
+      boostsRef.current = 1
+      setBoosts(1)
     } else {
       streakRef.current = nextStreak
-      setStreak(nextStreak)
-      if (nextStreak === 5) showFeedback('good', '좋은 리듬!')
     }
-  }, [showFeedback])
+  }, [paintRacers, showFeedback])
 
   const triggerBoost = useCallback(() => {
     if (phaseRef.current !== 'racing') return
-    if (boostsRef.current <= 0) {
-      showFeedback('miss', '10번 번갈아 저어 충전!')
-      return
-    }
+    if (boostsRef.current <= 0) return
 
     boostsRef.current -= 1
     boostUntilRef.current = Math.max(performance.now(), boostUntilRef.current) + 1800
     speedRef.current = 12.4
     setBoosts(boostsRef.current)
     setSpeed(speedRef.current)
+    boostingRef.current = true
     setBoosting(true)
     showFeedback('boost', 'SUPER BOOST!')
   }, [showFeedback])
@@ -282,6 +327,7 @@ function SwimmingRace() {
 
   useEffect(() => () => {
     window.clearTimeout(feedbackTimerRef.current)
+    window.clearTimeout(finishTimerRef.current)
     window.cancelAnimationFrame(animationRef.current)
   }, [])
 
@@ -324,7 +370,7 @@ function SwimmingRace() {
           </div>
           <div className="swim-live-stat">
             <small>현재 순위</small>
-            <strong>{phase === 'racing' || phase === 'finished' ? ordinal(liveRank) : '—'}</strong>
+            <strong>{phase === 'racing' || phase === 'touching' || phase === 'finished' ? ordinal(liveRank) : '—'}</strong>
           </div>
           <div className="swim-live-stat swim-speed-stat">
             <small>속도</small>
@@ -332,7 +378,7 @@ function SwimmingRace() {
           </div>
         </section>
 
-        <section className="swim-pool-wrap">
+        <section ref={poolRef} className={`swim-pool-wrap${phase === 'touching' ? ' is-touching' : ''}`}>
           <div className="swim-pool-shine" />
           <div className="swim-meter-markers" aria-hidden="true">
             <span style={{ left: '28%' }}>25m</span>
@@ -349,11 +395,11 @@ function SwimmingRace() {
                 <span>{racer.name}</span>
               </div>
               <div
-                className={`swim-racer${racer.player ? ' is-player' : ''}${racer.progress >= FINISH ? ' is-finished' : ''}`}
+                ref={racerRefCallbacks[racer.id]}
+                className={`swim-racer${racer.player ? ' is-player' : ''}${racer.player && lastStroke ? ` is-stroke-${lastStroke}` : ''}${racer.progress >= FINISH ? ' is-finished' : ''}`}
                 style={{
                   '--swimmer-color': racer.color,
                   '--cap-color': racer.cap,
-                  left: `${6.5 + racer.progress * 0.855}%`,
                 }}
               >
                 <span className="swim-wake" />
@@ -428,28 +474,11 @@ function SwimmingRace() {
             <span>←</span><b>왼팔</b><small>LEFT</small>
           </button>
 
-          <div className="swim-rhythm-panel">
-            <div className="swim-rhythm-copy">
-              <span>STROKE RHYTHM</span>
-              <b>{streak}<i>/10</i></b>
-            </div>
-            <div className="swim-rhythm-track">
-              {Array.from({ length: 10 }, (_, index) => (
-                <span key={index} className={index < streak ? 'is-filled' : ''} />
-              ))}
-            </div>
-            <div className="swim-boost-stock" aria-label={`부스터 ${boosts}개`}>
-              {Array.from({ length: MAX_BOOSTS }, (_, index) => (
-                <i key={index} className={index < boosts ? 'is-ready' : ''}>⚡</i>
-              ))}
-            </div>
-          </div>
-
           <button
             type="button"
             className={`swim-boost-button${boosts > 0 ? ' is-ready' : ''}`}
             onPointerDown={(event) => { event.preventDefault(); triggerBoost() }}
-            disabled={phase !== 'racing'}
+            disabled={phase !== 'racing' || boosts <= 0}
           >
             <span>⚡</span><b>부스터</b><small>SPACE</small>
           </button>
