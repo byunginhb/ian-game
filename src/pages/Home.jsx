@@ -28,6 +28,14 @@ function Home() {
 
   const games = [
     {
+      id: "swimming-race",
+      title: "이겨야해. 어푸어푸",
+      emoji: "🏊",
+      description: "왼팔·오른팔을 번갈아 저어 5명의 선수보다 먼저 터치패드에 도착하세요!",
+      color: "#0284c7",
+      tags: ["new", "hot", "action"],
+    },
+    {
       id: "lava-castle",
       title: "용암 수호대",
       emoji: "🌋",
