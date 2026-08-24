@@ -6,12 +6,50 @@ import './SwimmingRace.css'
 const FINISH = 100
 const HUD_UPDATE_INTERVAL = 100
 const FINISH_HOLD_MS = 700
-const STROKE_NUDGE = 0.38
 const ROUND_INFO = [
-  { label: '예선', level: 'EASY', aiSpeed: 4.15 },
-  { label: '준결승', level: 'NORMAL', aiSpeed: 4.85 },
-  { label: '결승', level: 'HARD', aiSpeed: 5.55 },
+  { label: '예선', level: 'ROUND 1' },
+  { label: '준결승', level: 'ROUND 2' },
+  { label: '결승', level: 'FINAL' },
 ]
+
+const PLAYER_TYPES = {
+  child: {
+    label: '어린이',
+    shortLabel: 'KIDS',
+    icon: '🐬',
+    description: '빠른 가속 · 실수 회복 쉬움',
+    aiSpeeds: [5.4, 6.2, 7.0],
+    aiVariance: 0.9,
+    acceleration: 1.22,
+    streakBonus: 0.055,
+    maxSpeed: 10.8,
+    drag: 2.55,
+    mistakeMultiplier: 0.7,
+    strokeNudge: 0.48,
+    boostSpeed: 12.8,
+    boostFloor: 12.1,
+    boostDrag: 0.8,
+    boostDuration: 2100,
+  },
+  adult: {
+    label: '어른',
+    shortLabel: 'PRO',
+    icon: '🦈',
+    description: '강한 AI · 실수 감속 큼',
+    aiSpeeds: [7.4, 8.3, 9.2],
+    aiVariance: 1.15,
+    acceleration: 0.9,
+    streakBonus: 0.025,
+    maxSpeed: 10,
+    drag: 3.8,
+    mistakeMultiplier: 0.38,
+    strokeNudge: 0.2,
+    boostSpeed: 11.9,
+    boostFloor: 11.2,
+    boostDrag: 1.8,
+    boostDuration: 1250,
+  },
+}
 
 const SWIMMERS = [
   { id: 'coral', name: '코랄', color: '#fb7185', cap: '#ef4444', lane: 1 },
@@ -42,6 +80,7 @@ function SwimmingRace() {
   useTouchLock(containerRef)
 
   const [phase, setPhase] = useState('menu')
+  const [playerType, setPlayerType] = useState(null)
   const [round, setRound] = useState(1)
   const [countdown, setCountdown] = useState(3)
   const [racers, setRacers] = useState(makeRacers)
@@ -54,6 +93,7 @@ function SwimmingRace() {
   const [boosting, setBoosting] = useState(false)
 
   const phaseRef = useRef(phase)
+  const playerTypeRef = useRef(null)
   const roundRef = useRef(round)
   const racersRef = useRef(racers)
   const speedRef = useRef(0)
@@ -98,6 +138,7 @@ function SwimmingRace() {
   )
   const liveRank = sortedRacers.findIndex((racer) => racer.player) + 1
   const roundInfo = ROUND_INFO[round - 1]
+  const difficulty = PLAYER_TYPES[playerType ?? 'child']
 
   useEffect(() => {
     phaseRef.current = phase
@@ -125,7 +166,13 @@ function SwimmingRace() {
     feedbackTimerRef.current = window.setTimeout(() => setFeedback(null), 520)
   }, [])
 
+  const choosePlayerType = useCallback((type) => {
+    playerTypeRef.current = type
+    setPlayerType(type)
+  }, [])
+
   const startRound = useCallback((targetRound = roundRef.current) => {
+    if (!playerTypeRef.current) return
     window.cancelAnimationFrame(animationRef.current)
     window.clearTimeout(finishTimerRef.current)
     roundRef.current = targetRound
@@ -208,8 +255,8 @@ function SwimmingRace() {
       lastFrameRef.current = now
       const elapsed = (now - raceStartedAtRef.current) / 1000
       const activeBoost = now < boostUntilRef.current
-      let nextSpeed = Math.max(0, speedRef.current - dt * (activeBoost ? 1.1 : 3.05))
-      if (activeBoost) nextSpeed = Math.max(nextSpeed, 11.8)
+      let nextSpeed = Math.max(0, speedRef.current - dt * (activeBoost ? difficulty.boostDrag : difficulty.drag))
+      if (activeBoost) nextSpeed = Math.max(nextSpeed, difficulty.boostFloor)
       speedRef.current = nextSpeed
 
       const nextRacers = racersRef.current.map((racer, index) => {
@@ -219,7 +266,7 @@ function SwimmingRace() {
         if (racer.player) {
           advance = nextSpeed * dt
         } else {
-          const base = ROUND_INFO[roundRef.current - 1].aiSpeed + AI_VARIANCE[index]
+          const base = difficulty.aiSpeeds[roundRef.current - 1] + AI_VARIANCE[index] * difficulty.aiVariance
           const rhythm = Math.sin(elapsed * (1.25 + index * 0.11) + index * 1.7) * 0.34
           const surge = Math.sin(elapsed * 0.32 + index) > 0.82 ? 0.26 : 0
           advance = Math.max(2.8, base + rhythm + surge) * dt
@@ -262,13 +309,13 @@ function SwimmingRace() {
 
     animationRef.current = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(animationRef.current)
-  }, [finishRace, paintRacers, phase])
+  }, [difficulty, finishRace, paintRacers, phase])
 
   const stroke = useCallback((side) => {
     if (phaseRef.current !== 'racing') return
 
     if (lastStrokeRef.current === side) {
-      speedRef.current *= 0.58
+      speedRef.current *= difficulty.mistakeMultiplier
       streakRef.current = 0
       setSpeed(speedRef.current)
       showFeedback('miss', '같은 팔! 속도 DOWN')
@@ -277,13 +324,16 @@ function SwimmingRace() {
 
     lastStrokeRef.current = side
     const nextStreak = streakRef.current + 1
-    speedRef.current = Math.min(10.2, speedRef.current + 1.06 + Math.min(nextStreak, 8) * 0.045)
+    speedRef.current = Math.min(
+      difficulty.maxSpeed,
+      speedRef.current + difficulty.acceleration + Math.min(nextStreak, 8) * difficulty.streakBonus,
+    )
     setSpeed(speedRef.current)
     setLastStroke(side)
 
     const nudgedRacers = racersRef.current.map((racer) => (
       racer.player && racer.progress < FINISH
-        ? { ...racer, progress: Math.min(FINISH, racer.progress + STROKE_NUDGE) }
+        ? { ...racer, progress: Math.min(FINISH, racer.progress + difficulty.strokeNudge) }
         : racer
     ))
     racersRef.current = nudgedRacers
@@ -296,21 +346,21 @@ function SwimmingRace() {
     } else {
       streakRef.current = nextStreak
     }
-  }, [paintRacers, showFeedback])
+  }, [difficulty, paintRacers, showFeedback])
 
   const triggerBoost = useCallback(() => {
     if (phaseRef.current !== 'racing') return
     if (boostsRef.current <= 0) return
 
     boostsRef.current -= 1
-    boostUntilRef.current = Math.max(performance.now(), boostUntilRef.current) + 1800
-    speedRef.current = 12.4
+    boostUntilRef.current = Math.max(performance.now(), boostUntilRef.current) + difficulty.boostDuration
+    speedRef.current = difficulty.boostSpeed
     setBoosts(boostsRef.current)
     setSpeed(speedRef.current)
     boostingRef.current = true
     setBoosting(true)
     showFeedback('boost', 'SUPER BOOST!')
-  }, [showFeedback])
+  }, [difficulty, showFeedback])
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -343,7 +393,7 @@ function SwimmingRace() {
   }
 
   return (
-    <main ref={containerRef} className={`swim-container${boosting ? ' is-boosting' : ''}`}>
+    <main ref={containerRef} className={`swim-container${boosting ? ' is-boosting' : ''}${playerType ? ` is-${playerType}` : ''}`}>
       <div className="swim-shell">
         <header className="swim-topbar">
           <Link to="/" className="swim-back" aria-label="게임 목록으로 돌아가기">← 게임 목록</Link>
@@ -362,11 +412,14 @@ function SwimmingRace() {
             <small>ROUND {round}/3</small>
             <strong>{roundInfo.label}</strong>
           </div>
-          <div className="swim-difficulty" aria-label={`난이도 ${roundInfo.level}`}>
+          <div
+            className="swim-difficulty"
+            aria-label={playerType ? `${difficulty.label} 난이도 ${roundInfo.level}` : `선수 선택 ${roundInfo.level}`}
+          >
             {ROUND_INFO.map((info, index) => (
               <span key={info.level} className={index < round ? 'is-on' : ''} />
             ))}
-            <b>{roundInfo.level}</b>
+            <b>{playerType ? difficulty.shortLabel : 'PICK'} · {roundInfo.level}</b>
           </div>
           <div className="swim-live-stat">
             <small>현재 순위</small>
@@ -420,13 +473,36 @@ function SwimmingRace() {
             <div className="swim-overlay swim-menu">
               <div className="swim-menu-badge">6 LANES · 50 METERS</div>
               <h2>물살을 가르고<br /><span>제일 먼저 터치!</span></h2>
-              <p>왼쪽·오른쪽 방향키를 번갈아 누르면 점점 빨라져요.</p>
+              <p>누가 수영할까요? 선수에 따라 속도와 페널티가 크게 달라져요.</p>
+              <div className="swim-player-types" aria-label="선수 난이도 선택">
+                {Object.entries(PLAYER_TYPES).map(([type, config]) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={`swim-player-type is-${type}${playerType === type ? ' is-selected' : ''}`}
+                    aria-pressed={playerType === type}
+                    onClick={() => choosePlayerType(type)}
+                  >
+                    <span>{config.icon}</span>
+                    <strong>{config.label}</strong>
+                    <small>{config.description}</small>
+                    {type === 'child' && <i>추천</i>}
+                  </button>
+                ))}
+              </div>
               <div className="swim-howto">
                 <div><kbd>←</kbd><kbd>→</kbd><span>번갈아 수영</span></div>
                 <div><kbd className="space-key">SPACE</kbd><span>부스터 발사</span></div>
               </div>
               <div className="swim-warning">같은 방향을 두 번 누르면 속도가 느려져요!</div>
-              <button type="button" className="swim-primary" onClick={() => startRound(1)}>경기 시작</button>
+              <button
+                type="button"
+                className="swim-primary"
+                onClick={() => startRound(1)}
+                disabled={!playerType}
+              >
+                {playerType ? `${difficulty.label} 경기 시작` : '선수를 골라주세요'}
+              </button>
             </div>
           )}
 

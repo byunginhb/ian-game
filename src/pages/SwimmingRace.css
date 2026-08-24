@@ -520,6 +520,77 @@
   font-weight: 700;
 }
 
+.swim-player-types {
+  width: min(510px, calc(100% - 36px));
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+  margin: 2px 0 11px;
+}
+
+.swim-player-type {
+  --type-color: #5ee7f7;
+  position: relative;
+  min-height: 66px;
+  padding: 9px 12px 9px 62px;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: center;
+  justify-items: start;
+  border: 1px solid rgba(173, 242, 252, 0.3);
+  border-radius: 5px;
+  color: #eafcff;
+  background: rgba(2, 32, 49, 0.72);
+  text-align: left;
+  box-shadow: inset 0 1px rgba(255,255,255,0.08);
+  transition: transform 0.16s, border-color 0.16s, background 0.16s, box-shadow 0.16s;
+}
+
+.swim-player-type.is-adult { --type-color: #fb7185; }
+
+.swim-player-type:hover {
+  transform: translateY(-2px);
+  border-color: var(--type-color);
+}
+
+.swim-player-type.is-selected {
+  border-color: var(--type-color);
+  background: color-mix(in srgb, var(--type-color) 18%, #062f47);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--type-color) 32%, transparent), 0 8px 18px rgba(0,18,30,0.28);
+}
+
+.swim-player-type > span {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 34px;
+  filter: drop-shadow(0 4px 5px rgba(0,18,30,0.35));
+}
+
+.swim-player-type strong {
+  font: 17px 'Black Han Sans', sans-serif;
+}
+
+.swim-player-type small {
+  margin-top: 2px;
+  color: #a7eaf3;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.swim-player-type i {
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  color: #062f47;
+  background: var(--yellow);
+  font: 7px 'Russo One', sans-serif;
+  font-style: normal;
+}
+
 .swim-howto {
   display: flex;
   gap: 26px;
@@ -579,6 +650,23 @@
 }
 
 .swim-primary:active { transform: translateY(3px); box-shadow: 0 2px 0 #d99f13; }
+
+.swim-primary:disabled {
+  color: rgba(6,47,71,0.55);
+  background: #9cb9bd;
+  box-shadow: 0 4px 0 #698b91;
+  cursor: default;
+  transform: none;
+}
+
+.swim-container.is-adult .swim-difficulty span.is-on {
+  background: #fb7185;
+  box-shadow: 0 0 10px rgba(251,113,133,0.58);
+}
+
+.swim-container.is-adult .swim-difficulty b {
+  color: #ff9eac;
+}
 
 .swim-countdown { background: rgba(2,31,48,0.48); }
 .swim-countdown strong {
@@ -822,6 +910,12 @@
   .swim-stroke-button.is-right { grid-column: 3; grid-row: 1; }
   .swim-menu h2, .swim-result h2 { font-size: 29px; }
   .swim-menu > p { max-width: 300px; margin: 9px 14px 7px; font-size: 11px; }
+  .swim-player-types { width: min(344px, calc(100% - 20px)); gap: 6px; margin-bottom: 7px; }
+  .swim-player-type { min-height: 55px; padding: 7px 7px 7px 45px; }
+  .swim-player-type > span { left: 8px; font-size: 27px; }
+  .swim-player-type strong { font-size: 14px; }
+  .swim-player-type small { font-size: 7px; }
+  .swim-player-type i { right: 4px; top: 4px; font-size: 6px; }
   .swim-howto { gap: 10px; margin-bottom: 7px; }
   .swim-howto kbd { min-width: 29px; height: 27px; font-size: 14px; }
   .swim-howto kbd.space-key { width: 66px; font-size: 8px; }
@@ -838,6 +932,8 @@
   .swim-menu-badge, .swim-result > small { margin-bottom: 5px; }
   .swim-menu h2, .swim-result h2 { font-size: 27px; }
   .swim-menu > p { margin: 7px 0; }
+  .swim-player-types { margin-bottom: 5px; }
+  .swim-player-type { min-height: 49px; }
   .swim-warning { margin-bottom: 7px; }
   .swim-result-medal { font-size: 38px; }
   .swim-podium { margin: 8px 0 10px; }
