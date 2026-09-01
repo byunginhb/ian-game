@@ -162,6 +162,173 @@ const dist2 = (ax, ay, bx, by) => {
   return dx * dx + dy * dy
 }
 
+// 고해상도 정적 배경은 한 번만 그려 메인 루프의 렌더 비용을 늘리지 않는다.
+function mulberry32(seed) {
+  return () => {
+    let t = seed += 0x6D2B79F5
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function makeFieldBackground() {
+  const quality = 2
+  const bg = document.createElement('canvas')
+  bg.width = GAME_W * quality
+  bg.height = GAME_H * quality
+  const c = bg.getContext('2d')
+  c.scale(quality, quality)
+
+  const grass = c.createLinearGradient(0, 0, GAME_W, GAME_H)
+  grass.addColorStop(0, '#76be70')
+  grass.addColorStop(0.5, '#5fae64')
+  grass.addColorStop(1, '#438f59')
+  c.fillStyle = grass
+  c.fillRect(0, 0, GAME_W, GAME_H)
+
+  // 타일마다 아주 약한 명암 차이를 주어 장난감 디오라마 같은 깊이를 만든다.
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const key = col + ',' + row
+      const onPath = PATH_CELLS.has(key)
+      const x = col * CELL, y = row * CELL
+      if (onPath) {
+        const road = c.createLinearGradient(x, y, x, y + CELL)
+        road.addColorStop(0, (row + col) % 2 ? '#e8c980' : '#ebcf89')
+        road.addColorStop(1, (row + col) % 2 ? '#d5aa60' : '#d9b469')
+        c.fillStyle = road
+        c.fillRect(x, y, CELL, CELL)
+        c.fillStyle = 'rgba(255,247,206,0.16)'
+        c.fillRect(x, y, CELL, 2)
+      } else {
+        c.fillStyle = (row + col) % 2 ? 'rgba(28,108,56,0.035)' : 'rgba(255,255,214,0.025)'
+        c.fillRect(x, y, CELL, CELL)
+      }
+    }
+  }
+
+  // 길 바깥쪽만 테두리를 그려 경로는 읽기 쉽고 격자 느낌은 덜 나게 한다.
+  c.fillStyle = 'rgba(104,67,30,0.24)'
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      if (!PATH_CELLS.has(col + ',' + row)) continue
+      const x = col * CELL, y = row * CELL
+      if (!PATH_CELLS.has(col + ',' + (row - 1))) c.fillRect(x, y, CELL, 2)
+      if (!PATH_CELLS.has(col + ',' + (row + 1))) c.fillRect(x, y + CELL - 2, CELL, 2)
+      if (!PATH_CELLS.has((col - 1) + ',' + row)) c.fillRect(x, y, 2, CELL)
+      if (!PATH_CELLS.has((col + 1) + ',' + row)) c.fillRect(x + CELL - 2, y, 2, CELL)
+    }
+  }
+
+  const random = mulberry32(20260824)
+  // 풀잎과 꽃은 정적 캔버스에만 들어가므로 프레임 성능에는 영향이 없다.
+  for (let i = 0; i < 260; i++) {
+    const x = random() * GAME_W, y = random() * GAME_H
+    const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
+    if (PATH_CELLS.has(col + ',' + row)) continue
+    const h = 2 + random() * 4
+    c.strokeStyle = random() > 0.5 ? 'rgba(28,100,48,0.3)' : 'rgba(186,232,128,0.26)'
+    c.lineWidth = 0.8
+    c.beginPath()
+    c.moveTo(x, y + h / 2)
+    c.quadraticCurveTo(x + (random() - 0.5) * 2, y, x + (random() - 0.5) * 3, y - h)
+    c.stroke()
+  }
+  for (let i = 0; i < 22; i++) {
+    const x = random() * GAME_W, y = random() * GAME_H
+    const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
+    if (PATH_CELLS.has(col + ',' + row)) continue
+    const petal = random() > 0.45 ? '#fff1a8' : '#ffd0e0'
+    fc(c, x - 1.2, y, 1.2, petal); fc(c, x + 1.2, y, 1.2, petal)
+    fc(c, x, y - 1.2, 1.2, petal); fc(c, x, y + 1.2, 1.2, petal)
+    fc(c, x, y, 0.8, '#f2a93b')
+  }
+  for (let i = 0; i < 85; i++) {
+    const x = random() * GAME_W, y = random() * GAME_H
+    const col = Math.floor(x / CELL), row = Math.floor(y / CELL)
+    if (!PATH_CELLS.has(col + ',' + row)) continue
+    const rx = 0.8 + random() * 1.5
+    fe(c, x, y, rx, rx * 0.55, random() * Math.PI, random() > 0.5 ? 'rgba(106,71,37,0.22)' : 'rgba(255,244,210,0.25)')
+  }
+
+  // 가장자리의 부드러운 음영이 필드를 하나의 보드처럼 묶어 준다.
+  const vignette = c.createRadialGradient(GAME_W / 2, GAME_H / 2, GAME_W * 0.22, GAME_W / 2, GAME_H / 2, GAME_H * 0.72)
+  vignette.addColorStop(0, 'rgba(255,255,255,0)')
+  vignette.addColorStop(1, 'rgba(18,58,39,0.2)')
+  c.fillStyle = vignette
+  c.fillRect(0, 0, GAME_W, GAME_H)
+
+  return bg
+}
+
+function drawTower(ctx, tw, tdef) {
+  const x = tw.x, y = tw.y
+  ctx.save()
+  // 지면 그림자와 3단 받침대로 작은 피규어처럼 보이게 한다.
+  ctx.fillStyle = 'rgba(19,38,29,0.24)'
+  ctx.beginPath(); ctx.ellipse(x + 1, y + 13, 17, 6, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#334b46'
+  ctx.beginPath(); ctx.ellipse(x, y + 8, 16, 8, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#172d2b'
+  ctx.beginPath(); ctx.ellipse(x, y + 6, 15, 7, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = tdef.color
+  ctx.beginPath(); ctx.ellipse(x, y + 3, 14, 9, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.globalAlpha = 0.3
+  ctx.fillStyle = '#fff'
+  ctx.beginPath(); ctx.ellipse(x - 3, y, 9, 4.5, -0.2, Math.PI, Math.PI * 2); ctx.fill()
+  ctx.globalAlpha = 1
+
+  ctx.font = '18px "Apple Color Emoji", "Segoe UI Emoji", serif'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.fillText(tdef.emoji, x, y - 2)
+
+  // 레벨이 오를수록 받침의 금속 핀이 하나씩 더 빛난다.
+  for (let i = 0; i <= tw.level; i++) {
+    fc(ctx, x - 5 + i * 5, y + 10, 1.2, '#ffe08a')
+  }
+  ctx.fillStyle = '#142321'
+  ctx.beginPath(); ctx.arc(x + 12, y + 10, 7.5, 0, Math.PI * 2); ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.42)'; ctx.lineWidth = 1
+  ctx.stroke()
+  ctx.fillStyle = '#fff1b8'
+  ctx.font = '900 9px ui-rounded, system-ui, sans-serif'
+  ctx.fillText(String(tw.level + 1), x + 12, y + 10.5)
+  ctx.restore()
+}
+
+function drawHealthBar(ctx, e) {
+  const w = e.r * 2.05
+  const ratio = Math.max(0, e.hp / e.maxHp)
+  const top = e.y - e.r - (e.type === 'boss' ? e.r * 0.55 : 0) - 9
+  const h = e.type === 'boss' ? 5 : 4
+  ctx.fillStyle = 'rgba(15,28,25,0.72)'
+  ctx.beginPath(); ctx.roundRect(e.x - w / 2 - 1, top - 1, w + 2, h + 2, 3); ctx.fill()
+  if (ratio <= 0) return
+  ctx.fillStyle = ratio > 0.5 ? '#55e59c' : ratio > 0.25 ? '#ffd166' : '#ff667a'
+  ctx.beginPath(); ctx.roundRect(e.x - w / 2, top, Math.max(2, w * ratio), h, 2); ctx.fill()
+  ctx.fillStyle = 'rgba(255,255,255,0.34)'
+  ctx.fillRect(e.x - w / 2 + 1, top + 0.5, Math.max(0, w * ratio - 2), 1)
+}
+
+function drawProjectile(ctx, shot) {
+  const r = shot.kind === 'splash' ? 5 : 4
+  const target = shot.target
+  if (target) {
+    const dx = target.x - shot.x, dy = target.y - shot.y
+    const d = Math.hypot(dx, dy) || 1
+    ctx.strokeStyle = shot.color
+    ctx.globalAlpha = 0.28
+    ctx.lineWidth = r * 1.5
+    ctx.lineCap = 'round'
+    ctx.beginPath(); ctx.moveTo(shot.x - dx / d * 9, shot.y - dy / d * 9); ctx.lineTo(shot.x, shot.y); ctx.stroke()
+    ctx.globalAlpha = 1
+  }
+  fc(ctx, shot.x, shot.y, r + 2, 'rgba(255,255,255,0.3)')
+  fc(ctx, shot.x, shot.y, r, shot.color)
+  fc(ctx, shot.x - 1.2, shot.y - 1.4, Math.max(1, r * 0.34), '#fff6cf')
+}
+
 function TowerDefense() {
   const scale = useGameScale(GAME_W, STAGE_H, { reservedH: 16, maxScale: 1.4 })
   const containerRef = useRef(null)
@@ -215,21 +382,7 @@ function TowerDefense() {
 
   // 배경(잔디+길) 오프스크린 1회 렌더
   useEffect(() => {
-    const bg = document.createElement('canvas')
-    bg.width = GAME_W
-    bg.height = GAME_H
-    const c = bg.getContext('2d')
-    for (let r = 0; r < ROWS; r++) {
-      for (let col = 0; col < COLS; col++) {
-        const onPath = PATH_CELLS.has(col + ',' + r)
-        c.fillStyle = onPath ? '#E2B96F' : '#7BC67E'
-        c.fillRect(col * CELL, r * CELL, CELL, CELL)
-        c.strokeStyle = onPath ? 'rgba(0,0,0,0.10)' : 'rgba(0,0,0,0.06)'
-        c.lineWidth = 1
-        c.strokeRect(col * CELL + 0.5, r * CELL + 0.5, CELL, CELL)
-      }
-    }
-    bgRef.current = bg
+    bgRef.current = makeFieldBackground()
   }, [])
 
   // 캔버스 DPR
@@ -561,16 +714,18 @@ function TowerDefense() {
 
     const showRange = (x, y, range, ok) => {
       ctx.save()
+      ctx.fillStyle = ok ? 'rgba(231,255,221,0.08)' : 'rgba(231,76,60,0.08)'
+      ctx.beginPath(); ctx.arc(x, y, range, 0, Math.PI * 2); ctx.fill()
       ctx.setLineDash([5, 5])
-      ctx.strokeStyle = ok ? 'rgba(255,255,255,0.4)' : 'rgba(231,76,60,0.5)'
-      ctx.lineWidth = 1.5
+      ctx.strokeStyle = ok ? 'rgba(248,255,224,0.7)' : 'rgba(255,94,94,0.72)'
+      ctx.lineWidth = 1.25
       ctx.beginPath(); ctx.arc(x, y, range, 0, Math.PI * 2); ctx.stroke()
       ctx.restore()
     }
 
     const draw = (now) => {
       const g = G.current
-      ctx.drawImage(bgRef.current, 0, 0)
+      if (bgRef.current) ctx.drawImage(bgRef.current, 0, 0, GAME_W, GAME_H)
 
       if (g.selected && (g.phase === 'intermission' || g.phase === 'wave')) {
         ctx.fillStyle = 'rgba(168,240,192,0.30)'
@@ -586,22 +741,18 @@ function TowerDefense() {
       // 타워
       for (const tw of g.towers) {
         const tdef = TOWERS[tw.key]
-        ctx.fillStyle = 'rgba(0,0,0,0.16)'
-        ctx.beginPath(); ctx.ellipse(tw.x, tw.y + 12, 13, 5, 0, 0, Math.PI * 2); ctx.fill()
-        ctx.fillStyle = tdef.color
-        ctx.beginPath(); ctx.arc(tw.x, tw.y, 15, 0, Math.PI * 2); ctx.fill()
-        ctx.font = '17px serif'
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillText(tdef.emoji, tw.x, tw.y + 1)
-        ctx.fillStyle = '#2D3436'
-        ctx.beginPath(); ctx.arc(tw.x + 11, tw.y + 11, 7, 0, Math.PI * 2); ctx.fill()
-        ctx.fillStyle = '#FFEAA7'
-        ctx.font = 'bold 10px system-ui'
-        ctx.fillText(String(tw.level + 1), tw.x + 11, tw.y + 12)
+        drawTower(ctx, tw, tdef)
       }
 
       // 적
       for (const e of g.enemies) {
+        ctx.fillStyle = e.type === 'boss' ? 'rgba(55,24,66,0.3)' : 'rgba(23,47,33,0.22)'
+        ctx.beginPath(); ctx.ellipse(e.x + 1, e.y + e.r * 0.72, e.r * 0.86, e.r * 0.3, 0, 0, Math.PI * 2); ctx.fill()
+        if (e.type === 'boss') {
+          ctx.strokeStyle = 'rgba(255,226,132,0.28)'
+          ctx.lineWidth = 2
+          ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (1.28 + Math.sin(now / 300) * 0.04), 0, Math.PI * 2); ctx.stroke()
+        }
         drawEnemy(ctx, e, now)
         if (now < e.confusedUntil) {
           ctx.strokeStyle = 'rgba(180,120,255,0.9)'
@@ -609,31 +760,27 @@ function TowerDefense() {
           ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 3, 0, Math.PI * 2); ctx.stroke()
         }
         if (e.hp < e.maxHp) {
-          const w = e.r * 1.9
-          const ratio = Math.max(0, e.hp / e.maxHp)
-          const top = e.y - e.r - (e.type === 'boss' ? e.r * 0.55 : 0) - 8
-          ctx.fillStyle = '#636E72'
-          ctx.fillRect(e.x - w / 2, top, w, 3)
-          ctx.fillStyle = ratio > 0.5 ? '#00B894' : ratio > 0.25 ? '#FDCB6E' : '#D63031'
-          ctx.fillRect(e.x - w / 2, top, w * ratio, 3)
+          drawHealthBar(ctx, e)
         }
       }
 
       // 투사체
       for (const s of g.shots) {
-        ctx.fillStyle = s.color
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.kind === 'splash' ? 5 : 4, 0, Math.PI * 2); ctx.fill()
+        drawProjectile(ctx, s)
       }
 
       // 번개탑 체인
       for (const b of g.bolts) {
         ctx.save()
         ctx.globalAlpha = Math.max(0, b.life / 0.13)
-        ctx.strokeStyle = '#FDE047'
-        ctx.lineWidth = 2.5
+        ctx.strokeStyle = 'rgba(255,255,255,0.58)'
+        ctx.lineWidth = 5
         ctx.beginPath()
         ctx.moveTo(b.pts[0].x, b.pts[0].y)
         for (let i = 1; i < b.pts.length; i++) ctx.lineTo(b.pts[i].x, b.pts[i].y)
+        ctx.stroke()
+        ctx.strokeStyle = '#FDE047'
+        ctx.lineWidth = 2
         ctx.stroke()
         ctx.restore()
       }
