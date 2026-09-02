@@ -39,14 +39,24 @@ const WEAPON_TYPES = {
 
 const PROJECTILE_SPEED = 30
 const SPLASH_RADIUS = 5
+const MAX_MONSTERS = 48
+const MAX_PROJECTILES = 64
+const MAX_IMPACTS = 18
+const MAX_FLOATING_TEXTS = 12
+const PAINT_INTERVAL = 1000 / 30
+
+const MONSTER_TYPE_CACHE = new Map()
 
 let nextId = 1
 function genId() { return nextId++ }
 
 function getAvailableMonsterTypes(wave) {
-  return Object.entries(MONSTER_TYPES)
+  if (MONSTER_TYPE_CACHE.has(wave)) return MONSTER_TYPE_CACHE.get(wave)
+  const types = Object.entries(MONSTER_TYPES)
     .filter(([, cfg]) => !cfg.isBoss && cfg.minWave <= wave)
     .map(([type]) => type)
+  MONSTER_TYPE_CACHE.set(wave, types)
+  return types
 }
 
 function getWaveMonsterCount(wave) {
@@ -57,7 +67,6 @@ function getWaveMonsterCount(wave) {
 }
 
 function createMonster(wave, forceType) {
-  const isBossWave = wave % 5 === 0
   let type = forceType
   if (!type) {
     const available = getAvailableMonsterTypes(wave)
@@ -81,19 +90,29 @@ function createProjectile(weapon, slotPos, targetId, targetY, weaponType) {
     type: weaponType, damage: weapon.damage, range: weapon.range,
     startX: slotPos.x, pierceCount: weaponType === 'magic' ? 3 : 1,
     piercedIds: new Set(),
+    angle: 0,
   }
+}
+
+function RotateNotice() {
+  return (
+    <div className="md-rotate-notice" role="status">
+      <div className="md-phone-icon" aria-hidden="true"><span /></div>
+      <strong>가로로 돌려주세요</strong>
+      <span>넓은 전장에서 더 재미있게 플레이할 수 있어요</span>
+    </div>
+  )
 }
 
 function MonsterDefense() {
   const containerRef = useRef(null)
-  const scale = useGameScale(GAME_W, GAME_H, { reservedH: 60 })
+  const scale = useGameScale(GAME_W, GAME_H, { reservedH: 8, padding: 12 })
   useTouchLock(containerRef)
 
   const [phase, setPhase] = useState('start')
   const [gameSpeed, setGameSpeed] = useState(1) // 1x, 2x, 3x
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [popupType, setPopupType] = useState(null) // 'buy' | 'upgrade' | null
-  const [floatingTexts, setFloatingTexts] = useState([])
   const [screenShake, setScreenShake] = useState(false)
   const [bossWarning, setBossWarning] = useState(false)
   const [waveBanner, setWaveBanner] = useState(null)
@@ -106,6 +125,8 @@ function MonsterDefense() {
 
   const monstersRef = useRef([])
   const projectilesRef = useRef([])
+  const impactsRef = useRef([])
+  const floatingTextsRef = useRef([])
   const weaponsRef = useRef([])
   const goldRef = useRef(0)
   const hpRef = useRef(MAX_HP)
@@ -117,6 +138,8 @@ function MonsterDefense() {
   const phaseRef = useRef('start')
   const rafRef = useRef(null)
   const lastTimeRef = useRef(null)
+  const lastPaintRef = useRef(0)
+  const shakeTimeoutRef = useRef(null)
   const statsRef = useRef({ monstersKilled: 0, goldEarned: 0 })
   const gameSpeedRef = useRef(1)
 
@@ -127,20 +150,42 @@ function MonsterDefense() {
   const flush = useCallback(() => forceRender(t => t + 1), [])
 
   const addFloatingText = useCallback((text, x, y, color) => {
-    const id = genId()
-    setFloatingTexts(prev => [...prev, { id, text, x, y, color }])
-    setTimeout(() => setFloatingTexts(prev => prev.filter(f => f.id !== id)), 1200)
+    floatingTextsRef.current.push({ id: genId(), text, x, y, color, life: 0.9 })
+    if (floatingTextsRef.current.length > MAX_FLOATING_TEXTS) {
+      floatingTextsRef.current.splice(0, floatingTextsRef.current.length - MAX_FLOATING_TEXTS)
+    }
+  }, [])
+
+  const addImpact = useCallback((type, x, y) => {
+    impactsRef.current.push({ id: genId(), type, x, y, life: 0.38 })
+    if (impactsRef.current.length > MAX_IMPACTS) {
+      impactsRef.current.splice(0, impactsRef.current.length - MAX_IMPACTS)
+    }
   }, [])
 
   const triggerShake = useCallback(() => {
+    if (shakeTimeoutRef.current) return
     setScreenShake(true)
-    setTimeout(() => setScreenShake(false), 400)
+    shakeTimeoutRef.current = setTimeout(() => {
+      shakeTimeoutRef.current = null
+      setScreenShake(false)
+    }, 260)
+  }, [])
+
+  useEffect(() => () => {
+    if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current)
   }, [])
 
   const initGame = useCallback(() => {
     nextId = 1
     monstersRef.current = []
     projectilesRef.current = []
+    impactsRef.current = []
+    floatingTextsRef.current = []
+    if (shakeTimeoutRef.current) {
+      clearTimeout(shakeTimeoutRef.current)
+      shakeTimeoutRef.current = null
+    }
     goldRef.current = 150
     hpRef.current = MAX_HP
     waveRef.current = 1
@@ -152,7 +197,6 @@ function MonsterDefense() {
     weaponsRef.current = []
     setSelectedSlot(null)
     setPopupType(null)
-    setFloatingTexts([])
     setScreenShake(false)
     setBossWarning(false)
     setWaveBanner(null)
@@ -170,7 +214,9 @@ function MonsterDefense() {
       setTimeout(() => setBossWarning(false), 3000)
       for (let b = 0; b < 3; b++) {
         setTimeout(() => {
-          monstersRef.current = [...monstersRef.current, createMonster(wave, 'dragon')]
+          if (phaseRef.current === 'playing' && monstersRef.current.length < MAX_MONSTERS) {
+            monstersRef.current.push(createMonster(wave, 'dragon'))
+          }
         }, 2000 + b * 1500)
       }
     }
@@ -198,14 +244,14 @@ function MonsterDefense() {
       spawnTimerRef.current += dt
       const dur = 15 + wave * 0.5
       const interval = dur / spawnTotalRef.current
-      while (spawnTimerRef.current >= interval && spawnCountRef.current < spawnTotalRef.current && monstersRef.current.length < 60) {
+      while (spawnTimerRef.current >= interval && spawnCountRef.current < spawnTotalRef.current && monstersRef.current.length < MAX_MONSTERS) {
         spawnTimerRef.current -= interval
         monstersRef.current.push(createMonster(wave))
         spawnCountRef.current++
       }
 
       // Move monsters
-      const toRemove = []
+      const toRemove = new Set()
       for (let i = 0; i < monstersRef.current.length; i++) {
         const m = monstersRef.current[i]
         if (m.slowed && m.slowTimer > 0) {
@@ -219,7 +265,7 @@ function MonsterDefense() {
 
         if (m.x <= BASE_LINE_X) {
           hpRef.current = Math.max(0, hpRef.current - (m.isBoss ? 5 : 1))
-          toRemove.push(m.id)
+          toRemove.add(m.id)
           triggerShake()
           if (hpRef.current <= 0) {
             phaseRef.current = 'gameover'
@@ -232,8 +278,8 @@ function MonsterDefense() {
           }
         }
       }
-      if (toRemove.length > 0) {
-        monstersRef.current = monstersRef.current.filter(m => !toRemove.includes(m.id))
+      if (toRemove.size > 0) {
+        monstersRef.current = monstersRef.current.filter(m => !toRemove.has(m.id))
       }
 
       // Weapons fire
@@ -253,71 +299,86 @@ function MonsterDefense() {
             if (d < nearestDist) { nearestDist = d; nearestY = m.y; nearestId = m.id }
           }
         }
-        w.fireTimer = 1 / w.fireRate
-        projectilesRef.current.push(createProjectile(w, slotPos, nearestId, nearestY, w.type))
+        if (nearestId !== null && projectilesRef.current.length < MAX_PROJECTILES) {
+          w.fireTimer = 1 / w.fireRate
+          projectilesRef.current.push(createProjectile(w, slotPos, nearestId, nearestY, w.type))
+        } else {
+          // No target or the visual pool is full: retry shortly without creating throwaway DOM nodes.
+          w.fireTimer = 0.12
+        }
       }
 
       // Move projectiles & collisions
-      const pRemove = []
+      const pRemove = new Set()
+      const monsterById = new Map(monstersRef.current.map(m => [m.id, m]))
       for (let i = 0; i < projectilesRef.current.length; i++) {
         const b = projectilesRef.current[i]
-        if (pRemove.includes(b.id)) continue
+        if (pRemove.has(b.id)) continue
         const traveled = b.x - b.startX
-        if (traveled >= b.range || b.x > 101) { pRemove.push(b.id); continue }
+        if (traveled >= b.range || b.x > 101) { pRemove.add(b.id); continue }
 
         // Homing: track target monster position
-        const target = b.targetId ? monstersRef.current.find(m => m.id === b.targetId) : null
-        const tgtX = target ? target.x : b.x + 20
-        const tgtY = target ? target.y : b.targetY
+        const target = b.targetId ? monsterById.get(b.targetId) : null
+        const liveTarget = target?.hp > 0 ? target : null
+        const tgtX = liveTarget ? liveTarget.x : b.x + 20
+        const tgtY = liveTarget ? liveTarget.y : b.targetY
         const dx = tgtX - b.x
         const dy = tgtY - b.y
         const dist = Math.sqrt(dx * dx + dy * dy) || 1
+        b.angle = Math.atan2(dy, dx) * 180 / Math.PI
         b.x += (dx / dist) * PROJECTILE_SPEED * dt
         b.y += (dy / dist) * PROJECTILE_SPEED * dt
 
         if (b.type === 'cannon') {
           let hit = false
           for (const m of monstersRef.current) {
-            if (Math.abs(b.x - m.x) < 3 && Math.abs(b.y - m.y) < 5) { hit = true; break }
+            if (m.hp > 0 && Math.abs(b.x - m.x) < 3 && Math.abs(b.y - m.y) < 5) { hit = true; break }
           }
           if (hit) {
             for (const m of monstersRef.current) {
+              if (m.hp <= 0) continue
               const dist = Math.sqrt(Math.pow((b.x - m.x) * 8, 2) + Math.pow((b.y - m.y) * 4.5, 2)) / 8
-              if (dist <= SPLASH_RADIUS) m.hp -= b.damage
+              if (dist <= SPLASH_RADIUS) {
+                m.hp -= b.damage
+                if (m.hp <= 0) {
+                  goldRef.current += m.gold
+                  statsRef.current.monstersKilled++
+                  statsRef.current.goldEarned += m.gold
+                  addFloatingText(`+${m.gold}G`, m.x, m.y, '#ffe18a')
+                }
+              }
             }
-            const killed = monstersRef.current.filter(m => m.hp <= 0)
-            killed.forEach(m => {
-              goldRef.current += m.gold
-              statsRef.current.monstersKilled++
-              statsRef.current.goldEarned += m.gold
-              addFloatingText(`+${m.gold}G`, m.x, m.y, '#ffd700')
-            })
-            monstersRef.current = monstersRef.current.filter(m => m.hp > 0)
-            pRemove.push(b.id)
+            addImpact('cannon', b.x, b.y)
+            pRemove.add(b.id)
           }
         } else {
           for (const m of monstersRef.current) {
-            if (b.piercedIds.has(m.id)) continue
+            if (m.hp <= 0 || b.piercedIds.has(m.id)) continue
             if (Math.abs(b.x - m.x) < 2 && Math.abs(b.y - m.y) < 3) {
               b.piercedIds.add(m.id)
               m.hp -= b.damage
               if (b.type === 'ice') { m.slowed = true; m.slowTimer = 3 }
-              addFloatingText(`-${b.damage}`, m.x, m.y - 3, '#ff6666')
+              addImpact(b.type, b.x, b.y)
               if (m.hp <= 0) {
                 goldRef.current += m.gold
                 statsRef.current.monstersKilled++
                 statsRef.current.goldEarned += m.gold
-                addFloatingText(`+${m.gold}G`, m.x, m.y, '#ffd700')
+                addFloatingText(`+${m.gold}G`, m.x, m.y, '#ffe18a')
               }
               b.pierceCount--
-              if (b.pierceCount <= 0) { pRemove.push(b.id); break }
+              if (b.pierceCount <= 0) { pRemove.add(b.id); break }
             }
           }
-          monstersRef.current = monstersRef.current.filter(m => m.hp > 0)
         }
       }
-      projectilesRef.current = projectilesRef.current.filter(b => !pRemove.includes(b.id))
-      if (projectilesRef.current.length > 50) projectilesRef.current = projectilesRef.current.slice(-50)
+      monstersRef.current = monstersRef.current.filter(m => m.hp > 0)
+      projectilesRef.current = projectilesRef.current.filter(b => !pRemove.has(b.id))
+
+      // Short-lived feedback is maintained inside the game loop to avoid a timer/state update per hit.
+      for (const impact of impactsRef.current) impact.life -= rawDt
+      impactsRef.current = impactsRef.current.filter(impact => impact.life > 0)
+      for (const floatingText of floatingTextsRef.current) floatingText.life -= rawDt
+      floatingTextsRef.current = floatingTextsRef.current.filter(floatingText => floatingText.life > 0)
 
       // Wave clear
       if (spawnCountRef.current >= spawnTotalRef.current && monstersRef.current.length === 0 && phaseRef.current === 'playing') {
@@ -327,12 +388,16 @@ function MonsterDefense() {
         setTimeout(() => setWaveClear(false), 2000)
       }
 
-      if (frameCountRef.current % 2 === 0) flush()
+      const paintInterval = monstersRef.current.length > 36 ? 1000 / 24 : PAINT_INTERVAL
+      if (timestamp - lastPaintRef.current >= paintInterval) {
+        lastPaintRef.current = timestamp
+        flush()
+      }
       rafRef.current = requestAnimationFrame(loop)
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [phase, flush, addFloatingText, triggerShake])
+  }, [phase, flush, addFloatingText, addImpact, triggerShake])
 
   // Rest countdown
   useEffect(() => {
@@ -426,6 +491,8 @@ function MonsterDefense() {
   // Render values
   const monsters = monstersRef.current
   const projectiles = projectilesRef.current
+  const impacts = impactsRef.current
+  const floatingTexts = floatingTextsRef.current
   const weapons = weaponsRef.current
   const gold = goldRef.current
   const hp = hpRef.current
@@ -442,21 +509,29 @@ function MonsterDefense() {
   if (phase === 'start') {
     return (
       <div ref={containerRef} className="md-container">
-        <Link to="/" className="md-back-button">← 홈으로</Link>
+        <RotateNotice />
+        <Link to="/" className="md-back-button"><span aria-hidden="true">←</span> 게임 선택</Link>
         <div className="md-overlay">
           <div className="md-start-box">
-            <span className="md-start-emoji">🏰</span>
-            <h1 className="md-start-title">몬스터 디펜스</h1>
-            <div className="md-howto">
-              <div className="md-howto-rule">👆 왼쪽 벽의 빈칸을 터치해서 무기를 설치!</div>
-              <div className="md-howto-rule">🏹 무기가 자동으로 미사일을 발사해요</div>
-              <div className="md-howto-rule">👾 몬스터가 오른쪽에서 천천히 다가와요</div>
-              <div className="md-howto-rule">💰 시작 골드 150G! 화살탑은 50G</div>
-              <div className="md-howto-rule">⬆️ 설치된 무기를 터치하면 업그레이드/판매</div>
-              <div className="md-howto-rule">❤️ 몬스터가 벽에 닿으면 HP가 줄어요</div>
+            <div className="md-start-crest" aria-hidden="true">
+              <span className="md-start-emoji">🏰</span>
+              <span className="md-crest-ring" />
             </div>
-            <button className="md-btn" onClick={handleStart}>시작하기</button>
-            {highWave > 0 && <div style={{ color: '#ffd700', fontSize: 13, marginTop: 10 }}>최고 기록: 웨이브 {highWave}</div>}
+            <div className="md-start-content">
+              <div className="md-eyebrow">MOONKEEP · NIGHT WATCH</div>
+              <h1 className="md-start-title">몬스터 디펜스</h1>
+              <p className="md-start-subtitle">성벽에 무기를 설치하고, 달빛을 삼키러 온 몬스터를 막아내세요.</p>
+              <div className="md-howto">
+                <div className="md-howto-rule"><span>01</span><div><b>성벽 선택</b><small>빈 슬롯을 눌러 무기를 설치해요</small></div></div>
+                <div className="md-howto-rule"><span>02</span><div><b>자동 요격</b><small>타워가 가까운 적을 추적해요</small></div></div>
+                <div className="md-howto-rule"><span>03</span><div><b>전력 강화</b><small>처치 골드로 속도와 파워를 올려요</small></div></div>
+              </div>
+              <div className="md-start-actions">
+                <button className="md-btn" onClick={handleStart}><span>수비 시작</span><span aria-hidden="true">›</span></button>
+                <div className="md-start-gold"><span>시작 자금</span><strong>150 G</strong></div>
+                {highWave > 0 && <div className="md-high-wave"><span>최고 기록</span><strong>WAVE {highWave}</strong></div>}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -466,19 +541,21 @@ function MonsterDefense() {
   if (phase === 'gameover') {
     return (
       <div ref={containerRef} className="md-container">
-        <Link to="/" className="md-back-button">← 홈으로</Link>
+        <RotateNotice />
+        <Link to="/" className="md-back-button"><span aria-hidden="true">←</span> 게임 선택</Link>
         <div className="md-overlay">
           <div className="md-gameover-box">
-            <div style={{ color: 'white', fontSize: 28, fontWeight: 900, marginBottom: 14 }}>게임 오버 🏰</div>
+            <div className="md-eyebrow">THE WALL HAS FALLEN</div>
+            <h2 className="md-gameover-title">수비 종료</h2>
             <div className="md-gameover-stats">
-              <div>도달 웨이브: {wave}</div>
-              <div>처치: {statsRef.current.monstersKilled}마리</div>
-              <div>골드: {statsRef.current.goldEarned.toLocaleString()}G</div>
+              <div><span>도달 웨이브</span><strong>{wave}</strong></div>
+              <div><span>몬스터 처치</span><strong>{statsRef.current.monstersKilled}</strong></div>
+              <div><span>획득 골드</span><strong>{statsRef.current.goldEarned.toLocaleString()} G</strong></div>
             </div>
-            {wave > highWave && <div className="md-new-record">🎉 새로운 최고 기록!</div>}
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button className="md-btn" onClick={handleStart}>다시 시작</button>
-              <Link to="/" className="md-btn">홈으로</Link>
+            {wave > highWave && <div className="md-new-record">✦ 새로운 최고 기록</div>}
+            <div className="md-gameover-actions">
+              <button className="md-btn" onClick={handleStart}>다시 수비</button>
+              <Link to="/" className="md-btn md-btn-secondary">게임 선택</Link>
             </div>
           </div>
         </div>
@@ -487,30 +564,37 @@ function MonsterDefense() {
   }
 
   return (
-    <div ref={containerRef} className="md-container">
-      <Link to="/" className="md-back-button">← 홈으로</Link>
+    <div ref={containerRef} className="md-container md-playing">
+      <RotateNotice />
+      <Link to="/" className="md-back-button md-back-ingame" aria-label="게임 선택으로 돌아가기">←</Link>
 
       <div className={`md-wrapper${screenShake ? ' md-screen-shake' : ''}`} style={{ width: GAME_W * scale, height: GAME_H * scale, position: 'relative' }}>
         <div className="md-game-area" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
           <div className="md-field" onClick={handleFieldClick} />
-          <div className="md-wall" />
+          <div className="md-field-mist" />
+          <div className="md-wall"><span className="md-wall-sigil">M</span></div>
+          <div className="md-gate-line" />
 
           {/* HUD */}
           <div className="md-hud">
             <div className="md-hp-container">
-              <span style={{ fontSize: 12 }}>❤️</span>
-              <div className="md-hp-bar">
-                <div className="md-hp-bar-fill" style={{ width: `${hpPct}%`, background: hpColor }} />
+              <span className="md-hud-icon" aria-hidden="true">♥</span>
+              <div className="md-hp-copy">
+                <span>성벽 내구도</span>
+                <div className="md-hp-bar">
+                  <div className="md-hp-bar-fill" style={{ width: `${hpPct}%`, background: hpColor }} />
+                </div>
               </div>
               <span className="md-hp-text">{hp}/{MAX_HP}</span>
             </div>
-            <span className="md-wave-label">🌊 {wave}웨이브</span>
-            <span className="md-gold-display">💰 {gold}G</span>
+            <span className="md-wave-label"><small>WAVE</small>{String(wave).padStart(2, '0')}</span>
+            <span className="md-gold-display"><small>보유 골드</small>{gold.toLocaleString()} <i>G</i></span>
             <button
               className="md-speed-btn"
               onClick={() => setGameSpeed(s => s >= 3 ? 1 : s + 1)}
+              aria-label={`게임 속도 ${gameSpeed}배. 눌러서 변경`}
             >
-              ⏩ {gameSpeed}x
+              <span aria-hidden="true">▶▶</span> {gameSpeed}×
             </button>
           </div>
 
@@ -554,15 +638,24 @@ function MonsterDefense() {
 
           {/* Monsters */}
           {monsters.map(m => (
-            <div key={m.id} className={`md-monster${m.slowed ? ' md-monster-slowed' : ''}${m.isBoss ? ' md-monster-boss' : ''}`} style={{ left: `${m.x}%`, top: `${m.y}%` }}>
+            <div key={m.id} className={`md-monster${m.slowed ? ' md-monster-slowed' : ''}${m.isBoss ? ' md-monster-boss' : ''}`} style={{ transform: `translate3d(${m.x * GAME_W / 100}px, ${m.y * GAME_H / 100}px, 0) translate(-50%, -50%)` }}>
               <div className="md-monster-hp"><div className="md-monster-hp-fill" style={{ width: `${Math.max(0, (m.hp / m.maxHp) * 100)}%` }} /></div>
-              <span className="md-monster-emoji">{m.emoji}</span>
+              <div className="md-monster-body"><span className="md-monster-emoji">{m.emoji}</span><span className="md-monster-shadow" /></div>
             </div>
           ))}
 
           {/* Projectiles */}
           {projectiles.map(b => (
-            <div key={b.id} className={`md-projectile md-proj-${b.type}`} style={{ left: `${b.x}%`, top: `${b.y}%` }} />
+            <div
+              key={b.id}
+              className={`md-projectile md-proj-${b.type}`}
+              style={{ transform: `translate3d(${b.x * GAME_W / 100}px, ${b.y * GAME_H / 100}px, 0) translate(-50%, -50%) rotate(${b.angle}deg)` }}
+            />
+          ))}
+
+          {/* Capped, short-lived impact pool */}
+          {impacts.map(impact => (
+            <div key={impact.id} className={`md-impact md-impact-${impact.type}`} style={{ left: `${impact.x}%`, top: `${impact.y}%` }} />
           ))}
 
           {/* Floating texts */}
