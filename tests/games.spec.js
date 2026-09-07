@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { games } from '../src/data/games.js'
 
 const starts = {
+  'conquest': /1탄 출정하기/,
   'swimming-race': /경기 시작|출발|게임 시작|입수/,
   'lava-castle': /수호 작전 시작/,
   'magic-hanja': /^시작하기$/,
@@ -55,7 +56,7 @@ for (const game of games) {
     await expect(page.locator('.game-content')).toBeFocused()
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.locator('.session-home').click()
-    await expect(page.locator('.game-card')).toHaveCount(19)
+    await expect(page.locator('.game-card')).toHaveCount(games.length)
     await expect(page.locator('.home-recent')).toContainText(game.title)
     expect(errors).toEqual([])
   })
@@ -63,7 +64,7 @@ for (const game of games) {
 
 test('home categories and mobile scrolling remain available after playing', async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('.game-card')).toHaveCount(19)
+  await expect(page.locator('.game-card')).toHaveCount(games.length)
   await page.getByRole('button', { name: /생각하는 퍼즐/ }).click()
   await expect(page.locator('.game-card')).toHaveCount(4)
   await page.getByRole('button', { name: /모든 게임/ }).click()

@@ -6,6 +6,7 @@ import { games } from './data/games'
 import './App.css'
 
 const gamePages = {
+  'conquest': lazy(() => import('./pages/Conquest')),
   'song-ian': lazy(() => import('./pages/SongIan')),
   'poop-dodge': lazy(() => import('./pages/PoopDodge')),
   'missile-shoot': lazy(() => import('./pages/MissileShoot')),
