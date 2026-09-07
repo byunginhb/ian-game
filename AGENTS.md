@@ -37,3 +37,4 @@ pnpm preview   # 빌드 미리보기
 - 상태 관리: React hooks (useState, useEffect 등)
 - 불변성 패턴 준수
 - 커밋 메시지: 한국어, conventional commits 형식
+- 작업 완료 후 관련 검증이 통과하면 별도 확인 없이 해당 변경 사항을 커밋하고 원격 저장소에 푸시합니다.

@@ -96,6 +96,54 @@ test('cancelled and outside drops never send troops', async ({ page }) => {
   await expect(page.locator('.ct-fleet')).toHaveCount(0)
 })
 
+test('all soldiers march in five-person waves with no moving counts or ratio controls', async ({ page }) => {
+  await start(page)
+  await page.clock.pauseAt(new Date(Date.now() + 1000))
+  await expect(page.getByRole('group', { name: '출정 비율' })).toHaveCount(0)
+  const from = page.locator('.ct-land[data-owner="0"]').first(), to = page.locator('.ct-land[data-owner="-1"]').first()
+  const troops = Number(await from.getAttribute('data-troops'))
+  await from.focus(); await page.keyboard.press('Enter')
+  await to.focus(); await page.keyboard.press('Enter')
+  const fleet = page.locator('.ct-fleet[data-owner="0"]').first()
+  await expect(fleet).toHaveAttribute('data-dispatched', String(troops))
+  await expect(from).toHaveAttribute('data-troops', '0')
+  await expect(fleet.locator('text')).toHaveCount(0)
+  await expect(fleet.locator('.ct-soldier')).toHaveCount(5)
+  await page.clock.runFor(200)
+  await expect(fleet.locator('.ct-soldier')).toHaveCount(5)
+  await page.clock.runFor(200)
+  await expect(fleet.locator('.ct-soldier')).toHaveCount(10)
+  const seen = new Set()
+  for (let tick = 0; tick < 48; tick++) {
+    if (!await fleet.count()) break
+    const soldiers = await fleet.locator('.ct-soldier').evaluateAll((elements) => elements.map((element) => ({ id: Number(element.dataset.soldier), wave: element.dataset.wave })))
+    for (const soldier of soldiers) seen.add(soldier.id)
+    const waves = new Map()
+    for (const soldier of soldiers) waves.set(soldier.wave, (waves.get(soldier.wave) || 0) + 1)
+    expect([...waves.values()].every((count) => count <= 5)).toBe(true)
+    await page.clock.runFor(250)
+  }
+  expect(seen.size).toBe(troops)
+  await expect(page.locator('.ct-fleet text')).toHaveCount(0)
+})
+
+test('dropping in the sea inside the board cancels the order', async ({ page }) => {
+  await start(page)
+  const from = page.locator('.ct-land[data-owner="0"]').first()
+  await from.scrollIntoViewIfNeeded()
+  const a = await center(from)
+  const sea = await page.locator('.ct-map').evaluate((svg) => {
+    const point = svg.createSVGPoint()
+    point.x = 20; point.y = 20
+    const screen = point.matrixTransform(svg.getScreenCTM())
+    return { x: screen.x, y: screen.y }
+  })
+  await page.mouse.move(a.x, a.y); await page.mouse.down()
+  await page.mouse.move(sea.x, sea.y, { steps: 5 }); await page.mouse.up()
+  await expect(page.locator('.ct-fleet')).toHaveCount(0)
+  await expect(page.locator('.ct-land-selected')).toHaveCount(0)
+})
+
 test('saved stages unlock per faction, including all 36 lands in the finale', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('ian-conquest-v1', JSON.stringify({ selected: 3, cleared: [0, 0, 0, 19, 0, 0], stars: { '3-19': 2 } })))
   await page.goto('/game/conquest')
@@ -121,7 +169,7 @@ test('winning through real controls unlocks the next stage and persists across r
     }))
     const traveling = new Set(await page.locator('.ct-fleet[data-owner="0"]').evaluateAll((elements) => elements.map((element) => Number(element.dataset.target))))
     for (const from of snapshot.filter((land) => land.owner === 0 && land.troops > 12)) {
-      const target = snapshot.filter((land) => land.owner !== 0 && !traveling.has(land.id) && from.troops * .75 > land.troops * (land.owner === 5 ? 1.2 : 1) + 5).sort((a, b) => Math.hypot(from.x - a.x, from.y - a.y) + a.troops * 3 - Math.hypot(from.x - b.x, from.y - b.y) - b.troops * 3)[0]
+      const target = snapshot.filter((land) => land.owner !== 0 && !traveling.has(land.id) && from.troops > land.troops * (land.owner === 5 ? 1.2 : 1) + 5).sort((a, b) => Math.hypot(from.x - a.x, from.y - a.y) + a.troops * 3 - Math.hypot(from.x - b.x, from.y - b.y) - b.troops * 3)[0]
       if (!target) continue
       await page.locator(`[data-land="${from.id}"]`).focus(); await page.keyboard.press('Enter')
       await page.locator(`[data-land="${target.id}"]`).focus(); await page.keyboard.press('Enter')

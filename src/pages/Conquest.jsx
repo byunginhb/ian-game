@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { ArmySymbols, Commander } from '../components/ConquestArt'
-import { createWorld, FACTIONS, getLevelConfig, MAX_LEVEL, readProgress, recordWin, SAVE_KEY, sendTroops, tickWorld } from '../lib/conquest'
+import { createWorld, FACTIONS, getLevelConfig, MAX_LEVEL, marchingSoldiers, readProgress, recordWin, SAVE_KEY, sendTroops, territoryAt, tickWorld } from '../lib/conquest'
 import { gameClock } from '../lib/gameClock'
 import './Conquest.css'
 
@@ -16,7 +16,7 @@ function reducer(state, action) {
   if (action.type === 'start') return { ...state, mode: 'battle', world: createWorld(state.level, state.selected, action.portrait), round: state.round + 1 }
   if (action.type === 'menu') return { ...state, mode: 'menu', world: null, level: Math.min(MAX_LEVEL, state.progress.cleared[state.selected] + 1) }
   if (action.type === 'next' && state.world?.status === 'won' && state.level < MAX_LEVEL) return { ...state, level: state.level + 1, world: createWorld(state.level + 1, state.selected, action.portrait) }
-  if (action.type === 'send' && state.world) return { ...state, world: sendTroops(state.world, action.from, action.to, action.ratio) }
+  if (action.type === 'send' && state.world) return { ...state, world: sendTroops(state.world, action.from, action.to) }
   if (action.type === 'tick' && state.world?.status === 'playing') {
     const world = tickWorld(state.world, action.dt)
     return { ...state, world, progress: world.status === 'won' ? recordWin(state.progress, world) : state.progress }
@@ -28,18 +28,20 @@ function formatTime(seconds) { return `${Math.floor(seconds / 60)}:${String(Math
 
 function MapPreview({ player }) {
   const preview = useMemo(() => createWorld(1, player), [player])
+  const origin = preview.territories.find((land) => land.owner === player)
+  const destination = preview.territories.filter((land) => land.owner < 0).sort((a, b) => Math.hypot(a.x - origin.x, a.y - origin.y) - Math.hypot(b.x - origin.x, b.y - origin.y))[0]
   return <div className="ct-preview" aria-hidden="true">
     <span className="ct-preview-label">작은 섬에서, 온 세상의 대장으로.</span>
     <svg viewBox="0 0 960 660">
       {preview.territories.map((land) => <g key={land.id}><path d={land.path} fill={land.owner < 0 ? '#eee9d7' : FACTIONS[land.owner].light} stroke="#fffdf4" strokeWidth="4" /><circle cx={land.x} cy={land.y} r="23" fill={land.owner < 0 ? '#b4bcac' : FACTIONS[land.owner].color} /><text x={land.x} y={land.y + 7} textAnchor="middle" fill="white" fontSize="22" fontWeight="900">{Math.floor(land.troops)}</text></g>)}
-      <path d="M125 530Q245 385 370 360" fill="none" stroke={FACTIONS[player].color} strokeWidth="5" strokeDasharray="9 10" />
+      <path d={`M${origin.x} ${origin.y}Q${(origin.x + destination.x) / 2} ${Math.min(origin.y, destination.y) - 30} ${destination.x} ${destination.y}`} fill="none" stroke={FACTIONS[player].color} strokeWidth="5" strokeDasharray="9 10" />
     </svg>
     <span className="ct-preview-sticker">이 땅도 내 거! <b>⚑</b></span>
     <span className="ct-compass">✥<small>모험의 바다</small></span>
   </div>
 }
 
-function BattleMap({ world, source, setSource, ratio, onSend }) {
+function BattleMap({ world, source, setSource, onSend }) {
   const svgRef = useRef(null)
   const gestureRef = useRef(null)
   const [drag, setDrag] = useState(null)
@@ -57,19 +59,16 @@ function BattleMap({ world, source, setSource, ratio, onSend }) {
     if (!matrix) return null
     return new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse())
   }
-  const landAt = (point) => {
-    if (!point || point.x < 18 || point.y < 18 || point.x > world.width - 18 || point.y > world.height - 18) return null
-    return world.territories.reduce((best, land) => !best || Math.hypot(land.x - point.x, land.y - point.y) < Math.hypot(best.x - point.x, best.y - point.y) ? land : best, null)
-  }
+  const landAt = (point) => territoryAt(world, point)
   const send = (from, to) => {
     if (from === to) return
     const origin = world.territories.find((land) => land.id === from)
     if (!origin || origin.owner !== world.player) { setSource(null); return }
-    const units = Math.floor(origin.troops * ratio)
+    const units = Math.floor(origin.troops)
     if (units < 1) { setNotice('군사가 모일 때까지 조금만 기다려 주세요.'); return }
     onSend(from, to)
     setSource(null)
-    setNotice(`${units}명 출발! ${world.territories[to].owner === world.player ? '우리 땅에 힘을 보태요.' : '깃발을 꽂으러 가요!'}`)
+    setNotice(`군사 전원 출발! ${world.territories[to].owner === world.player ? '우리 땅에 힘을 보태요.' : '깃발을 꽂으러 가요!'}`)
   }
   const activate = (land) => {
     if (world.status !== 'playing') return
@@ -129,24 +128,26 @@ function BattleMap({ world, source, setSource, ratio, onSend }) {
               {team ? <><ellipse cx="0" cy="8" rx="21" ry="8" fill={team.color} opacity=".16" /><use href={`#ct-unit-${land.owner}`} x="-27" y="-59" width="54" height="66" />{ours && <g transform="translate(22 -33)"><path d="M0 14V-6l15 4-15 5" fill={team.color} stroke="#fffbed" strokeWidth="2" /><path d="m4-2 2 2 4-2" fill="none" stroke="white" strokeWidth="1.6" /></g>}</> : <path d="m-12-12 12-8 12 8v12h-24zM-3 0v-8h6v8" fill="#bac2ac" stroke="#98a38e" strokeWidth="2" />}
               <rect x="-26" y="5" width="52" height="29" rx="14.5" fill={team?.color || '#f9f8ee'} stroke={team ? '#fff9ed' : '#cdd2bd'} strokeWidth="2" />
               <text y="26" textAnchor="middle" fill={team ? '#fff' : '#6c7c6b'} className="ct-troop-count">{Math.floor(land.troops)}</text>
-              {active && <text y="52" textAnchor="middle" fill="#203b42" fontSize="14" fontWeight="800">{Math.floor(land.troops * ratio)}명 출정</text>}
+              {active && <text y="52" textAnchor="middle" fill="#203b42" fontSize="14" fontWeight="800">모두 출정</text>}
             </g>
           </g>
         })}
         <g pointerEvents="none" aria-hidden="true">
           {world.fleets.map((fleet) => {
-            const target = world.territories[fleet.toId], progress = Math.min(1, (world.time - fleet.departure) / fleet.duration)
-            const dx = target.x - fleet.x, dy = target.y - fleet.y, distance = Math.hypot(dx, dy)
-            const count = Math.min(9, Math.max(2, Math.ceil(fleet.units / 5)))
-            return <g key={fleet.id} className="ct-fleet" data-owner={fleet.owner} data-target={fleet.toId}>
-              <path d={`M${fleet.x} ${fleet.y}L${target.x} ${target.y}`} stroke={FACTIONS[fleet.owner].color} strokeWidth="2" strokeDasharray="3 9" opacity=".22" />
-              {Array.from({ length: count }, (_, index) => {
-                const offset = (index % 3 - 1) * 17 * Math.sin(progress * Math.PI)
-                const t = Math.max(0, Math.min(1, progress - Math.floor(index / 3) * .035))
-                const x = fleet.x + dx * t - dy / distance * offset, y = fleet.y + dy * t + dx / distance * offset
-                return <use key={index} href={`#ct-unit-${fleet.owner}`} x={x - 12} y={y - 22 + Math.sin(world.time * 17 + index) * 1.2} width="24" height="30" />
-              })}
-              <g transform={`translate(${fleet.x + dx * progress} ${fleet.y + dy * progress - 26})`}><rect x="-16" y="-11" width="32" height="18" rx="9" fill={FACTIONS[fleet.owner].color} /><text textAnchor="middle" y="2" fill="white" fontSize="12" fontWeight="900">{fleet.units}</text></g>
+            const target = world.territories[fleet.toId]
+            const soldiers = marchingSoldiers(fleet, target, world.time)
+            return <g key={fleet.id} className="ct-fleet" data-owner={fleet.owner} data-target={fleet.toId} data-dispatched={fleet.totalUnits} data-arrived={fleet.arrived - (fleet.casualties || []).filter((index) => index < fleet.arrived).length} data-casualties={fleet.casualties?.length || 0}>
+              {soldiers.length > 0 && <path d={`M${fleet.x} ${fleet.y}L${target.x} ${target.y}`} stroke={FACTIONS[fleet.owner].color} strokeWidth="2" strokeDasharray="3 9" opacity=".18" />}
+              {soldiers.map((soldier) => <use key={soldier.id} className="ct-soldier" data-soldier={soldier.id} data-wave={soldier.wave} href={`#ct-unit-${fleet.owner}`} x={soldier.x - 12} y={soldier.y - 22 + Math.sin(world.time * 17 + soldier.id) * 1.2} width="24" height="30" />)}
+            </g>
+          })}
+          {(world.clashes || []).map((clash) => {
+            const progress = Math.min(1, (world.time - clash.time) / .36)
+            return <g key={clash.id} className="ct-clash" transform={`translate(${clash.x} ${clash.y - 9})`} opacity={1 - progress}>
+              <circle r={6 + progress * 19} fill="none" stroke="#fffbea" strokeWidth="3" />
+              <path d="M-11-11 11 11m-22 0 22-22M-16 0h32M0-16v32" fill="none" stroke="#efb84d" strokeWidth="2.5" strokeLinecap="round" transform={`scale(${.45 + progress * .6})`} />
+              <circle cx={-5 - progress * 9} r="3" fill={FACTIONS[clash.owners[0]].color} />
+              <circle cx={5 + progress * 9} r="3" fill={FACTIONS[clash.owners[1]].color} />
             </g>
           })}
           {selected && drag && <path d={`M${selected.x} ${selected.y}Q${(selected.x + drag.x) / 2} ${Math.min(selected.y, drag.y) - 30} ${drag.x} ${drag.y}`} fill="none" stroke="#203b42" strokeWidth="4" strokeDasharray="9 7" markerEnd="url(#ct-arrow)" />}
@@ -161,7 +162,6 @@ function BattleMap({ world, source, setSource, ratio, onSend }) {
 export default function Conquest() {
   const [state, dispatch] = useReducer(reducer, undefined, initialize)
   const [source, setSource] = useState(null)
-  const [ratio, setRatio] = useState(.75)
   const [sound, setSound] = useState(false)
   const [help, setHelp] = useState(false)
   const audioRef = useRef(null)
@@ -205,7 +205,7 @@ export default function Conquest() {
   return <main className={`ct-container ${mode === 'battle' ? 'ct-playing' : ''}`} style={{ '--team-color': team.color, '--team-light': team.light }}>
     <div className="ct-shell">
       <header className="ct-topline"><span className="ct-brand"><span>⚑</span> 이안의 영토 대작전</span><div className="ct-top-actions"><button onClick={() => setSound(!sound)} aria-label={sound ? '소리 끄기' : '소리 켜기'} aria-pressed={sound}>{sound ? '♪' : '♩'}<span>소리 {sound ? '켜짐' : '꺼짐'}</span></button><button onClick={() => { setSource(null); setHelp(!help) }} aria-label="놀이 방법" aria-expanded={help} aria-controls="ct-guide">? <span>놀이 방법</span></button></div></header>
-      {help && <section className="ct-guide" id="ct-guide" aria-label="놀이 방법"><div><h2>손가락 하나로, 땅을 내 것으로!</h2><p><b>① 기다리기</b> 내 땅에서 군사가 조금씩 모여요. 땅마다 최대 150명!</p><p><b>② 끌어 보내기</b> 내 땅을 누른 채 다른 땅에 놓으면 군사가 출발해요. 두 땅을 차례로 눌러도 돼요.</p><p><b>③ 땅 차지하기</b> 상대 병력을 이기고 군사가 남으면 내 깃발이 꽂혀요. 빈 땅도 차지해야 해요!</p><p><b>④ 힘 합치기</b> 우리 땅에 보내면 지원군! 출정 비율을 바꿔 지킬 군사를 남겨 보세요.</p><small>키보드로도 가능해요: Tab으로 땅 선택 → Enter로 출발지와 도착지 선택. Esc로 선택 취소.</small>{mode === 'battle' && <strong className="ct-guide-paused">설명을 읽는 동안 전투는 멈춰 있어요.</strong>}</div><button onClick={() => setHelp(false)}>알겠어요 ✓</button></section>}
+      {help && <section className="ct-guide" id="ct-guide" aria-label="놀이 방법"><div><h2>손가락 하나로, 땅을 내 것으로!</h2><p><b>① 기다리기</b> 내 땅에서 군사가 조금씩 모여요. 땅마다 최대 150명!</p><p><b>② 끌어 보내기</b> 내 땅을 누른 채 다른 땅에 놓으면 군사 전원이 출발해요. 두 땅을 차례로 눌러도 돼요. 바다에 놓으면 취소돼요.</p><p><b>③ 땅 차지하기</b> 길에서 다른 팀 군사를 만나면 한 명씩 함께 사라져요. 살아남은 군사로 상대 병력을 이기면 내 깃발이 꽂혀요. 빈 땅도 차지해야 해요!</p><p><b>④ 힘 합치기</b> 우리 땅에 보내면 지원군! 군사 전원이 다섯 명씩 출발하고, 도착한 만큼 힘을 보태요.</p><small>키보드로도 가능해요: Tab으로 땅 선택 → Enter로 출발지와 도착지 선택. Esc로 선택 취소.</small>{mode === 'battle' && <strong className="ct-guide-paused">설명을 읽는 동안 전투는 멈춰 있어요.</strong>}</div><button onClick={() => setHelp(false)}>알겠어요 ✓</button></section>}
       {mode === 'menu' ? <>
         <section className="ct-intro"><div className="ct-intro-copy"><span className="ct-eyebrow">여섯 영웅의 한판 승부</span><h1>내가 <span>다 먹었다!</span><i aria-hidden="true">✦</i></h1><p>내가 좋아하는 팀과 함께,<br />작은 섬 하나부터 온 세상을 차지해 봐!</p><div className="ct-feature-pills"><span>☝ 쭉 끌어서 출정</span><span>⚑ 6개 진영</span><span>✦ 20탄의 모험</span></div></div><MapPreview player={selected} /></section>
         <section className="ct-team-section" aria-labelledby="ct-team-title"><div className="ct-section-heading"><h2 id="ct-team-title"><span>01</span> 누구와 함께 정복할까?</h2><p>팀마다 다른 힘, 골라서 출발!</p></div><div className="ct-team-grid">
@@ -219,8 +219,8 @@ export default function Conquest() {
       </> : <>
         <div className="ct-battle-heading"><div><span className="ct-eyebrow">{config.region} · {level} / 20탄</span><h1>{config.name}</h1></div><div className="ct-battle-clock" aria-label="진행 시간">◷ {formatTime(world.time)}</div></div>
         <div className="ct-battle-layout"><section className="ct-arena" aria-label="전투"><div className="ct-arena-hud"><span><b style={{ color: team.color }}>⚑ 내 땅</b> <strong data-testid="ct-owned">{counts[selected]}</strong> / {config.count}</span><div className="ct-dominance" aria-label="팀별 영토 비율">{FACTIONS.map((faction, index) => <span key={faction.id} style={{ width: `${counts[index] / config.count * 100}%`, background: faction.color }} />)}</div><span className="ct-objective">모든 땅에 내 깃발을!</span></div>
-          <div className="ct-map-stage" inert={finished || help}><BattleMap key={`${level}-${selected}-${world.width}-${state.round}`} world={world} source={source} setSource={setSource} ratio={ratio} onSend={(from, to) => { dispatch({ type: 'send', from, to, ratio }); chirp(550) }} /></div>
-          <div className="ct-battle-controls"><div className="ct-ratio"><span>보낼 군사</span><div role="group" aria-label="출정 비율">{[.5, .75, 1].map((value) => <button key={value} disabled={finished || help} aria-pressed={ratio === value} onClick={() => setRatio(value)}>{value === 1 ? '전부' : `${value * 100}%`}</button>)}</div></div><button className="ct-restart" disabled={finished} onClick={() => start()} aria-label="이번 탄 다시 시작">↻ <span>다시</span></button></div>
+          <div className="ct-map-stage" inert={finished || help}><BattleMap key={`${level}-${selected}-${world.width}-${state.round}`} world={world} source={source} setSource={setSource} onSend={(from, to) => { dispatch({ type: 'send', from, to }); chirp(550) }} /></div>
+          <div className="ct-battle-controls"><p className="ct-march-note"><span aria-hidden="true">⚑</span> 전원 출정 · 다섯 명씩 차례로!</p><button className="ct-restart" disabled={finished} onClick={() => start()} aria-label="이번 탄 다시 시작">↻ <span>다시</span></button></div>
         </section><aside className="ct-sidebar"><div className="ct-player-card"><Commander team={team} /><span>우리 팀의 대장</span><h2>{team.hero}</h2><p>{team.trait}</p></div><div className="ct-scoreboard"><h3>지금, 여섯 진영은 <span>⚑</span></h3>{FACTIONS.map((faction, index) => { const alive = counts[index] > 0 || world.fleets.some((fleet) => fleet.owner === index); return <div key={faction.id} className={!alive ? 'ct-eliminated' : ''}><span className="ct-team-dot" style={{ background: faction.color }}>{faction.symbol}</span><span>{faction.hero}{index === selected && <small>나</small>}</span><b>{counts[index]}<small> 땅</small></b></div> })}</div><div className="ct-tip-card"><b>대장님, 작은 힌트!</b><p>{level < 6 ? '숫자가 작은 빈 땅부터 차지해요. 땅이 많아지면 군사도 더 빨리 모여요!' : '우리 땅끼리 지원군을 보내 보세요. 힘을 모으면 큰 땅도 차지할 수 있어요!'}</p></div><button className="ct-menu-button" onClick={menu}>← 팀 · 모험 고르기</button></aside></div>
         <button className="ct-mobile-menu" onClick={menu}>← 팀 · 모험 고르기</button>
         {finished && <div className="ct-result-overlay" role="dialog" aria-modal="true" aria-labelledby="ct-result-title" onKeyDown={(event) => { if (event.key === 'Tab') { const buttons = event.currentTarget.querySelectorAll('button'); if (event.shiftKey && document.activeElement === buttons[0]) { event.preventDefault(); buttons[buttons.length - 1].focus() } else if (!event.shiftKey && document.activeElement === buttons[buttons.length - 1]) { event.preventDefault(); buttons[0].focus() } } }}><div className={`ct-result-card${won ? ' ct-winner' : ''}`}>
