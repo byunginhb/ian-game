@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -46,7 +47,7 @@ function getEmpty(grid) {
 
 function addRandom(grid) {
   const empty = getEmpty(grid)
-  if (empty.length === 0) return grid
+  if (empty.length === 0) return { grid, pos: null }
   const [r, c] = empty[Math.floor(Math.random() * empty.length)]
   const newGrid = grid.map((row) => [...row])
   newGrid[r][c] = Math.random() < 0.9 ? 2 : 4
@@ -144,7 +145,7 @@ function SongIan() {
   const containerRef = useRef(null)
   useTouchLock(containerRef)
 
-  const [grid, setGrid] = useState(createEmpty)
+  const [grid, setGrid] = useState(() => addRandom(addRandom(createEmpty()).grid).grid)
   const [score, setScore] = useState(0)
   const [best, setBest] = useState(() => {
     try { return Number(localStorage.getItem('2048-best')) || 0 } catch { return 0 }
@@ -156,7 +157,11 @@ function SongIan() {
   const [mergedTiles, setMergedTiles] = useState([])
   const movingRef = useRef(false)
 
+  const boardRef = useRef(null)
+
   const initGame = useCallback(() => {
+    gameClock.clearTimeouts()
+    movingRef.current = false
     let g = createEmpty()
     const r1 = addRandom(g)
     g = r1.grid
@@ -171,19 +176,15 @@ function SongIan() {
     setMergedTiles([])
   }, [])
 
-  useEffect(() => {
-    initGame()
-  }, [initGame])
-
   const doMove = useCallback((direction) => {
     if (movingRef.current || gameOver || (won && !keepPlaying)) return
     movingRef.current = true
 
-    setGrid((prev) => {
-      const result = moveGrid(prev, direction)
+    {
+      const result = moveGrid(grid, direction)
       if (!result.moved) {
         movingRef.current = false
-        return prev
+        return
       }
 
       const added = addRandom(result.grid)
@@ -204,14 +205,14 @@ function SongIan() {
         setGameOver(true)
       }
 
-      setTimeout(() => {
+      gameClock.setTimeout(() => {
         movingRef.current = false
         setMergedTiles([])
       }, 150)
 
-      return added.grid
-    })
-  }, [gameOver, won, keepPlaying, score, best])
+      setGrid(added.grid)
+    }
+  }, [grid, gameOver, won, keepPlaying, score, best])
 
   // keyboard
   useEffect(() => {
@@ -231,32 +232,33 @@ function SongIan() {
     return () => window.removeEventListener('keydown', onKey)
   }, [doMove])
 
-  // swipe support
+  // A swipe belongs to the board; scrolling instructions never moves tiles.
   useEffect(() => {
-    let startX = 0, startY = 0
-    const onStart = (e) => {
-      const t = e.touches[0]
-      startX = t.clientX
-      startY = t.clientY
+    const board = boardRef.current
+    if (!board) return
+    let start = null
+    const onStart = (event) => {
+      if (!event.isPrimary || event.button !== 0 || event.target.closest('button, a')) return
+      start = { x: event.clientX, y: event.clientY, id: event.pointerId }
+      board.setPointerCapture(event.pointerId)
     }
-    const onEnd = (e) => {
-      const t = e.changedTouches[0]
-      const dx = t.clientX - startX
-      const dy = t.clientY - startY
-      const absDx = Math.abs(dx)
-      const absDy = Math.abs(dy)
-      if (Math.max(absDx, absDy) < 30) return
-      if (absDx > absDy) {
-        doMove(dx > 0 ? 'right' : 'left')
-      } else {
-        doMove(dy > 0 ? 'down' : 'up')
-      }
+    const onEnd = (event) => {
+      if (!start || event.pointerId !== start.id) return
+      const dx = event.clientX - start.x, dy = event.clientY - start.y
+      start = null
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return
+      doMove(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'))
     }
-    window.addEventListener('touchstart', onStart, { passive: true })
-    window.addEventListener('touchend', onEnd, { passive: true })
+    const cancel = () => { start = null }
+    board.addEventListener('pointerdown', onStart)
+    board.addEventListener('pointerup', onEnd)
+    board.addEventListener('pointercancel', cancel)
+    window.addEventListener('blur', cancel)
     return () => {
-      window.removeEventListener('touchstart', onStart)
-      window.removeEventListener('touchend', onEnd)
+      board.removeEventListener('pointerdown', onStart)
+      board.removeEventListener('pointerup', onEnd)
+      board.removeEventListener('pointercancel', cancel)
+      window.removeEventListener('blur', cancel)
     }
   }, [doMove])
 
@@ -301,7 +303,7 @@ function SongIan() {
       <Link to="/" className="t48-back">← 홈으로</Link>
 
       <div className="t48-game-wrapper" style={{ width: LAYOUT_W * scale, height: LAYOUT_H * scale }}>
-        <div style={{ width: LAYOUT_W, height: LAYOUT_H, transform: `scale(${scale})`, transformOrigin: 'top left', padding: '0 8px' }}>
+        <div style={{ width: LAYOUT_W, height: LAYOUT_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left', padding: '0 8px' }}>
 
           {/* header */}
           <div className="t48-header">
@@ -320,6 +322,7 @@ function SongIan() {
 
           {/* board */}
           <div
+            ref={boardRef}
             className="t48-board"
             style={{
               width: BOARD_PX,
@@ -358,7 +361,7 @@ function SongIan() {
                 <div className="t48-overlay-box">
                   <h2>🎉 2048!</h2>
                   <p>점수: {score}</p>
-                  <button onClick={() => setKeepPlaying(true)} style={{ marginRight: 8 }}>계속하기</button>
+                  <button onClick={() => { setKeepPlaying(true); setGameOver(!canMove(grid)) }} style={{ marginRight: 8 }}>계속하기</button>
                   <button onClick={initGame}>새 게임</button>
                 </div>
               </div>
@@ -373,7 +376,7 @@ function SongIan() {
         </div>
       </div>
 
-      <div className="t48-instructions">방향키로 타일을 밀어 같은 숫자를 합치세요</div>
+      <div className="t48-instructions">방향키 또는 보드 위 스와이프로 같은 숫자를 합치세요</div>
     </div>
   )
 }

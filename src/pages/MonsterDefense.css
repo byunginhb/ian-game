@@ -167,15 +167,21 @@
 .md-btn-secondary { border-color:rgba(255,255,255,.16); background:rgba(255,255,255,.04); color:#b6c8c4; box-shadow:none }
 .md-btn-secondary:hover { background:rgba(255,255,255,.08) }
 
-/* Portrait phones pause behind a rotation prompt. */
-.md-rotate-notice { display:none }
-@media (orientation:portrait) and (max-width:900px) {
-  .md-rotate-notice { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:9px; padding:32px; background:radial-gradient(circle at 50% 44%,rgba(92,184,174,.14),transparent 30%),#061218; color:#eef7f4; text-align:center }
-  .md-rotate-notice strong { margin-top:17px; font-family:Georgia,"Noto Serif KR",serif; font-size:24px }
-  .md-rotate-notice>span { color:#829c98; font-size:12px; line-height:1.55 }
-  .md-phone-icon { position:relative; width:42px; height:70px; border:2px solid var(--md-mint); border-radius:9px; box-shadow:0 0 25px rgba(119,228,212,.17); animation:md-phone-turn 2s ease-in-out infinite alternate }
-  .md-phone-icon::before { position:absolute; top:5px; left:50%; width:10px; height:2px; border-radius:2px; background:var(--md-mint); content:""; transform:translateX(-50%) }
-  .md-phone-icon span { position:absolute; right:5px; bottom:5px; left:5px; height:51px; border-radius:4px; background:linear-gradient(145deg,rgba(119,228,212,.21),rgba(243,198,109,.08)) }
+/* Portrait remains playable, with full-size controls below the battlefield. */
+.md-rotate-notice, .md-mobile-controls { display: none; }
+@media (orientation: portrait) and (max-width: 900px) {
+  .md-container { flex-direction: column; gap: 16px; padding-block: 18px; }
+  .md-rotate-notice { display: flex; flex-direction: column; gap: 4px; padding: 10px; text-align: center; font-size: 12px; color: #bedbd2; }
+  .md-rotate-notice > span { color: #829c98; font-size: 11px; }
+  .md-phone-icon { display: none; }
+  .md-mobile-controls { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 420px; padding: 16px; background: #10252a; border-radius: 14px; }
+  .md-mobile-controls > div { display: flex; justify-content: space-between; font-size: 14px; }
+  .md-mobile-controls label { display: grid; gap: 8px; font-size: 13px; }
+  .md-mobile-controls select { width: 100%; min-height: 48px; padding: 10px; border-radius: 8px; border: 1px solid #77e4d455; background: #07131a; color: #edf7f3; }
+  .md-popup { position: fixed; left: 12px !important; right: 12px; top: auto !important; bottom: max(12px, env(safe-area-inset-bottom)); }
+  .md-popup-inner { padding: 16px; }
+  .md-popup-btn { min-height: 44px; font-size: 14px; }
+  .md-popup-close { width: 44px; height: 44px; }
 }
 
 @media (orientation:landscape) and (max-height:520px) {

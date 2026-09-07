@@ -1,21 +1,24 @@
-import { useState, useEffect } from 'react'
+import { useSyncExternalStore } from 'react'
+import { fitGameScale } from '../lib/gameViewport'
 
-export function useGameScale(gameW, gameH, { maxScale = 2, padding = 24, reservedH = 100 } = {}) {
-  const [scale, setScale] = useState(1)
+function subscribe(callback) {
+  window.addEventListener('resize', callback)
+  window.visualViewport?.addEventListener('resize', callback)
+  return () => {
+    window.removeEventListener('resize', callback)
+    window.visualViewport?.removeEventListener('resize', callback)
+  }
+}
 
-  useEffect(() => {
-    function update() {
-      const maxW = window.innerWidth - padding
-      const maxH = window.innerHeight - reservedH
-      const scaleW = maxW / gameW
-      const scaleH = maxH / gameH
-      setScale(Math.min(scaleW, scaleH, maxScale))
-    }
+function getViewport() {
+  const viewport = window.visualViewport
+  // Pinch zoom should magnify the game, rather than shrink it back down.
+  const height = viewport?.scale === 1 ? viewport.height : window.innerHeight
+  return `${window.innerWidth},${height}`
+}
 
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [gameW, gameH, maxScale, padding, reservedH])
-
-  return scale
+export function useGameScale(gameW, gameH, options = {}) {
+  const viewport = useSyncExternalStore(subscribe, getViewport, () => '400,700')
+  const [width, height] = viewport.split(',').map(Number)
+  return fitGameScale(gameW, gameH, width, height, options)
 }

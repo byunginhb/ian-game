@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -96,7 +97,7 @@ function createParticles(idRef, x, y, color, amount = 14) {
       dy: Math.sin(angle) * power,
       size: rand(5, 14),
       color,
-      born: performance.now(),
+      born: gameClock.now(),
     }
   })
 }
@@ -115,7 +116,7 @@ function createSplit(idRef, item, slashAngle) {
       dy: -16 + pushX * 8,
       rotate: -34,
       emoji: item.emoji,
-      born: performance.now(),
+      born: gameClock.now(),
     },
     {
       id: `half-${idRef.current}-b`,
@@ -125,7 +126,7 @@ function createSplit(idRef, item, slashAngle) {
       dy: -16 - pushX * 8,
       rotate: 34,
       emoji: item.emoji,
-      born: performance.now(),
+      born: gameClock.now(),
     },
   ]
 }
@@ -227,8 +228,8 @@ function FruitSlash() {
     pointerDownRef.current = false
     rushActivatedRef.current = false
     bladeRef.current = { x: 210, y: 310, active: false, pointerUntil: 0 }
-    deadlineRef.current = performance.now() + ROUND_SECONDS * 1000
-    spawnAtRef.current = performance.now() + 260
+    deadlineRef.current = gameClock.now() + ROUND_SECONDS * 1000
+    spawnAtRef.current = gameClock.now() + 260
     phaseRef.current = 'playing'
     setPhase('playing')
     setScore(0)
@@ -244,7 +245,7 @@ function FruitSlash() {
       flash: null,
       comboPop: null,
       rush: false,
-      now: performance.now(),
+      now: gameClock.now(),
     })
   }, [])
 
@@ -264,7 +265,7 @@ function FruitSlash() {
     }
   }, [scale])
 
-  const pushTrailPoint = useCallback((x, y, now = performance.now()) => {
+  const pushTrailPoint = useCallback((x, y, now = gameClock.now()) => {
     const blade = bladeRef.current
     blade.x = x
     blade.y = y
@@ -367,7 +368,7 @@ function FruitSlash() {
     if (phase !== 'playing') return undefined
 
     let frameId = 0
-    let last = performance.now()
+    let last = gameClock.now()
 
     function scoreSlice(item, now, slashAngle) {
       const recent = now - lastSliceAtRef.current < 430
@@ -517,11 +518,11 @@ function FruitSlash() {
         now,
       })
 
-      frameId = requestAnimationFrame(tick)
+      frameId = gameClock.requestAnimationFrame(tick)
     }
 
-    frameId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frameId)
+    frameId = gameClock.requestAnimationFrame(tick)
+    return () => gameClock.cancelAnimationFrame(frameId)
   }, [endRound, phase, pushTrailPoint])
 
   return (
@@ -532,7 +533,7 @@ function FruitSlash() {
         <div
           ref={areaRef}
           className={`fs-area fs-${phase}${view.flash ? ` fs-flash-${view.flash}` : ''}${view.rush ? ' fs-rush' : ''}`}
-          style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}
         >
           <div className="fs-kitchen">
             {SPARKS.map((spark, index) => (

@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTouchLock } from '../hooks/useTouchLock'
@@ -161,9 +162,9 @@ function SwimmingRace() {
   }, [])
 
   const showFeedback = useCallback((kind, text) => {
-    window.clearTimeout(feedbackTimerRef.current)
-    setFeedback({ kind, text, id: performance.now() })
-    feedbackTimerRef.current = window.setTimeout(() => setFeedback(null), 520)
+    gameClock.clearTimeout(feedbackTimerRef.current)
+    setFeedback({ kind, text, id: gameClock.now() })
+    feedbackTimerRef.current = gameClock.setTimeout(() => setFeedback(null), 520)
   }, [])
 
   const choosePlayerType = useCallback((type) => {
@@ -173,8 +174,8 @@ function SwimmingRace() {
 
   const startRound = useCallback((targetRound = roundRef.current) => {
     if (!playerTypeRef.current) return
-    window.cancelAnimationFrame(animationRef.current)
-    window.clearTimeout(finishTimerRef.current)
+    gameClock.cancelAnimationFrame(animationRef.current)
+    gameClock.clearTimeout(finishTimerRef.current)
     roundRef.current = targetRound
     setRound(targetRound)
     const freshRacers = makeRacers()
@@ -196,25 +197,25 @@ function SwimmingRace() {
     setCountdown(3)
     setPhase('countdown')
     phaseRef.current = 'countdown'
-    window.requestAnimationFrame(() => paintRacers(freshRacers))
+    gameClock.requestAnimationFrame(() => paintRacers(freshRacers))
   }, [paintRacers])
 
   useEffect(() => {
     if (phase !== 'countdown') return undefined
 
-    const timer = window.setTimeout(() => {
+    const timer = gameClock.setTimeout(() => {
       if (countdown > 0) {
         setCountdown((value) => value - 1)
       } else {
-        raceStartedAtRef.current = performance.now()
-        lastFrameRef.current = performance.now()
-        lastHudUpdateRef.current = performance.now()
+        raceStartedAtRef.current = gameClock.now()
+        lastFrameRef.current = gameClock.now()
+        lastHudUpdateRef.current = gameClock.now()
         setPhase('racing')
         phaseRef.current = 'racing'
       }
     }, countdown > 0 ? 720 : 500)
 
-    return () => window.clearTimeout(timer)
+    return () => gameClock.clearTimeout(timer)
   }, [countdown, phase])
 
   const finishRace = useCallback((finalRacers) => {
@@ -300,15 +301,15 @@ function SwimmingRace() {
         setSpeed(nextSpeed)
         setPhase('touching')
         phaseRef.current = 'touching'
-        finishTimerRef.current = window.setTimeout(() => finishRace(nextRacers), FINISH_HOLD_MS)
+        finishTimerRef.current = gameClock.setTimeout(() => finishRace(nextRacers), FINISH_HOLD_MS)
         return
       }
 
-      animationRef.current = window.requestAnimationFrame(tick)
+      animationRef.current = gameClock.requestAnimationFrame(tick)
     }
 
-    animationRef.current = window.requestAnimationFrame(tick)
-    return () => window.cancelAnimationFrame(animationRef.current)
+    animationRef.current = gameClock.requestAnimationFrame(tick)
+    return () => gameClock.cancelAnimationFrame(animationRef.current)
   }, [difficulty, finishRace, paintRacers, phase])
 
   const stroke = useCallback((side) => {
@@ -353,7 +354,7 @@ function SwimmingRace() {
     if (boostsRef.current <= 0) return
 
     boostsRef.current -= 1
-    boostUntilRef.current = Math.max(performance.now(), boostUntilRef.current) + difficulty.boostDuration
+    boostUntilRef.current = Math.max(gameClock.now(), boostUntilRef.current) + difficulty.boostDuration
     speedRef.current = difficulty.boostSpeed
     setBoosts(boostsRef.current)
     setSpeed(speedRef.current)
@@ -376,9 +377,9 @@ function SwimmingRace() {
   }, [stroke, triggerBoost])
 
   useEffect(() => () => {
-    window.clearTimeout(feedbackTimerRef.current)
-    window.clearTimeout(finishTimerRef.current)
-    window.cancelAnimationFrame(animationRef.current)
+    gameClock.clearTimeout(feedbackTimerRef.current)
+    gameClock.clearTimeout(finishTimerRef.current)
+    gameClock.cancelAnimationFrame(animationRef.current)
   }, [])
 
   const continueGame = () => {
@@ -545,6 +546,7 @@ function SwimmingRace() {
             type="button"
             className={`swim-stroke-button is-left${lastStroke === 'left' ? ' is-last' : ''}`}
             onPointerDown={(event) => { event.preventDefault(); stroke('left') }}
+            onClick={(event) => { if (event.detail === 0) stroke('left') }}
             disabled={phase !== 'racing'}
           >
             <span>←</span><b>왼팔</b><small>LEFT</small>
@@ -554,6 +556,7 @@ function SwimmingRace() {
             type="button"
             className={`swim-boost-button${boosts > 0 ? ' is-ready' : ''}`}
             onPointerDown={(event) => { event.preventDefault(); triggerBoost() }}
+            onClick={(event) => { if (event.detail === 0) triggerBoost() }}
             disabled={phase !== 'racing' || boosts <= 0}
           >
             <span>⚡</span><b>부스터</b><small>SPACE</small>
@@ -563,6 +566,7 @@ function SwimmingRace() {
             type="button"
             className={`swim-stroke-button is-right${lastStroke === 'right' ? ' is-last' : ''}`}
             onPointerDown={(event) => { event.preventDefault(); stroke('right') }}
+            onClick={(event) => { if (event.detail === 0) stroke('right') }}
             disabled={phase !== 'racing'}
           >
             <span>→</span><b>오른팔</b><small>RIGHT</small>

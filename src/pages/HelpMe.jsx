@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -183,7 +184,7 @@ function createBurst(germ) {
     const angle = (Math.PI * 2 * i) / 14 + rand(-0.22, 0.22)
     const distance = rand(20, 54)
     return {
-      id: `${germ.id}-${Date.now()}-${i}`,
+      id: `${germ.id}-${gameClock.now()}-${i}`,
       x: germ.x,
       y: germ.y,
       size: rand(6, 15),
@@ -228,13 +229,13 @@ function HelpMe() {
   useEffect(() => {
     const timers = timersRef.current
     return () => {
-      timers.forEach((timer) => clearTimeout(timer))
+      timers.forEach((timer) => gameClock.clearTimeout(timer))
       timers.length = 0
     }
   }, [])
 
   const scheduleBurstCleanup = useCallback((ids) => {
-    const timer = setTimeout(() => {
+    const timer = gameClock.setTimeout(() => {
       setBursts((prev) => prev.filter((burst) => !ids.includes(burst.id)))
     }, BURST_LIFE)
     timersRef.current.push(timer)
@@ -248,7 +249,7 @@ function HelpMe() {
     levelRef.current = nextLevel
     germsRef.current = nextGerms
     cursorRef.current = CURSOR_START
-    deadlineRef.current = Date.now() + nextConfig.duration * 1000
+    deadlineRef.current = gameClock.now() + nextConfig.duration * 1000
     keysRef.current.clear()
 
     setLevel(nextLevel)
@@ -296,7 +297,7 @@ function HelpMe() {
     }, null)
 
     setSoapPulse(true)
-    const pulseTimer = setTimeout(() => setSoapPulse(false), 160)
+    const pulseTimer = gameClock.setTimeout(() => setSoapPulse(false), 160)
     timersRef.current.push(pulseTimer)
 
     if (!target) return
@@ -402,7 +403,7 @@ function HelpMe() {
     if (phase !== 'playing') return
 
     let rafId
-    let lastTime = performance.now()
+    let lastTime = gameClock.now()
 
     const loop = (now) => {
       const delta = now - lastTime
@@ -418,7 +419,7 @@ function HelpMe() {
         let dx = 0
         let dy = 0
         const keys = keysRef.current
-        const keySpeed = keys.has('shift') ? KEY_SPEED * 0.45 : KEY_SPEED
+        const keySpeed = (keys.has('shift') ? KEY_SPEED * 0.45 : KEY_SPEED) * Math.min(2.2, delta / 16)
         if (keys.has('arrowleft') || keys.has('a')) dx -= keySpeed
         if (keys.has('arrowright') || keys.has('d')) dx += keySpeed
         if (keys.has('arrowup') || keys.has('w')) dy -= keySpeed
@@ -433,23 +434,23 @@ function HelpMe() {
         return next
       })
 
-      rafId = requestAnimationFrame(loop)
+      rafId = gameClock.requestAnimationFrame(loop)
     }
 
-    rafId = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(rafId)
+    rafId = gameClock.requestAnimationFrame(loop)
+    return () => gameClock.cancelAnimationFrame(rafId)
   }, [phase])
 
   useEffect(() => {
     if (phase !== 'playing') return
 
-    const timer = setInterval(() => {
-      const remaining = Math.max(0, (deadlineRef.current - Date.now()) / 1000)
+    const timer = gameClock.setInterval(() => {
+      const remaining = Math.max(0, (deadlineRef.current - gameClock.now()) / 1000)
       setTimeLeft(remaining)
       if (remaining <= 0) loseGame()
     }, 80)
 
-    return () => clearInterval(timer)
+    return () => gameClock.clearInterval(timer)
   }, [loseGame, phase])
 
   const timeRatio = levelConfig.duration === 0 ? 0 : clamp(timeLeft / levelConfig.duration, 0, 1)
@@ -464,7 +465,7 @@ function HelpMe() {
         <div
           ref={areaRef}
           className={`hm-area hm-${phase}`}
-          style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}
           onPointerMove={handlePointerMove}
           onPointerDown={handlePointerDown}
         >

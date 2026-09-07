@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -116,7 +117,6 @@ function calculateStars(correctCount) {
 
 // Create 4 bubbles with random positions & velocities
 function createBubbles(choices, speed) {
-  const pad = BUBBLE_R + 8
   const positions = [
     { x: GAME_W * 0.25, y: GAME_H * 0.42 },
     { x: GAME_W * 0.75, y: GAME_H * 0.42 },
@@ -148,7 +148,7 @@ function MathSpell() {
   useTouchLock(containerRef)
 
   const [gameState, setGameState] = useState('menu')
-  const [renderTick, setRenderTick] = useState(0)
+  const [view, setView] = useState(() => ({ lvIdx: 0, prob: null, bubbles: [], hearts: 3, correctCount: 0, score: 0, streak: 0, fb: null, showResult: null, timeLeft: 0, particles: [], combo: null, qIdx: 0 }))
 
   const levelIdxRef = useRef(0)
   const questionIdxRef = useRef(0)
@@ -165,6 +165,24 @@ function MathSpell() {
   const particlesRef = useRef([])
   const comboTextRef = useRef(null)
   const feedbackTimerRef = useRef(null)
+
+  const syncView = useCallback(() => {
+    setView(structuredClone({
+      lvIdx: levelIdxRef.current,
+      prob: problemRef.current,
+      bubbles: bubblesRef.current,
+      hearts: heartsRef.current,
+      correctCount: correctCountRef.current,
+      score: scoreRef.current,
+      streak: streakRef.current,
+      fb: feedbackRef.current,
+      showResult: showResultRef.current,
+      timeLeft: timeLeftRef.current,
+      particles: particlesRef.current,
+      combo: comboTextRef.current,
+      qIdx: questionIdxRef.current,
+    }))
+  }, [])
 
   const [clearedLevels, setClearedLevels] = useState(() => {
     try {
@@ -196,7 +214,7 @@ function MathSpell() {
     const ps = []
     for (let i = 0; i < count; i++) {
       ps.push({
-        id: Date.now() + i,
+        id: gameClock.now() + i,
         x, y,
         vx: randFloat(-3, 3),
         vy: randFloat(-4, -1),
@@ -216,13 +234,13 @@ function MathSpell() {
     bubblesRef.current = createBubbles(choices, speed)
     feedbackRef.current = null
     showResultRef.current = null
-    timeLeftRef.current = getTimerSeconds(lvIdx) * 60 // frames
+    timeLeftRef.current = getTimerSeconds(lvIdx) * 1000
     questionIdxRef.current = qIdx
   }, [])
 
   const startFromLevel = useCallback((idx) => {
     if (feedbackTimerRef.current) {
-      clearTimeout(feedbackTimerRef.current)
+      gameClock.clearTimeout(feedbackTimerRef.current)
       feedbackTimerRef.current = null
     }
     levelIdxRef.current = idx
@@ -236,26 +254,22 @@ function MathSpell() {
     gameStateRef.current = 'playing'
     setGameState('playing')
     spawnQuestion(idx, 0)
-    setRenderTick((t) => t + 1)
-  }, [spawnQuestion])
+    syncView()
+  }, [spawnQuestion, syncView])
 
   const finishLevel = useCallback((correct, lvIdx) => {
     const stars = calculateStars(correct)
     if (stars > 0) {
-      setClearedLevels((prev) => {
-        const newCleared = new Set([...prev, lvIdx])
-        setLevelStars((prevStars) => {
-          const newStars = { ...prevStars, [lvIdx]: Math.max(stars, prevStars[lvIdx] || 0) }
-          saveClearedLevels(newCleared, newStars)
-          return newStars
-        })
-        return newCleared
-      })
+      const newCleared = new Set([...clearedLevels, lvIdx])
+      const newStars = { ...levelStars, [lvIdx]: Math.max(stars, levelStars[lvIdx] || 0) }
+      setClearedLevels(newCleared)
+      setLevelStars(newStars)
+      saveClearedLevels(newCleared, newStars)
       showResultRef.current = 'success'
     } else {
       showResultRef.current = 'fail'
     }
-  }, [saveClearedLevels])
+  }, [clearedLevels, levelStars, saveClearedLevels])
 
   const advanceOrFinish = useCallback((newCorrect, newHearts, qIdx, lvIdx) => {
     if (newHearts <= 0) {
@@ -266,11 +280,11 @@ function MathSpell() {
       finishLevel(newCorrect, lvIdx)
       return
     }
-    feedbackTimerRef.current = setTimeout(() => {
+    feedbackTimerRef.current = gameClock.setTimeout(() => {
       spawnQuestion(lvIdx, qIdx + 1)
-      setRenderTick((t) => t + 1)
+      syncView()
     }, 900)
-  }, [finishLevel, spawnQuestion])
+  }, [finishLevel, spawnQuestion, syncView])
 
   const handleBubbleTap = useCallback((bubbleIdx) => {
     if (feedbackRef.current !== null || showResultRef.current !== null) return
@@ -293,7 +307,7 @@ function MathSpell() {
       const combo = streakRef.current
       scoreRef.current += 100 * combo
       if (combo >= 2) {
-        comboTextRef.current = { text: `${combo}x COMBO!`, born: Date.now() }
+        comboTextRef.current = { text: `${combo}x COMBO!`, born: gameClock.now() }
       }
       advanceOrFinish(newCorrect, heartsRef.current, qIdx, lvIdx)
     } else {
@@ -307,12 +321,12 @@ function MathSpell() {
       comboTextRef.current = null
       advanceOrFinish(correctCountRef.current, heartsRef.current, qIdx, lvIdx)
     }
-    setRenderTick((t) => t + 1)
-  }, [advanceOrFinish, spawnParticles])
+    syncView()
+  }, [advanceOrFinish, spawnParticles, syncView])
 
   const goToMenu = useCallback(() => {
     if (feedbackTimerRef.current) {
-      clearTimeout(feedbackTimerRef.current)
+      gameClock.clearTimeout(feedbackTimerRef.current)
       feedbackTimerRef.current = null
     }
     gameStateRef.current = 'menu'
@@ -323,7 +337,7 @@ function MathSpell() {
   useEffect(() => {
     if (gameState !== 'playing') return
 
-    const loop = setInterval(() => {
+    const loop = gameClock.setInterval(() => {
       if (gameStateRef.current !== 'playing') return
 
       const bubbles = bubblesRef.current
@@ -390,7 +404,7 @@ function MathSpell() {
 
       // Timer countdown
       if (feedbackRef.current === null && showResultRef.current === null) {
-        timeLeftRef.current--
+        timeLeftRef.current = Math.max(0, timeLeftRef.current - TICK)
         if (timeLeftRef.current <= 0) {
           feedbackRef.current = 'wrong'
           heartsRef.current--
@@ -401,40 +415,40 @@ function MathSpell() {
       }
 
       // Expire combo text
-      if (comboTextRef.current && Date.now() - comboTextRef.current.born > 1200) {
+      if (comboTextRef.current && gameClock.now() - comboTextRef.current.born > 1200) {
         comboTextRef.current = null
       }
 
-      setRenderTick((t) => t + 1)
+      syncView()
     }, TICK)
 
-    return () => clearInterval(loop)
-  }, [gameState, advanceOrFinish])
+    return () => gameClock.clearInterval(loop)
+  }, [gameState, advanceOrFinish, syncView])
 
   // Cleanup
   useEffect(() => {
     return () => {
-      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+      if (feedbackTimerRef.current) gameClock.clearTimeout(feedbackTimerRef.current)
     }
   }, [])
 
   // Render data
-  const lvIdx = levelIdxRef.current
-  const prob = problemRef.current
-  const bubbles = bubblesRef.current
-  const hearts = heartsRef.current
-  const correctCount = correctCountRef.current
-  const score = scoreRef.current
-  const streak = streakRef.current
-  const fb = feedbackRef.current
-  const showResult = showResultRef.current
-  const timeLeft = timeLeftRef.current
-  const timerMax = getTimerSeconds(lvIdx) * 60
+  const lvIdx = view.lvIdx
+  const prob = view.prob
+  const bubbles = view.bubbles
+  const hearts = view.hearts
+  const correctCount = view.correctCount
+  const score = view.score
+  const streak = view.streak
+  const fb = view.fb
+  const showResult = view.showResult
+  const timeLeft = view.timeLeft
+  const timerMax = getTimerSeconds(lvIdx) * 1000
   const timerPercent = (timeLeft / timerMax) * 100
   const tier = Math.floor(lvIdx / 5)
-  const particles = particlesRef.current
-  const combo = comboTextRef.current
-  const qIdx = questionIdxRef.current
+  const particles = view.particles
+  const combo = view.combo
+  const qIdx = view.qIdx
   const earnedStars = showResult === 'success' ? calculateStars(correctCount) : 0
   const totalStars = Object.values(levelStars).reduce((sum, s) => sum + s, 0)
 
@@ -445,7 +459,7 @@ function MathSpell() {
       <div className="ms2-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
         <div
           className="ms2-area"
-          style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}
         >
           {/* Menu */}
           {gameState === 'menu' && (

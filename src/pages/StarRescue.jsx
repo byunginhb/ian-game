@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -59,7 +60,7 @@ function makeParticle(id, x, y, color) {
     dy: Math.sin(angle) * spread,
     size: rand(4, 11),
     color,
-    born: performance.now(),
+    born: gameClock.now(),
   }
 }
 
@@ -241,7 +242,7 @@ function StarRescue() {
     bulletsRef.current = [...bulletsRef.current, ...nextBullets]
   }, [])
 
-  const triggerDash = useCallback((now = performance.now()) => {
+  const triggerDash = useCallback((now = gameClock.now()) => {
     if (phaseRef.current !== 'playing' || energyRef.current < DASH_COST) return
 
     const keys = keysRef.current
@@ -280,7 +281,7 @@ function StarRescue() {
       targetX: 210,
       targetY: 520,
       pointerUntil: 0,
-      safeUntil: performance.now() + 700,
+      safeUntil: gameClock.now() + 700,
       dashUntil: 0,
       dashX: 0,
       dashY: -1,
@@ -296,9 +297,9 @@ function StarRescue() {
     energyRef.current = 100
     phaseRef.current = 'playing'
     waveRef.current = nextWave
-    spawnAtRef.current = performance.now() + 650
+    spawnAtRef.current = gameClock.now() + 650
     shotAtRef.current = 0
-    bossShotAtRef.current = performance.now() + 900
+    bossShotAtRef.current = gameClock.now() + 900
 
     if (resetScore) {
       scoreRef.current = 0
@@ -319,7 +320,7 @@ function StarRescue() {
       pickups: [],
       particles: [],
       boss: bossRef.current,
-      now: performance.now(),
+      now: gameClock.now(),
     })
   }, [createBoss, createEnemy, syncScore])
 
@@ -346,7 +347,7 @@ function StarRescue() {
     if (!point) return
     playerRef.current.targetX = point.x
     playerRef.current.targetY = point.y
-    playerRef.current.pointerUntil = performance.now() + 1200
+    playerRef.current.pointerUntil = gameClock.now() + 1200
   }, [getGamePoint])
 
   useEffect(() => {
@@ -412,7 +413,7 @@ function StarRescue() {
     if (phase !== 'playing') return undefined
 
     let frameId = 0
-    let last = performance.now()
+    let last = gameClock.now()
 
     function damagePlayer(now, x, y) {
       const player = playerRef.current
@@ -669,11 +670,11 @@ function StarRescue() {
         now,
       })
 
-      frameId = requestAnimationFrame(tick)
+      frameId = gameClock.requestAnimationFrame(tick)
     }
 
-    frameId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frameId)
+    frameId = gameClock.requestAnimationFrame(tick)
+    return () => gameClock.cancelAnimationFrame(frameId)
   }, [addParticles, createEnemy, endRound, fire, phase, spawnPickup, syncScore])
 
   const progressRatio = clamp(rescued / waveConfig.target, 0, 1)
@@ -701,7 +702,7 @@ function StarRescue() {
         <div
           ref={areaRef}
           className={`sr-area sr-${phase}`}
-          style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}
           onPointerDown={movePointerTarget}
           onPointerMove={movePointerTarget}
         >

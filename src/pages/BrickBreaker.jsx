@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -75,11 +76,13 @@ function buildBricks(stage) {
   return bricks
 }
 
+let nextBallId = 1
+
 function makeBall(stageNum) {
   const speed = BALL_SPEED_BASE + stageNum * BALL_SPEED_PER_STAGE
   const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.6
   return {
-    id: Date.now() + Math.random(),
+    id: nextBallId++,
     x: GAME_W / 2,
     y: PADDLE_Y - BALL_R - 2,
     vx: Math.cos(angle) * speed,
@@ -95,7 +98,7 @@ function BrickBreaker() {
 
   const [gameState, setGameState] = useState('menu')
   const [stageBanner, setStageBanner] = useState(false)
-  const [renderTick, setRenderTick] = useState(0)
+  const [view, setView] = useState(() => ({ score: 0, stage: 1, lives: 3, paddleX: 165, balls: [], bricks: [], items: [], particles: [], wide: false }))
 
   // all game data lives in refs
   const stageRef = useRef(1)
@@ -113,9 +116,24 @@ function BrickBreaker() {
   const slowTimerRef = useRef(null)
   const gameStateRef = useRef('menu')
 
+  const syncView = useCallback(() => {
+    setView(structuredClone({
+      score: scoreRef.current,
+      stage: stageRef.current,
+      lives: livesRef.current,
+      paddleX: paddleXRef.current,
+      balls: ballsRef.current,
+      bricks: bricksRef.current,
+      items: itemsRef.current,
+      particles: particlesRef.current,
+      wide: wideRef.current,
+    }))
+  }, [])
+
   const pw = () => wideRef.current ? PADDLE_W * 1.5 : PADDLE_W
 
   const startGame = useCallback(() => {
+    gameClock.clearTimeouts()
     stageRef.current = 1
     scoreRef.current = 0
     livesRef.current = 3
@@ -129,7 +147,7 @@ function BrickBreaker() {
     gameStateRef.current = 'playing'
     setGameState('playing')
     setStageBanner(true)
-    setTimeout(() => setStageBanner(false), 1500)
+    gameClock.setTimeout(() => setStageBanner(false), 1500)
   }, [])
 
   const startStage = useCallback((stageNum) => {
@@ -142,7 +160,7 @@ function BrickBreaker() {
     gameStateRef.current = 'playing'
     setGameState('playing')
     setStageBanner(true)
-    setTimeout(() => setStageBanner(false), 1500)
+    gameClock.setTimeout(() => setStageBanner(false), 1500)
   }, [])
 
   // keyboard
@@ -171,24 +189,30 @@ function BrickBreaker() {
     if (!area) return
 
     const handleTouch = (e) => {
+      if (e.target.closest('button, a') || !e.isPrimary) return
+      if (e.type === 'pointerdown') area.setPointerCapture(e.pointerId)
       if (gameStateRef.current !== 'playing') return
       e.preventDefault()
       const rect = area.getBoundingClientRect()
-      const touchX = e.touches[0].clientX
+      const touchX = e.clientX
       const x = (touchX - rect.left) / (rect.width / GAME_W) - pw() / 2
       touchTargetXRef.current = Math.max(0, Math.min(GAME_W - pw(), x))
     }
     const handleTouchEnd = () => { touchTargetXRef.current = null }
 
-    area.addEventListener('touchstart', handleTouch, { passive: false })
-    area.addEventListener('touchmove', handleTouch, { passive: false })
-    area.addEventListener('touchend', handleTouchEnd)
-    area.addEventListener('touchcancel', handleTouchEnd)
+    area.addEventListener('pointerdown', handleTouch, { passive: false })
+    area.addEventListener('pointermove', handleTouch, { passive: false })
+    area.addEventListener('pointerup', handleTouchEnd)
+    area.addEventListener('pointercancel', handleTouchEnd)
+    window.addEventListener('blur', handleTouchEnd)
+    area.addEventListener('lostpointercapture', handleTouchEnd)
     return () => {
-      area.removeEventListener('touchstart', handleTouch)
-      area.removeEventListener('touchmove', handleTouch)
-      area.removeEventListener('touchend', handleTouchEnd)
-      area.removeEventListener('touchcancel', handleTouchEnd)
+      window.removeEventListener('blur', handleTouchEnd)
+      area.removeEventListener('lostpointercapture', handleTouchEnd)
+      area.removeEventListener('pointerdown', handleTouch)
+      area.removeEventListener('pointermove', handleTouch)
+      area.removeEventListener('pointerup', handleTouchEnd)
+      area.removeEventListener('pointercancel', handleTouchEnd)
     }
   }, [])
 
@@ -196,7 +220,7 @@ function BrickBreaker() {
   useEffect(() => {
     if (gameState !== 'playing') return
 
-    const loop = setInterval(() => {
+    const loop = gameClock.setInterval(() => {
       if (gameStateRef.current !== 'playing') return
 
       // paddle
@@ -215,6 +239,7 @@ function BrickBreaker() {
         }
       }
 
+      px = Math.max(0, Math.min(GAME_W - padW, px))
       paddleXRef.current = px
 
       const speedMult = slowRef.current ? 0.6 : 1
@@ -266,8 +291,10 @@ function BrickBreaker() {
             const minOverlap = Math.min(overlapL, overlapR, overlapT, overlapB)
 
             if (minOverlap === overlapT || minOverlap === overlapB) {
+              y = minOverlap === overlapT ? b.y - BALL_R : b.y + b.h + BALL_R
               vy = -vy
             } else {
+              x = minOverlap === overlapL ? b.x - BALL_R : b.x + b.w + BALL_R
               vx = -vx
             }
 
@@ -281,18 +308,18 @@ function BrickBreaker() {
               const color = ROW_COLORS[b.row % ROW_COLORS.length]
               for (let pi = 0; pi < 4; pi++) {
                 newParticles.push({
-                  id: Date.now() + Math.random() + pi,
+                  id: gameClock.now() + Math.random() + pi,
                   x: cx + (Math.random() - 0.5) * b.w,
                   y: cy + (Math.random() - 0.5) * b.h,
                   color,
                   size: 3 + Math.random() * 4,
-                  born: Date.now(),
+                  born: gameClock.now(),
                 })
               }
               if (Math.random() < ITEM_DROP_CHANCE) {
                 const itemDef = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)]
                 newItems.push({
-                  id: Date.now() + Math.random(),
+                  id: gameClock.now() + Math.random(),
                   x: cx - ITEM_SIZE / 2,
                   y: cy,
                   type: itemDef.type,
@@ -316,7 +343,7 @@ function BrickBreaker() {
           gameStateRef.current = 'gameover'
           setGameState('gameover')
           ballsRef.current = []
-          setRenderTick((t) => t + 1)
+          syncView()
           return
         }
         ballsRef.current = [makeBall(stageRef.current)]
@@ -337,7 +364,7 @@ function BrickBreaker() {
       }
 
       // expire old particles
-      const now = Date.now()
+      const now = gameClock.now()
       particlesRef.current = particlesRef.current.filter((p) => now - p.born < 400)
 
       // items fall & collect
@@ -354,23 +381,23 @@ function BrickBreaker() {
         ) {
           if (item.type === 'wide') {
             wideRef.current = true
-            if (wideTimerRef.current) clearTimeout(wideTimerRef.current)
-            wideTimerRef.current = setTimeout(() => { wideRef.current = false }, item.duration)
+            if (wideTimerRef.current) gameClock.clearTimeout(wideTimerRef.current)
+            wideTimerRef.current = gameClock.setTimeout(() => { wideRef.current = false }, item.duration)
           } else if (item.type === 'multi') {
             const base = ballsRef.current[0]
             if (base) {
               ballsRef.current = [
                 ...ballsRef.current,
-                { ...base, id: Date.now() + 1, vx: -base.vx, vy: base.vy - 1 },
-                { ...base, id: Date.now() + 2, vx: base.vx * 0.5, vy: -Math.abs(base.vy) },
+                { ...base, id: nextBallId++, vx: -base.vx, vy: base.vy - 1 },
+                { ...base, id: nextBallId++, vx: base.vx * 0.5, vy: -Math.abs(base.vy) },
               ]
             }
           } else if (item.type === 'life') {
             livesRef.current = Math.min(livesRef.current + 1, 5)
           } else if (item.type === 'slow') {
             slowRef.current = true
-            if (slowTimerRef.current) clearTimeout(slowTimerRef.current)
-            slowTimerRef.current = setTimeout(() => { slowRef.current = false }, item.duration)
+            if (slowTimerRef.current) gameClock.clearTimeout(slowTimerRef.current)
+            slowTimerRef.current = gameClock.setTimeout(() => { slowRef.current = false }, item.duration)
           }
           scoreRef.current += 5
           return false
@@ -384,36 +411,36 @@ function BrickBreaker() {
         stageRef.current = next
         gameStateRef.current = 'clear'
         setGameState('clear')
-        setTimeout(() => startStage(next), 1000)
-        setRenderTick((t) => t + 1)
+        gameClock.setTimeout(() => startStage(next), 1000)
+        syncView()
         return
       }
 
       // single render trigger
-      setRenderTick((t) => t + 1)
+      syncView()
     }, TICK)
 
-    return () => clearInterval(loop)
-  }, [gameState, startStage])
+    return () => gameClock.clearInterval(loop)
+  }, [gameState, startStage, syncView])
 
   // cleanup timers
   useEffect(() => {
     return () => {
-      if (wideTimerRef.current) clearTimeout(wideTimerRef.current)
-      if (slowTimerRef.current) clearTimeout(slowTimerRef.current)
+      if (wideTimerRef.current) gameClock.clearTimeout(wideTimerRef.current)
+      if (slowTimerRef.current) gameClock.clearTimeout(slowTimerRef.current)
     }
   }, [])
 
-  // read from refs for render
-  const score = scoreRef.current
-  const stage = stageRef.current
-  const lives = livesRef.current
-  const paddleX = paddleXRef.current
-  const balls = ballsRef.current
-  const bricks = bricksRef.current
-  const items = itemsRef.current
-  const particles = particlesRef.current
-  const currentPaddleW = wideRef.current ? PADDLE_W * 1.5 : PADDLE_W
+  // Render the published snapshot.
+  const score = view.score
+  const stage = view.stage
+  const lives = view.lives
+  const paddleX = view.paddleX
+  const balls = view.balls
+  const bricks = view.bricks
+  const items = view.items
+  const particles = view.particles
+  const currentPaddleW = view.wide ? PADDLE_W * 1.5 : PADDLE_W
 
   return (
     <div ref={containerRef} className="bb-container">
@@ -423,7 +450,7 @@ function BrickBreaker() {
         <div
           ref={gameAreaRef}
           className="bb-game-area"
-          style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}
         >
           {/* HUD */}
           <div className="bb-hud">
@@ -459,8 +486,7 @@ function BrickBreaker() {
               key={ball.id}
               className="bb-ball"
               style={{
-                left: ball.x - BALL_R,
-                top: ball.y - BALL_R,
+                transform: `translate3d(${ball.x - BALL_R}px, ${ball.y - BALL_R}px, 0)`,
                 width: BALL_R * 2,
                 height: BALL_R * 2,
               }}
@@ -469,10 +495,9 @@ function BrickBreaker() {
 
           {/* paddle */}
           <div
-            className={`bb-paddle${wideRef.current ? ' bb-paddle-wide' : ''}`}
+            className={`bb-paddle${view.wide ? ' bb-paddle-wide' : ''}`}
             style={{
-              left: paddleX,
-              top: PADDLE_Y,
+              transform: `translate3d(${paddleX}px, ${PADDLE_Y}px, 0)`,
               width: currentPaddleW,
               height: PADDLE_H,
             }}
@@ -546,7 +571,7 @@ function BrickBreaker() {
         </div>
       </div>
 
-      <div className="bb-instructions">← → 방향키 또는 터치로 패들을 움직이세요</div>
+      <div className="bb-instructions">← → 방향키 · 마우스 이동 · 화면 드래그로 패들 이동</div>
     </div>
   )
 }

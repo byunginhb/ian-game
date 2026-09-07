@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -85,7 +86,7 @@ function createFireworkParticles(x, y) {
     const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3
     const speed = 2 + Math.random() * 3
     return {
-      id: `fw-${Date.now()}-${i}`,
+      id: `fw-${gameClock.now()}-${i}`,
       x,
       y,
       vx: Math.cos(angle) * speed,
@@ -112,8 +113,7 @@ function PoopDodge() {
   const [shieldTimeLeft, setShieldTimeLeft] = useState(0)
   const [fireworks, setFireworks] = useState([])
   const [highScore, setHighScore] = useState(() => {
-    const saved = localStorage.getItem('poopDodge_highScore')
-    return saved ? Number(saved) : 0
+    try { return Number(localStorage.getItem('poopDodge_highScore')) || 0 } catch { return 0 }
   })
 
   const scale = useGameScale(POOP_GAME_W, POOP_GAME_H)
@@ -124,9 +124,11 @@ function PoopDodge() {
   const gameTickRef = useRef(0)
   const fallSpeedRef = useRef(FALL_SPEED_INITIAL)
   const nextItemId = useRef(0)
-  const shieldTimerRef = useRef(null)
+  const simulationRef = useRef({ playerX: 50, items: [], score: 0, shieldUntil: 0, stopped: false })
 
   const startGame = useCallback(() => {
+    gameClock.clearTimeouts()
+    simulationRef.current = { playerX: 50, items: [], score: 0, shieldUntil: 0, stopped: false }
     setPlayerX(50)
     setItems([])
     setScore(0)
@@ -139,10 +141,6 @@ function PoopDodge() {
     gameTickRef.current = 0
     fallSpeedRef.current = FALL_SPEED_INITIAL
     nextItemId.current = 0
-    if (shieldTimerRef.current) {
-      clearTimeout(shieldTimerRef.current)
-      shieldTimerRef.current = null
-    }
   }, [])
 
   useEffect(() => {
@@ -170,22 +168,6 @@ function PoopDodge() {
     }
   }, [started, gameOver, startGame])
 
-  useEffect(() => {
-    if (!shieldActive) return
-
-    const start = Date.now()
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - start
-      const remaining = Math.max(0, SHIELD_DURATION - elapsed)
-      setShieldTimeLeft(remaining)
-      if (remaining <= 0) {
-        clearInterval(interval)
-      }
-    }, 100)
-
-    return () => clearInterval(interval)
-  }, [shieldActive])
-
   // touch controls: track touch X to move player
   const touchTargetRef = useRef(null)
   const gameAreaRef = useRef(null)
@@ -196,151 +178,82 @@ function PoopDodge() {
     if (!area) return
 
     const handleTouchMove = (e) => {
+      if (e.target.closest('button, a') || !e.isPrimary) return
+      if (e.type === 'pointerdown') area.setPointerCapture(e.pointerId)
       e.preventDefault()
       const rect = area.getBoundingClientRect()
-      const touchX = e.touches[0].clientX
+      const touchX = e.clientX
       const pct = ((touchX - rect.left) / rect.width) * 100
       touchTargetRef.current = Math.max(4, Math.min(96, pct))
     }
     const handleTouchEnd = () => { touchTargetRef.current = null }
 
-    area.addEventListener('touchmove', handleTouchMove, { passive: false })
-    area.addEventListener('touchend', handleTouchEnd)
-    area.addEventListener('touchcancel', handleTouchEnd)
+    area.addEventListener('pointerdown', handleTouchMove)
+    area.addEventListener('pointermove', handleTouchMove)
+    area.addEventListener('pointerup', handleTouchEnd)
+    area.addEventListener('pointercancel', handleTouchEnd)
+    window.addEventListener('blur', handleTouchEnd)
+    area.addEventListener('lostpointercapture', handleTouchEnd)
     return () => {
-      area.removeEventListener('touchmove', handleTouchMove)
-      area.removeEventListener('touchend', handleTouchEnd)
-      area.removeEventListener('touchcancel', handleTouchEnd)
+      window.removeEventListener('blur', handleTouchEnd)
+      area.removeEventListener('lostpointercapture', handleTouchEnd)
+      area.removeEventListener('pointerdown', handleTouchMove)
+      area.removeEventListener('pointermove', handleTouchMove)
+      area.removeEventListener('pointerup', handleTouchEnd)
+      area.removeEventListener('pointercancel', handleTouchEnd)
     }
   }, [started, gameOver])
 
+  // Movement, spawning, collision and score commit together, once per simulation step.
   useEffect(() => {
     if (!started || gameOver) return
-
-    const interval = setInterval(() => {
-      gameTickRef.current += 1
-      const tick = gameTickRef.current
-
-      if (keysPressed.current.has('ArrowLeft')) {
-        setPlayerX((prev) => Math.max(4, prev - MOVE_SPEED))
-      }
-      if (keysPressed.current.has('ArrowRight')) {
-        setPlayerX((prev) => Math.min(96, prev + MOVE_SPEED))
-      }
-
-      // touch: move toward touch position
+    const interval = gameClock.setInterval(() => {
+      const game = simulationRef.current
+      if (game.stopped) return
+      const now = gameClock.now()
+      const tick = ++gameTickRef.current
+      let x = game.playerX
+      if (keysPressed.current.has('ArrowLeft')) x -= MOVE_SPEED
+      if (keysPressed.current.has('ArrowRight')) x += MOVE_SPEED
       if (touchTargetRef.current !== null) {
-        setPlayerX((prev) => {
-          const diff = touchTargetRef.current - prev
-          if (Math.abs(diff) < MOVE_SPEED) return touchTargetRef.current
-          return prev + (diff > 0 ? MOVE_SPEED : -MOVE_SPEED)
-        })
+        x += Math.max(-MOVE_SPEED, Math.min(MOVE_SPEED, touchTargetRef.current - x))
       }
-
+      game.playerX = Math.max(4, Math.min(96, x))
       fallSpeedRef.current = FALL_SPEED_INITIAL + tick * FALL_SPEED_INCREMENT
-      const currentPoopInterval = Math.max(
-        POOP_INTERVAL_MIN,
-        POOP_INTERVAL_INITIAL - tick * DIFFICULTY_INTERVAL_DECREMENT
-      )
-
-      const poopSpawnTick = Math.round(currentPoopInterval / GAME_TICK)
-      if (tick % poopSpawnTick === 0) {
-        const id = nextItemId.current++
-        setItems((prev) => [...prev, createPoop(id)])
-      }
-
-      const shieldSpawnTick = Math.round(SHIELD_INTERVAL / GAME_TICK)
-      if (tick % shieldSpawnTick === 0) {
-        const id = nextItemId.current++
-        setItems((prev) => [...prev, createShield(id)])
-      }
-
-      const starSpawnTick = Math.round(STAR_INTERVAL / GAME_TICK)
-      if (tick % starSpawnTick === 0) {
-        const id = nextItemId.current++
-        setItems((prev) => [...prev, createStar(id)])
-      }
-
-      setItems((prev) => {
-        const speed = fallSpeedRef.current
-        return prev.map((item) => ({
-          ...item,
-          y: item.y + speed,
-        }))
+      const spawnEvery = Math.max(POOP_INTERVAL_MIN, POOP_INTERVAL_INITIAL - tick * DIFFICULTY_INTERVAL_DECREMENT)
+      if (tick % Math.round(spawnEvery / GAME_TICK) === 0) game.items.push(createPoop(nextItemId.current++))
+      if (tick % Math.round(SHIELD_INTERVAL / GAME_TICK) === 0) game.items.push(createShield(nextItemId.current++))
+      if (tick % Math.round(STAR_INTERVAL / GAME_TICK) === 0) game.items.push(createStar(nextItemId.current++))
+      const particles = []
+      game.items = game.items.map((item) => ({ ...item, y: item.y + fallSpeedRef.current })).filter((item) => {
+        if (item.y > 105) {
+          if (item.type === 'poop') game.score++
+          return false
+        }
+        if (!checkCollision(game.playerX, item.x, item.y)) return true
+        if (item.type === 'poop') {
+          if (game.shieldUntil > now) { game.score += 3; return false }
+          game.stopped = true
+        } else if (item.type === 'shield') {
+          game.shieldUntil = now + SHIELD_DURATION
+          return false
+        } else if (item.type === 'star') {
+          game.score += STAR_SCORE
+          particles.push(...createFireworkParticles(item.x, item.y))
+          return false
+        }
+        return true
       })
+      setPlayerX(game.playerX)
+      setItems(game.items)
+      setScore(game.score)
+      setShieldActive(game.shieldUntil > now)
+      setShieldTimeLeft(Math.max(0, game.shieldUntil - now))
+      if (particles.length) setFireworks((previous) => [...previous, ...particles])
+      if (game.stopped) setGameOver(true)
     }, GAME_TICK)
-
-    return () => clearInterval(interval)
+    return () => gameClock.clearInterval(interval)
   }, [started, gameOver])
-
-  useEffect(() => {
-    if (!started || gameOver) return
-
-    const interval = setInterval(() => {
-      setItems((prev) => {
-        let hitPoop = false
-        let gotShield = false
-        const starHits = []
-
-        const remaining = prev.filter((item) => {
-          if (item.y > 105) {
-            if (item.type === 'poop') {
-              setScore((s) => s + 1)
-            }
-            return false
-          }
-
-          if (checkCollision(playerX, item.x, item.y)) {
-            if (item.type === 'poop' && !shieldActive) {
-              hitPoop = true
-            }
-            if (item.type === 'poop' && shieldActive) {
-              setScore((s) => s + 3)
-              return false
-            }
-            if (item.type === 'shield') {
-              gotShield = true
-              return false
-            }
-            if (item.type === 'star') {
-              starHits.push({ x: item.x, y: item.y })
-              setScore((s) => s + STAR_SCORE)
-              return false
-            }
-          }
-
-          return true
-        })
-
-        if (hitPoop) {
-          setGameOver(true)
-        }
-
-        if (gotShield) {
-          setShieldTimeLeft(SHIELD_DURATION)
-          setShieldActive(true)
-          if (shieldTimerRef.current) {
-            clearTimeout(shieldTimerRef.current)
-          }
-          shieldTimerRef.current = setTimeout(() => {
-            setShieldActive(false)
-            shieldTimerRef.current = null
-          }, SHIELD_DURATION)
-        }
-
-        if (starHits.length > 0) {
-          setFireworks((fw) => [
-            ...fw,
-            ...starHits.flatMap((pos) => createFireworkParticles(pos.x, pos.y)),
-          ])
-        }
-
-        return remaining
-      })
-    }, GAME_TICK)
-
-    return () => clearInterval(interval)
-  }, [started, gameOver, playerX, shieldActive])
 
   const hasFireworks = fireworks.length > 0
 
@@ -348,7 +261,7 @@ function PoopDodge() {
   useEffect(() => {
     if (!hasFireworks) return
 
-    const interval = setInterval(() => {
+    const interval = gameClock.setInterval(() => {
       setFireworks((prev) => {
         const updated = prev
           .map((p) => ({
@@ -363,27 +276,19 @@ function PoopDodge() {
       })
     }, GAME_TICK)
 
-    return () => clearInterval(interval)
+    return () => gameClock.clearInterval(interval)
   }, [hasFireworks])
 
   useEffect(() => {
     if (!gameOver || score <= highScore) return
 
-    const timeout = window.setTimeout(() => {
+    const timeout = gameClock.setTimeout(() => {
       setHighScore(score)
-      localStorage.setItem('poopDodge_highScore', String(score))
+      try { localStorage.setItem('poopDodge_highScore', String(score)) } catch { /* Optional record. */ }
     }, 0)
 
-    return () => window.clearTimeout(timeout)
+    return () => gameClock.clearTimeout(timeout)
   }, [gameOver, score, highScore])
-
-  useEffect(() => {
-    return () => {
-      if (shieldTimerRef.current) {
-        clearTimeout(shieldTimerRef.current)
-      }
-    }
-  }, [])
 
   const shieldPercent = (shieldTimeLeft / SHIELD_DURATION) * 100
   const dangerLevel = Math.min(100, 18 + score * 2.6)
@@ -402,7 +307,7 @@ function PoopDodge() {
       </div>
 
       <div className="poop-game-wrapper" style={{ width: POOP_GAME_W * scale, height: POOP_GAME_H * scale }}>
-        <div ref={gameAreaRef} className="poop-game-area" style={{ width: POOP_GAME_W, height: POOP_GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <div ref={gameAreaRef} className="poop-game-area" style={{ width: POOP_GAME_W, height: POOP_GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
         <div className="poop-atmosphere" aria-hidden="true">
           <div className="poop-lightning" />
           <div className="poop-moon"><span /></div>

@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -292,6 +293,10 @@ function MagicHanja() {
   const G = useRef(null)
   if (G.current === null) G.current = fresh()
   const audioRef = useRef(null)
+  useEffect(() => () => {
+    audioRef.current?.close().catch(() => {})
+    audioRef.current = null
+  }, [])
   const mutedRef = useRef(muted)
 
   useEffect(() => { mutedRef.current = muted }, [muted])
@@ -335,7 +340,7 @@ function MagicHanja() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
     let raf = 0
-    let last = performance.now()
+    let last = gameClock.now()
 
     const burst = (x, y, color, n, opt = {}) => {
       const g = G.current
@@ -472,10 +477,10 @@ function MagicHanja() {
       const g = G.current
       if (g.phase === 'play') update(dt, now)
       draw(now)
-      raf = requestAnimationFrame(loop)
+      raf = gameClock.requestAnimationFrame(loop)
     }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
+    raf = gameClock.requestAnimationFrame(loop)
+    return () => gameClock.cancelAnimationFrame(raf)
   }, [play])
 
   const nextQuestion = useCallback(() => {
@@ -489,7 +494,7 @@ function MagicHanja() {
     g.stage += 1
     g.enemy = makeEnemy(g.stage)
     getSprite(villainForStage(g.stage + 1).key)
-    g.speech = { speaker: 'enemy', text: g.enemy.lines.intro, until: performance.now() + 2200 }
+    g.speech = { speaker: 'enemy', text: g.enemy.lines.intro, until: gameClock.now() + 2200 }
     syncHud()
     nextQuestion()
   }, [syncHud, nextQuestion])
@@ -497,7 +502,7 @@ function MagicHanja() {
   const answer = useCallback((idx) => {
     const g = G.current
     if (!q || q.answered || g.phase !== 'play') return
-    const now = performance.now()
+    const now = gameClock.now()
     const correct = idx === q.correctIdx
     setQ({ ...q, answered: true, pickedIdx: idx })
 
@@ -522,7 +527,7 @@ function MagicHanja() {
         play('gradeup')
       }
       syncHud()
-      setTimeout(() => {
+      gameClock.setTimeout(() => {
         if (G.current.phase !== 'play') return
         if (G.current.enemy.hp <= 0) nextStage()
         else nextQuestion()
@@ -536,7 +541,7 @@ function MagicHanja() {
       g.flashUntil = now + 300
       play('wrong')
       syncHud()
-      setTimeout(() => {
+      gameClock.setTimeout(() => {
         if (G.current.phase !== 'play') return
         if (G.current.lives <= 0) {
           G.current.phase = 'over'
@@ -570,7 +575,7 @@ function MagicHanja() {
     g.phase = 'play'
     g.enemy = makeEnemy(1)
     getSprite(villainForStage(2).key)
-    g.speech = { speaker: 'enemy', text: g.enemy.lines.intro, until: performance.now() + 2400 }
+    g.speech = { speaker: 'enemy', text: g.enemy.lines.intro, until: gameClock.now() + 2400 }
     setPhase('play')
     syncHud()
     nextQuestion()
@@ -580,7 +585,7 @@ function MagicHanja() {
     <div className="mh-container" ref={containerRef}>
       <Link to="/" className="mh-back">← 홈으로</Link>
       <div className="mh-wrapper" style={{ width: GAME_W * scale, height: STAGE_H * scale }}>
-        <div className="mh-stage" style={{ width: GAME_W, height: STAGE_H, transform: `scale(${scale})` }}>
+        <div className="mh-stage" style={{ width: GAME_W, height: STAGE_H, '--game-scale': scale, transform: `scale(${scale})` }}>
           {/* HUD */}
           <div className="mh-top" style={{ height: HUD_H }}>
             <div className="mh-hearts">{'❤️'.repeat(Math.max(0, hud.lives))}{'🖤'.repeat(Math.max(0, START_LIVES - hud.lives))}</div>

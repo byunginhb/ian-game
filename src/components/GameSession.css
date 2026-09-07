@@ -1,0 +1,48 @@
+.game-session { width: 100%; min-height: 100svh; background: #101e31; color: #f8fafc; }
+.session-toolbar { position: relative; z-index: 300; display: flex; align-items: center; gap: 12px; justify-content: space-between; min-height: 56px; padding: max(6px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left)); background: #101e31; border-bottom: 1px solid #ffffff1a; }
+.session-toolbar a, .session-toolbar button { color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: 700; background: #ffffff0d; border: 1px solid #ffffff24; white-space: nowrap; }
+.session-toolbar :is(a, button):hover { background: #ffffff1c; }
+.session-title { font-size: 14px; font-weight: 800; text-align: center; text-wrap: balance; }
+.game-content { display: flex; flex-direction: column; align-items: center; min-width: 0; padding-bottom: env(safe-area-inset-bottom); }
+.game-content > * { max-width: 100%; }
+.game-content :is([class$="-back"], [class$="-back-button"]) { display: none; }
+.game-content :is([class$="-instructions"], [class$="-hint"]) { text-align: center; text-wrap: balance; }
+.game-content :is([class$="-game-wrapper"], [class$="-wrapper"]) { flex-shrink: 0; }
+.is-paused .game-content *, .is-paused .game-content *::before, .is-paused .game-content *::after { animation-play-state: paused !important; }
+.session-pause { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 24px; background: #061122d9; backdrop-filter: blur(8px); }
+.session-pause-card { width: min(100%, 360px); padding: 32px; text-align: center; border: 2px solid #ffffff25; border-radius: 28px; background: #f9f5eb; color: #182d40; box-shadow: 0 20px 80px #0005; }
+.session-pause-icon { font-size: 46px; }
+.session-pause-card h2 { margin: 12px 0; font-size: 26px; }
+.session-pause-card p { line-height: 1.8; color: #526174; }
+.session-pause-card button { display: block; width: 100%; min-height: 52px; margin: 24px 0 16px; background: #246454; color: #fff; border-radius: 14px; font-weight: 800; }
+.session-pause-card a { color: #526174; display: inline-block; padding: 10px; }
+.game-loading { min-height: 60svh; display: grid; place-content: center; gap: 16px; text-align: center; color: inherit; }
+.game-loading span { font-size: 48px; animation: loading-bob 1s ease-in-out infinite alternate; }
+@keyframes loading-bob { to { transform: translateY(-8px); } }
+@media (max-width: 480px) { .session-toolbar { gap: 6px; } .session-toolbar a, .session-toolbar button { font-size: 12px; padding: 8px; } .session-title { font-size: 12px; } }
+
+/* The shared toolbar already provides navigation space. */
+.game-content > :is([class$="-container"], .ft-screen) { width: 100%; min-height: calc(100svh - 57px); }
+.game-content > :is(.wp-container, .ms2-container, .ca-container, .mh-container) { padding-top: 16px; }
+.game-content > .swim-container { height: calc(100dvh - 57px); min-height: 540px; }
+.game-content .swim-topbar { grid-template-columns: 1fr auto; }
+.game-content .swim-title-lockup { justify-self: center; }
+.game-content > .ft-menu { padding-block: 30px; }
+.game-content :is(.wp-level-grid, .ms2-level-grid, .ca-level-grid) { gap: 8px; }
+.game-content :is(.wp-level-btn, .ms2-level-btn, .ca-level-btn) { min-width: 44px; min-height: 44px; }
+.game-content :is(.wp-menu, .ms2-menu, .ca-menu) { max-height: 100%; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; padding-bottom: 20px; }
+.game-content :is(.bb-menu, .st-menu, .tt-menu) { border-color: #7eb4fa66; box-shadow: 0 16px 48px #0005, inset 0 1px #ffffff15; }
+.game-content :is(.bb-menu, .st-menu, .tt-menu) p { word-break: keep-all; text-wrap: balance; }
+.game-content :is(.bb-game-wrapper, .st-game-wrapper, .tt-game-wrapper) { box-shadow: 0 12px 40px #030b1633; border-radius: 14px; }
+.game-content .tt-menu { padding: 22px 18px; max-width: calc(100% - 20px); }
+.game-content .tt-touch-btn { min-width: 48px; min-height: 48px; font-size: 24px; }
+.game-content :is(.bb-ball, .bb-paddle, .st-block) { will-change: transform; }
+@media (max-width: 480px) { .game-content .swim-title-lockup { justify-self: start; }.game-content .tt-instructions { font-size: 12px; } }
+@media (prefers-reduced-motion: reduce) { .game-card { animation: none; }.home-doodle { animation: none; } }
+.game-content :is(.bb-ball, .bb-paddle, .st-block) { top: 0; left: 0; }
+.game-content :is(.wp-level-btns, .ms2-level-btns, .ca-level-btns) { grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 100%; gap: 8px; }
+.game-content :is(.wp-level-btn, .ms2-level-btn, .ca-level-btn) { width: 100%; min-width: 0; height: max(44px, calc(44px / var(--game-scale, 1))); }
+.game-content { outline: none; }
+.t48-overlay .overlay-btn-home { color: #61564d !important; background: #e5ddd2 !important; border-color: #a6937c !important; }
+.game-content :is(.wp-menu, .ms2-menu, .ca-menu) { justify-content: safe center; }
+.game-content :is(.wp-menu, .ms2-menu, .ca-menu) > * { flex-shrink: 0; }

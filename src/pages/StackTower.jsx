@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -33,7 +34,7 @@ function StackTower() {
   useTouchLock(containerRef)
 
   const [gameState, setGameState] = useState('menu')
-  const [renderTick, setRenderTick] = useState(0)
+  const [view, setView] = useState(() => ({ stack: [], moving: null, score: 0, best: 0, combo: 0, cutPieces: [], perfectFlash: false, camY: 0 }))
 
   const stackRef = useRef([])
   const movingRef = useRef(null)
@@ -46,9 +47,23 @@ function StackTower() {
   const gameStateRef = useRef('menu')
   const cameraYRef = useRef(0)
 
+  const syncView = useCallback(() => {
+    setView(structuredClone({
+      stack: stackRef.current,
+      moving: movingRef.current,
+      score: scoreRef.current,
+      best: bestRef.current,
+      combo: comboRef.current,
+      cutPieces: cutPiecesRef.current,
+      perfectFlash: perfectFlashRef.current,
+      camY: cameraYRef.current,
+    }))
+  }, [])
+
   useEffect(() => {
     try { bestRef.current = Number(localStorage.getItem('stack-best')) || 0 } catch { /* noop */ }
-  }, [])
+    syncView()
+  }, [syncView])
 
   const getSpeed = useCallback((level) => {
     return Math.min(SPEED_MAX, SPEED_BASE + level * SPEED_ACCEL)
@@ -68,6 +83,7 @@ function StackTower() {
   }, [getSpeed])
 
   const startGame = useCallback(() => {
+    gameClock.clearTimeouts()
     const base = { x: (GAME_W - BASE_W) / 2, y: BASE_Y, w: BASE_W, level: 0 }
     stackRef.current = [base]
     movingRef.current = null
@@ -79,8 +95,8 @@ function StackTower() {
     gameStateRef.current = 'playing'
     setGameState('playing')
     spawnMoving(0, BASE_W)
-    setRenderTick((t) => t + 1)
-  }, [spawnMoving])
+    syncView()
+  }, [spawnMoving, syncView])
 
   const placeBlock = useCallback(() => {
     if (gameStateRef.current !== 'playing' || !movingRef.current) return
@@ -97,12 +113,12 @@ function StackTower() {
     if (overlapW <= 0) {
       // miss - game over
       cutPiecesRef.current.push({
-        id: Date.now(),
+        id: gameClock.now(),
         x: moving.x,
         y: moving.y,
         w: moving.w,
         level: moving.level,
-        born: Date.now(),
+        born: gameClock.now(),
       })
       movingRef.current = null
       if (scoreRef.current > bestRef.current) {
@@ -111,7 +127,7 @@ function StackTower() {
       }
       gameStateRef.current = 'gameover'
       setGameState('gameover')
-      setRenderTick((t) => t + 1)
+      syncView()
       return
     }
 
@@ -129,7 +145,7 @@ function StackTower() {
       if (placedX + placedW > GAME_W) placedW = GAME_W - placedX
       comboRef.current++
       perfectFlashRef.current = true
-      setTimeout(() => { perfectFlashRef.current = false }, 800)
+      gameClock.setTimeout(() => { perfectFlashRef.current = false }, 800)
     } else {
       comboRef.current = 0
 
@@ -139,12 +155,12 @@ function StackTower() {
       const cutW = moving.w - overlapW
       if (cutW > 1) {
         cutPiecesRef.current.push({
-          id: Date.now(),
+          id: gameClock.now(),
           x: cutX,
           y: moving.y,
           w: cutW,
           level: moving.level,
-          born: Date.now(),
+          born: gameClock.now(),
         })
       }
     }
@@ -157,40 +173,30 @@ function StackTower() {
       level: moving.level,
     }
     stackRef.current = [...stack, placed]
-    scoreRef.current = placed.level + (isPerfect ? comboRef.current : 0)
+    scoreRef.current = placed.level
 
     // spawn next
     spawnMoving(placed.level, placedW)
-    setRenderTick((t) => t + 1)
-  }, [spawnMoving])
+    syncView()
+  }, [spawnMoving, syncView])
 
   // input
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === ' ' || e.key === 'ArrowDown') {
-        e.preventDefault()
-        placeBlock()
-      }
-    }
-    const onTouch = (e) => {
-      if (gameStateRef.current === 'playing') {
+      if (!e.repeat && (e.key === ' ' || e.key === 'ArrowDown')) {
         e.preventDefault()
         placeBlock()
       }
     }
     window.addEventListener('keydown', onKey)
-    window.addEventListener('touchstart', onTouch, { passive: false })
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('touchstart', onTouch)
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [placeBlock])
 
   // game loop
   useEffect(() => {
     if (gameState !== 'playing') return
 
-    const loop = setInterval(() => {
+    const loop = gameClock.setInterval(() => {
       if (gameStateRef.current !== 'playing') return
 
       const m = movingRef.current
@@ -212,24 +218,24 @@ function StackTower() {
       cameraYRef.current += (targetCameraY - cameraYRef.current) * 0.08
 
       // expire cut pieces
-      const now = Date.now()
+      const now = gameClock.now()
       cutPiecesRef.current = cutPiecesRef.current.filter((c) => now - c.born < 600)
 
-      setRenderTick((t) => t + 1)
+      syncView()
     }, TICK)
 
-    return () => clearInterval(loop)
-  }, [gameState])
+    return () => gameClock.clearInterval(loop)
+  }, [gameState, syncView])
 
   // render
-  const stack = stackRef.current
-  const moving = movingRef.current
-  const score = scoreRef.current
-  const best = bestRef.current
-  const combo = comboRef.current
-  const cutPieces = cutPiecesRef.current
-  const perfectFlash = perfectFlashRef.current
-  const camY = cameraYRef.current
+  const stack = view.stack
+  const moving = view.moving
+  const score = view.score
+  const best = view.best
+  const combo = view.combo
+  const cutPieces = view.cutPieces
+  const perfectFlash = view.perfectFlash
+  const camY = view.camY
 
   return (
     <div ref={containerRef} className="st-container">
@@ -238,7 +244,12 @@ function StackTower() {
       <div className="st-game-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
         <div
           className="st-game-area"
-          style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          onPointerDown={(event) => {
+            if (event.target.closest('button, a') || !event.isPrimary || event.button !== 0) return
+            event.preventDefault()
+            placeBlock()
+          }}
+          style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}
         >
           {/* HUD */}
           <div className="st-hud">
@@ -254,13 +265,12 @@ function StackTower() {
           </div>
 
           {/* stacked blocks */}
-          {stack.map((block, i) => (
+          {stack.filter((block) => block.y + camY < GAME_H).map((block) => (
             <div
-              key={i}
+              key={block.level}
               className="st-block"
               style={{
-                left: block.x,
-                top: block.y + camY,
+                transform: `translate3d(${block.x}px, ${block.y + camY}px, 0)`,
                 width: block.w,
                 height: BLOCK_H,
                 background: `linear-gradient(to bottom, ${hslColor(block.level)}, ${hslColorDark(block.level)})`,
@@ -274,8 +284,7 @@ function StackTower() {
             <div
               className="st-block"
               style={{
-                left: moving.x,
-                top: moving.y + camY,
+                transform: `translate3d(${moving.x}px, ${moving.y + camY}px, 0)`,
                 width: moving.w,
                 height: BLOCK_H,
                 background: `linear-gradient(to bottom, ${hslColor(moving.level)}, ${hslColorDark(moving.level)})`,
@@ -313,7 +322,7 @@ function StackTower() {
                 <div className="st-menu-icon">🏗️</div>
                 <h2>스택 타워</h2>
                 <p>블록을 정확히 쌓아 올리세요!</p>
-                <p className="st-menu-controls">Space / 터치로 블록 배치</p>
+                <p className="st-menu-controls">Space / 클릭 / 터치로 블록 배치</p>
                 <button onClick={startGame}>게임 시작</button>
                 <p className="st-menu-hint">정확히 맞추면 PERFECT → 블록이 커집니다!</p>
               </div>
@@ -337,7 +346,7 @@ function StackTower() {
         </div>
       </div>
 
-      <div className="st-instructions">Space 또는 화면 터치로 블록을 쌓으세요</div>
+      <div className="st-instructions">Space · 마우스 클릭 · 화면 터치로 블록을 쌓으세요</div>
     </div>
   )
 }

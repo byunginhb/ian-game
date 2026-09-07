@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -98,8 +99,8 @@ function RotateNotice() {
   return (
     <div className="md-rotate-notice" role="status">
       <div className="md-phone-icon" aria-hidden="true"><span /></div>
-      <strong>가로로 돌려주세요</strong>
-      <span>넓은 전장에서 더 재미있게 플레이할 수 있어요</span>
+      <strong>가로 화면에서는 전장이 더 넓게 보여요</strong>
+      <span>세로 화면에서도 바로 플레이할 수 있어요</span>
     </div>
   )
 }
@@ -119,8 +120,7 @@ function MonsterDefense() {
   const [waveClear, setWaveClear] = useState(false)
   const [restCountdown, setRestCountdown] = useState(5)
   const [highWave, setHighWave] = useState(() => {
-    const s = localStorage.getItem(LS_HIGH_WAVE)
-    return s ? Number(s) : 0
+    try { return Number(localStorage.getItem(LS_HIGH_WAVE)) || 0 } catch { return 0 }
   })
 
   const monstersRef = useRef([])
@@ -166,24 +166,25 @@ function MonsterDefense() {
   const triggerShake = useCallback(() => {
     if (shakeTimeoutRef.current) return
     setScreenShake(true)
-    shakeTimeoutRef.current = setTimeout(() => {
+    shakeTimeoutRef.current = gameClock.setTimeout(() => {
       shakeTimeoutRef.current = null
       setScreenShake(false)
     }, 260)
   }, [])
 
   useEffect(() => () => {
-    if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current)
+    if (shakeTimeoutRef.current) gameClock.clearTimeout(shakeTimeoutRef.current)
   }, [])
 
   const initGame = useCallback(() => {
+    gameClock.clearTimeouts()
     nextId = 1
     monstersRef.current = []
     projectilesRef.current = []
     impactsRef.current = []
     floatingTextsRef.current = []
     if (shakeTimeoutRef.current) {
-      clearTimeout(shakeTimeoutRef.current)
+      gameClock.clearTimeout(shakeTimeoutRef.current)
       shakeTimeoutRef.current = null
     }
     goldRef.current = 150
@@ -208,12 +209,12 @@ function MonsterDefense() {
     spawnTotalRef.current = getWaveMonsterCount(wave)
     spawnTimerRef.current = wave === 1 ? -5 : 0
     setWaveBanner(`웨이브 ${wave}!`)
-    setTimeout(() => setWaveBanner(null), 2500)
+    gameClock.setTimeout(() => setWaveBanner(null), 2500)
     if (wave % 5 === 0) {
       setBossWarning(true)
-      setTimeout(() => setBossWarning(false), 3000)
+      gameClock.setTimeout(() => setBossWarning(false), 3000)
       for (let b = 0; b < 3; b++) {
-        setTimeout(() => {
+        gameClock.setTimeout(() => {
           if (phaseRef.current === 'playing' && monstersRef.current.length < MAX_MONSTERS) {
             monstersRef.current.push(createMonster(wave, 'dragon'))
           }
@@ -225,7 +226,7 @@ function MonsterDefense() {
   // Game loop
   useEffect(() => {
     if (phase !== 'playing') {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      if (rafRef.current) gameClock.cancelAnimationFrame(rafRef.current)
       return
     }
     lastTimeRef.current = null
@@ -272,7 +273,7 @@ function MonsterDefense() {
             setPhase('gameover')
             const w = waveRef.current
             setHighWave(prev => {
-              if (w > prev) { localStorage.setItem(LS_HIGH_WAVE, String(w)); return w }
+              if (w > prev) { try { localStorage.setItem(LS_HIGH_WAVE, String(w)) } catch { /* Optional record. */ } return w }
               return prev
             })
           }
@@ -385,7 +386,7 @@ function MonsterDefense() {
         phaseRef.current = 'rest'
         setPhase('rest')
         setWaveClear(true)
-        setTimeout(() => setWaveClear(false), 2000)
+        gameClock.setTimeout(() => setWaveClear(false), 2000)
       }
 
       const paintInterval = monstersRef.current.length > 36 ? 1000 / 24 : PAINT_INTERVAL
@@ -393,10 +394,10 @@ function MonsterDefense() {
         lastPaintRef.current = timestamp
         flush()
       }
-      rafRef.current = requestAnimationFrame(loop)
+      rafRef.current = gameClock.requestAnimationFrame(loop)
     }
-    rafRef.current = requestAnimationFrame(loop)
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+    rafRef.current = gameClock.requestAnimationFrame(loop)
+    return () => { if (rafRef.current) gameClock.cancelAnimationFrame(rafRef.current) }
   }, [phase, flush, addFloatingText, addImpact, triggerShake])
 
   // Rest countdown
@@ -404,18 +405,18 @@ function MonsterDefense() {
     if (phase !== 'rest') return
     setRestCountdown(3)
     let count = 3
-    const iv = setInterval(() => {
+    const iv = gameClock.setInterval(() => {
       count--
       setRestCountdown(count)
       if (count <= 0) {
-        clearInterval(iv)
+        gameClock.clearInterval(iv)
         waveRef.current++
         startWave(waveRef.current)
         phaseRef.current = 'playing'
         setPhase('playing')
       }
     }, 1000)
-    return () => clearInterval(iv)
+    return () => gameClock.clearInterval(iv)
   }, [phase, startWave])
 
   const handleStart = useCallback(() => {
@@ -569,7 +570,7 @@ function MonsterDefense() {
       <Link to="/" className="md-back-button md-back-ingame" aria-label="게임 선택으로 돌아가기">←</Link>
 
       <div className={`md-wrapper${screenShake ? ' md-screen-shake' : ''}`} style={{ width: GAME_W * scale, height: GAME_H * scale, position: 'relative' }}>
-        <div className="md-game-area" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <div className="md-game-area" style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
           <div className="md-field" onClick={handleFieldClick} />
           <div className="md-field-mist" />
           <div className="md-wall"><span className="md-wall-sigil">M</span></div>
@@ -688,7 +689,7 @@ function MonsterDefense() {
                     <span className={gold >= cfg.cost ? 'md-affordable' : ''}>{cfg.cost}G</span>
                   </button>
                 ))}
-                <button className="md-popup-close" onClick={() => { setSelectedSlot(null); setPopupType(null) }}>✕</button>
+                <button className="md-popup-close" aria-label="무기 메뉴 닫기" onClick={() => { setSelectedSlot(null); setPopupType(null) }}>✕</button>
               </div>
             )}
             {popupType === 'upgrade' && selectedWeapon && (
@@ -706,11 +707,23 @@ function MonsterDefense() {
                   <span>🗑️ 판매</span>
                   <span className="md-affordable">+{WEAPON_TYPES[selectedWeapon.type].sell}G</span>
                 </button>
-                <button className="md-popup-close" onClick={() => { setSelectedSlot(null); setPopupType(null) }}>✕</button>
+                <button className="md-popup-close" aria-label="무기 메뉴 닫기" onClick={() => { setSelectedSlot(null); setPopupType(null) }}>✕</button>
               </div>
             )}
           </div>
         )}
+      </div>
+      <div className="md-mobile-controls">
+        <div><strong>♥ {hp}/{MAX_HP}</strong><span>웨이브 {wave}</span><strong>{gold} G</strong></div>
+        <label>성벽 선택
+          <select aria-label="성벽 선택" value={selectedSlot ?? ''} onChange={(event) => handleSlotClick(Number(event.target.value))}>
+            <option value="" disabled>무기를 설치할 위치를 골라요</option>
+            {WALL_SLOTS.map((_, index) => {
+              const weapon = weapons.find((item) => item.slotIndex === index)
+              return <option key={index} value={index}>{Math.floor(index / 2) + 1}번 줄 {index % 2 ? '오른쪽' : '왼쪽'} · {weapon ? WEAPON_TYPES[weapon.type].label : '빈 성벽'}</option>
+            })}
+          </select>
+        </label>
       </div>
     </div>
   )

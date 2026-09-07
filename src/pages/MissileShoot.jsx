@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -217,13 +218,18 @@ function MissileShoot() {
   const headDistRef = useRef(0)
   const snakeRef = useRef([])
   const missilesRef = useRef([])
+  const itemsRef = useRef([])
+  const bombsRef = useRef(0)
+  const gameStateRef = useRef('menu')
 
   const startGame = useCallback(() => {
+    gameClock.clearTimeouts()
     nextId = 1000
     setStage(1)
     setScore(0)
     setMissileLevel(1)
     setMultiShot(0)
+    bombsRef.current = 1
     setBombs(1)
     setPlayerX(GAME_W / 2 - PLAYER_W / 2)
     playerXRef.current = GAME_W / 2 - PLAYER_W / 2
@@ -234,14 +240,16 @@ function MissileShoot() {
     missilesRef.current = []
     setSnake(nextSnake)
     setMissiles([])
+    itemsRef.current = []
     setItems([])
     setExplosions([])
     setBombEffect(null)
     setHitFlashes([])
     lastFireRef.current = 0
+    gameStateRef.current = 'playing'
     setGameState('playing')
     setStageBanner(true)
-    setTimeout(() => setStageBanner(false), 1500)
+    gameClock.setTimeout(() => setStageBanner(false), 1500)
   }, [])
 
   const startStage = useCallback((stageNum) => {
@@ -252,6 +260,7 @@ function MissileShoot() {
     missilesRef.current = []
     setSnake(nextSnake)
     setMissiles([])
+    itemsRef.current = []
     setItems([])
     setExplosions([])
     setBombEffect(null)
@@ -259,9 +268,10 @@ function MissileShoot() {
     lastFireRef.current = 0
     setPlayerX(GAME_W / 2 - PLAYER_W / 2)
     playerXRef.current = GAME_W / 2 - PLAYER_W / 2
+    gameStateRef.current = 'playing'
     setGameState('playing')
     setStageBanner(true)
-    setTimeout(() => setStageBanner(false), 1500)
+    gameClock.setTimeout(() => setStageBanner(false), 1500)
   }, [])
 
   // keyboard
@@ -302,75 +312,67 @@ function MissileShoot() {
     if (!area) return
 
     const handleTouchMove = (e) => {
+      if (e.target.closest('button, a') || !e.isPrimary) return
+      if (gameState !== 'playing') return
+      if (e.type === 'pointerdown') area.setPointerCapture(e.pointerId)
       e.preventDefault()
       const rect = area.getBoundingClientRect()
-      const touchX = e.touches[0].clientX
+      const touchX = e.clientX
       const x = (touchX - rect.left) / (rect.width / GAME_W) - PLAYER_W / 2
       touchTargetXRef.current = Math.max(0, Math.min(GAME_W - PLAYER_W, x))
     }
     const handleTouchEnd = () => { touchTargetXRef.current = null }
 
-    area.addEventListener('touchmove', handleTouchMove, { passive: false })
-    area.addEventListener('touchend', handleTouchEnd)
-    area.addEventListener('touchcancel', handleTouchEnd)
+    area.addEventListener('pointerdown', handleTouchMove)
+    area.addEventListener('pointermove', handleTouchMove)
+    area.addEventListener('pointerup', handleTouchEnd)
+    area.addEventListener('pointercancel', handleTouchEnd)
+    window.addEventListener('blur', handleTouchEnd)
+    area.addEventListener('lostpointercapture', handleTouchEnd)
     return () => {
-      area.removeEventListener('touchmove', handleTouchMove)
-      area.removeEventListener('touchend', handleTouchEnd)
-      area.removeEventListener('touchcancel', handleTouchEnd)
+      window.removeEventListener('blur', handleTouchEnd)
+      area.removeEventListener('lostpointercapture', handleTouchEnd)
+      area.removeEventListener('pointerdown', handleTouchMove)
+      area.removeEventListener('pointermove', handleTouchMove)
+      area.removeEventListener('pointerup', handleTouchEnd)
+      area.removeEventListener('pointercancel', handleTouchEnd)
     }
-  }, [])
+  }, [gameState])
 
   // main game loop
   useEffect(() => {
     if (gameState !== 'playing') return
 
-    const loop = setInterval(() => {
-      const now = Date.now()
+    const loop = gameClock.setInterval(() => {
+      if (gameStateRef.current !== 'playing') return
+      const now = gameClock.now()
 
       // advance snake along path
       const snakeSpeed = SNAKE_SPEED_BASE + stage * SNAKE_SPEED_PER_STAGE
       headDistRef.current += snakeSpeed
 
-      // move player
-      setPlayerX((px) => {
-        let nx = px
-        if (keysRef.current.has('ArrowLeft')) nx = Math.max(0, px - PLAYER_SPEED)
-        if (keysRef.current.has('ArrowRight')) nx = Math.min(GAME_W - PLAYER_W, px + PLAYER_SPEED)
+      // Compute movement and inventory outside React updater callbacks.
+      let nextX = playerXRef.current
+      if (keysRef.current.has('ArrowLeft')) nextX -= PLAYER_SPEED
+      if (keysRef.current.has('ArrowRight')) nextX += PLAYER_SPEED
+      if (touchTargetXRef.current !== null) {
+        nextX += Math.max(-PLAYER_SPEED, Math.min(PLAYER_SPEED, touchTargetXRef.current - nextX))
+      }
+      playerXRef.current = Math.max(0, Math.min(GAME_W - PLAYER_W, nextX))
+      setPlayerX(playerXRef.current)
 
-        // touch: move toward touch position
-        if (touchTargetXRef.current !== null) {
-          const diff = touchTargetXRef.current - px
-          if (Math.abs(diff) < PLAYER_SPEED) {
-            nx = touchTargetXRef.current
-          } else {
-            nx = px + (diff > 0 ? PLAYER_SPEED : -PLAYER_SPEED)
-          }
-        }
-
-        playerXRef.current = nx
-        return nx
-      })
-
-      // bomb key
       if (keysRef.current.has('z') || keysRef.current.has('Z')) {
         keysRef.current.delete('z')
         keysRef.current.delete('Z')
-        setBombs((b) => {
-          if (b <= 0) return b
+        if (bombsRef.current > 0) {
+          bombsRef.current--
+          setBombs(bombsRef.current)
           setBombEffect({ time: now })
-          setSnake((prev) => {
-            const nextSnake = prev.map((seg) => {
-              if (!seg.alive || seg.isHead) return seg
-              // 폭탄은 갑옷을 약화시키지만 코어를 파괴할 수는 없다.
-              // 마지막 타격은 반드시 플레이어가 직접 조준해야 한다.
-              return { ...seg, hp: Math.max(1, seg.hp - BOMB_DAMAGE) }
-            })
-            snakeRef.current = nextSnake
-            return nextSnake
-          })
-          setTimeout(() => setBombEffect(null), 400)
-          return b - 1
-        })
+          // Bombs weaken armour; the final hit still requires aiming at the core.
+          snakeRef.current = snakeRef.current.map((segment) => !segment.alive || segment.isHead
+            ? segment : { ...segment, hp: Math.max(1, segment.hp - BOMB_DAMAGE) })
+          gameClock.setTimeout(() => setBombEffect(null), 400)
+        }
       }
 
       // Build the whole combat frame locally, then commit each state once.
@@ -478,45 +480,39 @@ function MissileShoot() {
         setExplosions((prev) => [...prev, ...frameExplosions])
       }
       if (frameItems.length > 0) {
-        setItems((prev) => [...prev, ...frameItems])
+        itemsRef.current = [...itemsRef.current, ...frameItems]
       }
 
       const bodyAlive = combatSnake.some((seg) => !seg.isHead && seg.alive)
       if (!bodyAlive && combatSnake.length > 1) {
+        gameStateRef.current = 'stageClear'
         setGameState('stageClear')
       }
 
       const head = combatSnake.find((seg) => seg.isHead)
-      if (head && head.y >= GAME_OVER_Y) {
+      if (bodyAlive && head && head.y >= GAME_OVER_Y) {
+        gameStateRef.current = 'gameOver'
         setGameState('gameOver')
       }
 
-      // update items
-      setItems((prev) =>
-        prev
-          .map((it) => ({ ...it, y: it.y + ITEM_FALL_SPEED }))
-          .filter((it) => it.y < GAME_H + 30)
-      )
-
-      // player collects items
-      setItems((prev) => {
-        return prev.filter((it) => {
+      const pickupExplosions = []
+      itemsRef.current = itemsRef.current
+        .map((item) => ({ ...item, y: item.y + ITEM_FALL_SPEED }))
+        .filter((item) => {
+          if (item.y >= GAME_H + 30) return false
           const playerRect = { x: playerXRef.current, y: GAME_H - PLAYER_H - 10, w: PLAYER_W, h: PLAYER_H }
-          const itemRect = { x: it.x, y: it.y, w: ITEM_SIZE, h: ITEM_SIZE }
-          if (rectsOverlap(playerRect, itemRect)) {
-            if (it.type === 'powerup') {
-              setMissileLevel((l) => Math.min(l + 1, 6))
-            } else if (it.type === 'multishot') {
-              setMultiShot(1)
-            } else if (it.type === 'bomb') {
-              setBombs((b) => Math.min(b + 1, 9))
-            }
-            setExplosions((ex) => [...ex, { id: uid(), x: it.x + ITEM_SIZE / 2, y: it.y + ITEM_SIZE / 2, time: now, small: true }])
-            return false
+          if (!rectsOverlap(playerRect, { x: item.x, y: item.y, w: ITEM_SIZE, h: ITEM_SIZE })) return true
+          if (item.type === 'powerup') setMissileLevel((level) => Math.min(level + 1, 6))
+          else if (item.type === 'multishot') setMultiShot(1)
+          else if (item.type === 'bomb') {
+            bombsRef.current = Math.min(bombsRef.current + 1, 9)
+            setBombs(bombsRef.current)
           }
-          return true
+          pickupExplosions.push({ id: uid(), x: item.x + ITEM_SIZE / 2, y: item.y + ITEM_SIZE / 2, time: now, small: true })
+          return false
         })
-      })
+      setItems(itemsRef.current)
+      if (pickupExplosions.length) setExplosions((previous) => [...previous, ...pickupExplosions])
 
       // clean up explosions & flashes
       setExplosions((prev) => prev.filter((e) => now - e.time < 500))
@@ -524,7 +520,7 @@ function MissileShoot() {
 
     }, TICK)
 
-    return () => clearInterval(loop)
+    return () => gameClock.clearInterval(loop)
   }, [gameState, missileLevel, multiShot, stage])
 
   const mProps = getMissileProps(missileLevel)
@@ -541,7 +537,7 @@ function MissileShoot() {
       <Link to="/" className="ms-back">← 홈으로</Link>
 
       <div className="ms-game-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
-        <div className="ms-game-area" ref={gameAreaRef} style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <div className="ms-game-area" ref={gameAreaRef} style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
         {/* HUD */}
         <div className="ms-hud">
           <div className="ms-hud-left">
@@ -742,9 +738,8 @@ function MissileShoot() {
       {gameState === 'playing' && (
         <button
           className="ms-touch-bomb"
-          onTouchStart={(e) => { e.preventDefault(); keysRef.current.add('z') }}
-          onTouchEnd={() => keysRef.current.delete('z')}
-          onClick={() => { keysRef.current.add('z'); setTimeout(() => keysRef.current.delete('z'), 50) }}
+          onClick={() => keysRef.current.add('z')}
+          aria-label="폭탄 사용"
         >
           ✦ EMP ({bombs})
         </button>

@@ -186,7 +186,7 @@ function WordPuzzle() {
       <div className="wp-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
         <div
           className="wp-area"
-          style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}
         >
           {/* ===== Menu ===== */}
           {gameState === 'menu' && (

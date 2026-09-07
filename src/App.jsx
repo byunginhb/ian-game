@@ -1,50 +1,48 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
-import SongIan from './pages/SongIan'
-import PoopDodge from './pages/PoopDodge'
-import MissileShoot from './pages/MissileShoot'
-import BrickBreaker from './pages/BrickBreaker'
-import Tetris from './pages/Tetris'
-import Suika from './pages/Suika'
-import StackTower from './pages/StackTower'
-import CodeAdventure from './pages/CodeAdventure'
-import WordPuzzle from './pages/WordPuzzle'
-import MathSpell from './pages/MathSpell'
-import MonsterDefense from './pages/MonsterDefense'
-import Fortress from './pages/Fortress'
-import HelpMe from './pages/HelpMe'
-import StarRescue from './pages/StarRescue'
-import FruitSlash from './pages/FruitSlash'
-import TowerDefense from './pages/TowerDefense'
-import MagicHanja from './pages/MagicHanja'
-import LavaCastle from './pages/LavaCastle'
-import SwimmingRace from './pages/SwimmingRace'
+import GameSession from './components/GameSession'
+import { games } from './data/games'
 import './App.css'
+
+const gamePages = {
+  'song-ian': lazy(() => import('./pages/SongIan')),
+  'poop-dodge': lazy(() => import('./pages/PoopDodge')),
+  'missile-shoot': lazy(() => import('./pages/MissileShoot')),
+  'brick-breaker': lazy(() => import('./pages/BrickBreaker')),
+  'tetris': lazy(() => import('./pages/Tetris')),
+  'suika': lazy(() => import('./pages/Suika')),
+  'stack-tower': lazy(() => import('./pages/StackTower')),
+  'code-adventure': lazy(() => import('./pages/CodeAdventure')),
+  'word-puzzle': lazy(() => import('./pages/WordPuzzle')),
+  'math-spell': lazy(() => import('./pages/MathSpell')),
+  'monster-defense': lazy(() => import('./pages/MonsterDefense')),
+  'fortress': lazy(() => import('./pages/Fortress')),
+  'help-me': lazy(() => import('./pages/HelpMe')),
+  'star-rescue': lazy(() => import('./pages/StarRescue')),
+  'fruit-slash': lazy(() => import('./pages/FruitSlash')),
+  'tower-defense': lazy(() => import('./pages/TowerDefense')),
+  'magic-hanja': lazy(() => import('./pages/MagicHanja')),
+  'lava-castle': lazy(() => import('./pages/LavaCastle')),
+  'swimming-race': lazy(() => import('./pages/SwimmingRace')),
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/game/song-ian" element={<SongIan />} />
-        <Route path="/game/poop-dodge" element={<PoopDodge />} />
-        <Route path="/game/missile-shoot" element={<MissileShoot />} />
-        <Route path="/game/brick-breaker" element={<BrickBreaker />} />
-        <Route path="/game/tetris" element={<Tetris />} />
-        <Route path="/game/suika" element={<Suika />} />
-        <Route path="/game/stack-tower" element={<StackTower />} />
-        <Route path="/game/code-adventure" element={<CodeAdventure />} />
-        <Route path="/game/word-puzzle" element={<WordPuzzle />} />
-        <Route path="/game/math-spell" element={<MathSpell />} />
-        <Route path="/game/monster-defense" element={<MonsterDefense />} />
-        <Route path="/game/fortress" element={<Fortress />} />
-        <Route path="/game/help-me" element={<HelpMe />} />
-        <Route path="/game/star-rescue" element={<StarRescue />} />
-        <Route path="/game/fruit-slash" element={<FruitSlash />} />
-        <Route path="/game/tower-defense" element={<TowerDefense />} />
-        <Route path="/game/magic-hanja" element={<MagicHanja />} />
-        <Route path="/game/lava-castle" element={<LavaCastle />} />
-        <Route path="/game/swimming-race" element={<SwimmingRace />} />
+        {games.map((game) => {
+          const Game = gamePages[game.id]
+          return <Route key={game.id} path={`/game/${game.id}`} element={
+            <GameSession key={game.id} game={game}>
+              <Suspense fallback={<div className="game-loading" role="status"><span aria-hidden="true">🕹️</span>게임을 준비하고 있어요…</div>}>
+                <Game />
+              </Suspense>
+            </GameSession>
+          } />
+        })}
+        <Route path="*" element={<Home />} />
       </Routes>
     </BrowserRouter>
   )

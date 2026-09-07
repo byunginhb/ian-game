@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -95,12 +96,12 @@ function getGhostY(board, shape, px, py) {
 const LINE_SCORES = [0, 100, 300, 500, 800]
 
 function Tetris() {
-  const scale = useGameScale(LAYOUT_W, LAYOUT_H)
+  const scale = useGameScale(LAYOUT_W, LAYOUT_H, { reservedH: 132 })
   const containerRef = useRef(null)
   useTouchLock(containerRef)
 
   const [gameState, setGameState] = useState('menu')
-  const [renderTick, setRenderTick] = useState(0)
+  const [view, setView] = useState(() => ({ board: createBoard(), current: null, next: null, pos: {"x": 0, "y": 0}, score: 0, level: 1, lines: 0, flashLines: [] }))
 
   const boardRef = useRef(createBoard())
   const currentRef = useRef(null)
@@ -110,8 +111,20 @@ function Tetris() {
   const levelRef = useRef(1)
   const linesRef = useRef(0)
   const gameStateRef = useRef('menu')
-  const dropTimerRef = useRef(null)
   const flashLinesRef = useRef([])
+
+  const syncView = useCallback(() => {
+    setView(structuredClone({
+      board: boardRef.current,
+      current: currentRef.current,
+      next: nextRef.current,
+      pos: posRef.current,
+      score: scoreRef.current,
+      level: levelRef.current,
+      lines: linesRef.current,
+      flashLines: flashLinesRef.current,
+    }))
+  }, [])
 
   const spawn = useCallback(() => {
     const piece = nextRef.current || randomPiece()
@@ -131,7 +144,15 @@ function Tetris() {
 
   const lock = useCallback(() => {
     const piece = currentRef.current
+    if (!piece || gameStateRef.current !== 'playing') return
     const { x, y } = posRef.current
+    currentRef.current = null
+    if (piece.shape.some((row, r) => y + r < 0 && row.some(Boolean))) {
+      gameStateRef.current = 'gameover'
+      setGameState('gameover')
+      syncView()
+      return
+    }
     boardRef.current = placePiece(boardRef.current, piece.shape, x, y, piece.color)
 
     const { board, cleared } = clearLines(boardRef.current)
@@ -151,54 +172,55 @@ function Tetris() {
       levelRef.current = Math.floor(linesRef.current / 10) + 1
 
       // brief delay for flash, then clear
-      setTimeout(() => {
+      gameClock.setTimeout(() => {
         boardRef.current = board
         flashLinesRef.current = []
         spawn()
-        setRenderTick((t) => t + 1)
+        syncView()
       }, 200)
     } else {
       boardRef.current = board
       spawn()
     }
-  }, [spawn])
+  }, [spawn, syncView])
 
-  const moveDown = useCallback(() => {
+  const moveDown = useCallback((softDrop = false) => {
     const piece = currentRef.current
-    if (!piece) return
+    if (!piece || gameStateRef.current !== 'playing') return
     const { x, y } = posRef.current
     if (isValid(boardRef.current, piece.shape, x, y + 1)) {
       posRef.current = { x, y: y + 1 }
+      if (softDrop) scoreRef.current += 1
     } else {
       lock()
     }
-    setRenderTick((t) => t + 1)
-  }, [lock])
+    syncView()
+  }, [lock, syncView])
 
   const hardDrop = useCallback(() => {
     const piece = currentRef.current
-    if (!piece) return
+    if (!piece || gameStateRef.current !== 'playing') return
     const { x, y } = posRef.current
     const gy = getGhostY(boardRef.current, piece.shape, x, y)
     scoreRef.current += (gy - y) * 2
     posRef.current = { x, y: gy }
     lock()
-    setRenderTick((t) => t + 1)
-  }, [lock])
+    syncView()
+  }, [lock, syncView])
 
   const moveHorizontal = useCallback((dir) => {
     const piece = currentRef.current
-    if (!piece) return
+    if (!piece || gameStateRef.current !== 'playing') return
     const { x, y } = posRef.current
     if (isValid(boardRef.current, piece.shape, x + dir, y)) {
       posRef.current = { x: x + dir, y }
-      setRenderTick((t) => t + 1)
+      syncView()
     }
-  }, [])
+  }, [syncView])
 
   const rotatePiece = useCallback(() => {
     const piece = currentRef.current
-    if (!piece) return
+    if (!piece || gameStateRef.current !== 'playing') return
     const { x, y } = posRef.current
     const rotated = rotate(piece.shape)
 
@@ -208,13 +230,14 @@ function Tetris() {
       if (isValid(boardRef.current, rotated, x + kick, y)) {
         currentRef.current = { ...piece, shape: rotated }
         posRef.current = { x: x + kick, y }
-        setRenderTick((t) => t + 1)
+        syncView()
         return
       }
     }
-  }, [])
+  }, [syncView])
 
   const startGame = useCallback(() => {
+    gameClock.clearTimeouts()
     boardRef.current = createBoard()
     scoreRef.current = 0
     levelRef.current = 1
@@ -224,8 +247,8 @@ function Tetris() {
     gameStateRef.current = 'playing'
     setGameState('playing')
     spawn()
-    setRenderTick((t) => t + 1)
-  }, [spawn])
+    syncView()
+  }, [spawn, syncView])
 
   // keyboard
   useEffect(() => {
@@ -242,8 +265,7 @@ function Tetris() {
           break
         case 'ArrowDown':
           e.preventDefault()
-          moveDown()
-          scoreRef.current += 1
+          moveDown(true)
           break
         case 'ArrowUp':
           e.preventDefault()
@@ -251,7 +273,7 @@ function Tetris() {
           break
         case ' ':
           e.preventDefault()
-          hardDrop()
+          if (!e.repeat) hardDrop()
           break
       }
     }
@@ -259,46 +281,23 @@ function Tetris() {
     return () => window.removeEventListener('keydown', onDown)
   }, [moveHorizontal, moveDown, rotatePiece, hardDrop])
 
-  // drop timer
+  // Reschedule only when the level changes, never in the middle of a drop interval.
   useEffect(() => {
-    if (gameState !== 'playing') {
-      if (dropTimerRef.current) clearInterval(dropTimerRef.current)
-      return
-    }
+    if (gameState !== 'playing') return
+    const interval = Math.max(MIN_INTERVAL, BASE_INTERVAL - (view.level - 1) * SPEED_FACTOR)
+    const timer = gameClock.setInterval(() => moveDown(), interval)
+    return () => gameClock.clearInterval(timer)
+  }, [gameState, view.level, moveDown])
 
-    const tick = () => {
-      if (gameStateRef.current !== 'playing') return
-      moveDown()
-    }
-
-    const startTimer = () => {
-      if (dropTimerRef.current) clearInterval(dropTimerRef.current)
-      const interval = Math.max(MIN_INTERVAL, BASE_INTERVAL - (levelRef.current - 1) * SPEED_FACTOR)
-      dropTimerRef.current = setInterval(tick, interval)
-    }
-
-    startTimer()
-
-    // re-check level changes periodically to adjust speed
-    const levelCheck = setInterval(() => {
-      startTimer()
-    }, 2000)
-
-    return () => {
-      if (dropTimerRef.current) clearInterval(dropTimerRef.current)
-      clearInterval(levelCheck)
-    }
-  }, [gameState, moveDown])
-
-  // render data from refs
-  const board = boardRef.current
-  const current = currentRef.current
-  const pos = posRef.current
-  const next = nextRef.current
-  const score = scoreRef.current
-  const level = levelRef.current
-  const lines = linesRef.current
-  const flashLines = flashLinesRef.current
+  // Render the published snapshot.
+  const board = view.board
+  const current = view.current
+  const pos = view.pos
+  const next = view.next
+  const score = view.score
+  const level = view.level
+  const lines = view.lines
+  const flashLines = view.flashLines
 
   // build cells to render
   const cells = []
@@ -399,7 +398,7 @@ function Tetris() {
       <Link to="/" className="tt-back">← 홈으로</Link>
 
       <div className="tt-game-wrapper" style={{ width: LAYOUT_W * scale, height: LAYOUT_H * scale }}>
-        <div style={{ width: LAYOUT_W, height: LAYOUT_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <div style={{ width: LAYOUT_W, height: LAYOUT_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
           <div className="tt-layout">
             <div
               className="tt-game-area"
@@ -468,12 +467,12 @@ function Tetris() {
         </div>
       </div>
 
-      <div className="tt-touch-controls">
-        <button className="tt-touch-btn" onTouchStart={(e) => { e.preventDefault(); moveHorizontal(-1) }} onClick={() => moveHorizontal(-1)}>⬅️</button>
-        <button className="tt-touch-btn" onTouchStart={(e) => { e.preventDefault(); moveDown(); scoreRef.current += 1 }} onClick={() => { moveDown(); scoreRef.current += 1 }}>⬇️</button>
-        <button className="tt-touch-btn" onTouchStart={(e) => { e.preventDefault(); rotatePiece() }} onClick={() => rotatePiece()}>🔄</button>
-        <button className="tt-touch-btn" onTouchStart={(e) => { e.preventDefault(); moveHorizontal(1) }} onClick={() => moveHorizontal(1)}>➡️</button>
-        <button className="tt-touch-btn tt-touch-drop" onTouchStart={(e) => { e.preventDefault(); hardDrop() }} onClick={() => hardDrop()}>⏬</button>
+      <div className="tt-touch-controls" role="group" aria-label="블록 조작">
+        <button className="tt-touch-btn" disabled={gameState !== 'playing'} aria-label="왼쪽 이동" onClick={() => moveHorizontal(-1)}>←</button>
+        <button className="tt-touch-btn" disabled={gameState !== 'playing'} aria-label="아래로 이동" onClick={() => moveDown(true)}>↓</button>
+        <button className="tt-touch-btn" disabled={gameState !== 'playing'} aria-label="블록 회전" onClick={rotatePiece}>↻</button>
+        <button className="tt-touch-btn" disabled={gameState !== 'playing'} aria-label="오른쪽 이동" onClick={() => moveHorizontal(1)}>→</button>
+        <button className="tt-touch-btn tt-touch-drop" disabled={gameState !== 'playing'} aria-label="바로 떨어뜨리기" onClick={hardDrop}>⤓</button>
       </div>
       <div className="tt-instructions">← → 이동 · ↑ 회전 · Space 하드드롭</div>
     </div>

@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -471,7 +472,7 @@ function CodeAdventure() {
   const [gameState, setGameState] = useState('menu')
   const [levelIdx, setLevelIdx] = useState(0)
   const [commands, setCommands] = useState([])
-  const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 })
+  const [playerPos, setPlayerPos] = useState(() => ({ ...LEVELS[0].start }))
   const [executing, setExecuting] = useState(false)
   const [execStep, setExecStep] = useState(-1)
   const [collectedGems, setCollectedGems] = useState(new Set())
@@ -501,28 +502,32 @@ function CodeAdventure() {
     collectedGemsRef.current = collectedGems
   }, [collectedGems])
 
-  useEffect(() => {
+  const resetLevel = useCallback((idx) => {
+    gameClock.clearTimeout(execTimerRef.current)
+    setLevelIdx(idx)
     setCommands([])
-    setPlayerPos({ ...LEVELS[levelIdx].start })
+    setPlayerPos({ ...LEVELS[idx].start })
+    playerPosRef.current = { ...LEVELS[idx].start }
+    collectedGemsRef.current = new Set()
     setExecuting(false)
     setExecStep(-1)
     setCollectedGems(new Set())
     setResult(null)
     setShakeCell(null)
     setEarnedStars(0)
-  }, [levelIdx])
+  }, [])
 
   const startGame = useCallback(() => {
     setGameState('playing')
-    setLevelIdx(0)
+    resetLevel(0)
     setTotalStars(0)
-  }, [])
+  }, [resetLevel])
 
   const startFromLevel = useCallback((idx) => {
     setGameState('playing')
-    setLevelIdx(idx)
+    resetLevel(idx)
     setTotalStars(0)
-  }, [])
+  }, [resetLevel])
 
   const addCommand = useCallback((dir) => {
     if (executing || result) return
@@ -561,13 +566,7 @@ function CodeAdventure() {
   useEffect(() => {
     if (!executing || execStep < 0) return
 
-    if (execStep >= commands.length) {
-      setExecuting(false)
-      setResult('fail')
-      return
-    }
-
-    execTimerRef.current = setTimeout(() => {
+    execTimerRef.current = gameClock.setTimeout(() => {
       const dir = DIR[commands[execStep]]
       const prev = playerPosRef.current
       const nx = prev.x + dir.dx
@@ -620,19 +619,24 @@ function CodeAdventure() {
         return
       }
 
-      setExecStep(s => s + 1)
+      if (execStep + 1 >= commands.length) {
+        setExecuting(false)
+        setResult('fail')
+      } else {
+        setExecStep(s => s + 1)
+      }
     }, 400)
 
-    return () => clearTimeout(execTimerRef.current)
+    return () => gameClock.clearTimeout(execTimerRef.current)
   }, [executing, execStep, commands, level, levelIdx])
 
   const nextLevel = useCallback(() => {
     if (levelIdx < LEVELS.length - 1) {
-      setLevelIdx(i => i + 1)
+      resetLevel(levelIdx + 1)
     } else {
       setGameState('complete')
     }
-  }, [levelIdx])
+  }, [levelIdx, resetLevel])
 
   useEffect(() => {
     const handleKey = (e) => {
@@ -799,7 +803,7 @@ function CodeAdventure() {
       <div ref={containerRef} className="ca-container">
         <Link to="/" className="ca-back-button">← 홈으로</Link>
         <div className="ca-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
-          <div className="ca-area" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+          <div className="ca-area" style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
             <div className="ca-menu">
               <span className="ca-menu-emoji">🐱</span>
               <h1 className="ca-menu-title">코딩 어드벤처</h1>
@@ -840,7 +844,7 @@ function CodeAdventure() {
       <div ref={containerRef} className="ca-container">
         <Link to="/" className="ca-back-button">← 홈으로</Link>
         <div className="ca-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
-          <div className="ca-area" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+          <div className="ca-area" style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
             <div className="ca-menu ca-complete">
               <span className="ca-menu-emoji">🏆</span>
               <h1 className="ca-menu-title">축하해요!</h1>
@@ -868,11 +872,11 @@ function CodeAdventure() {
     <div ref={containerRef} className="ca-container">
       <Link to="/" className="ca-back-button">← 홈으로</Link>
       <div className="ca-wrapper" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
-        <div className="ca-area" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <div className="ca-area" style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
           <div className="ca-hud">
             <span className="ca-level-label">Lv.{levelIdx + 1}</span>
             <span className="ca-level-name">{level.name}</span>
-            <button className="ca-menu-btn" onClick={() => setGameState('menu')}>☰</button>
+            <button className="ca-menu-btn" aria-label="레벨 선택 메뉴" onClick={() => { gameClock.clearTimeout(execTimerRef.current); setExecuting(false); setExecStep(-1); setGameState('menu') }}>☰</button>
           </div>
           <div className="ca-hint">{level.hint}</div>
           <div className="ca-grid-wrapper">

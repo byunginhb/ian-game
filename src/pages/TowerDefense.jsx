@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -351,6 +352,10 @@ function TowerDefense() {
   const hudCache = useRef({ gold: -1, lives: -1, score: -1, wave: -1 })
   const skillCache = useRef({ meteor: -1, freeze: -1, confuse: -1, thunder: -1, aiming: null })
   const audioRef = useRef(null)
+  useEffect(() => () => {
+    audioRef.current?.close().catch(() => {})
+    audioRef.current = null
+  }, [])
   const mutedRef = useRef(false)
   const [muted, setMuted] = useState(false)
 
@@ -429,7 +434,7 @@ function TowerDefense() {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     let raf = 0
-    let last = performance.now()
+    let last = gameClock.now()
 
     const spawnParts = (x, y, color, count, opt = {}) => {
       const g = G.current
@@ -446,7 +451,7 @@ function TowerDefense() {
     const pushFloater = (x, y, text, color) => {
       const g = G.current
       if (g.floaters.length > 24) return
-      g.floaters.push({ x, y, text, color, born: performance.now() })
+      g.floaters.push({ x, y, text, color, born: gameClock.now() })
     }
 
     const spawnEnemy = (type, wave, x, y, seg) => {
@@ -463,7 +468,7 @@ function TowerDefense() {
 
     const killEnemy = (e) => {
       const g = G.current
-      const now = performance.now()
+      const now = gameClock.now()
       let gain = e.gold
       g.combo = (now - g.lastKill < COMBO_WINDOW) ? g.combo + 1 : 1
       g.lastKill = now
@@ -491,7 +496,7 @@ function TowerDefense() {
 
     const update = (dt) => {
       const g = G.current
-      const now = performance.now()
+      const now = gameClock.now()
 
       // 스킬 발동 요청
       if (g.meteorReq) {
@@ -938,10 +943,10 @@ function TowerDefense() {
       }
 
       draw(now)
-      raf = requestAnimationFrame(loop)
+      raf = gameClock.requestAnimationFrame(loop)
     }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
+    raf = gameClock.requestAnimationFrame(loop)
+    return () => gameClock.cancelAnimationFrame(raf)
   }, [pushHud, saveBest, startWave, play])
 
   // ── 입력 ──
@@ -1080,7 +1085,7 @@ function TowerDefense() {
     <div className="td-container" ref={containerRef}>
       <Link to="/" className="td-back">← 홈으로</Link>
       <div className="td-wrapper" style={{ width: GAME_W * scale, height: STAGE_H * scale }}>
-        <div className="td-stage" style={{ width: GAME_W, height: STAGE_H, transform: `scale(${scale})` }}>
+        <div className="td-stage" style={{ width: GAME_W, height: STAGE_H, '--game-scale': scale, transform: `scale(${scale})` }}>
           {/* 상단 HUD */}
           <div className="td-top" style={{ height: TOP_H }}>
             <div className="td-stat"><span>💰</span><b style={{ color: '#F1C40F' }}>{hud.gold}</b></div>

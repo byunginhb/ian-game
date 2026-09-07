@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -178,6 +179,10 @@ function LavaCastle() {
   const canvasRef = useRef(null)
   const imagesRef = useRef({ background: null, villains: null })
   const audioRef = useRef(null)
+  useEffect(() => () => {
+    audioRef.current?.close().catch(() => {})
+    audioRef.current = null
+  }, [])
   const mutedRef = useRef(false)
   const [profile, setProfile] = useState(loadProfile)
   const profileRef = useRef(profile)
@@ -283,7 +288,7 @@ function LavaCastle() {
     setStage(nextStage)
     setPhase('playing')
     setToast(nextStage % 5 === 0 ? '👑 세 갈래 보스 부대 출현!' : nextStage >= 3 ? '⚠️ 세 방향 동시 습격!' : `STAGE ${nextStage} · 세 갈래 방어`)
-    window.setTimeout(() => setToast(''), 1700)
+    gameClock.setTimeout(() => setToast(''), 1700)
     syncHud()
   }, [ensureAudio, syncHud])
 
@@ -544,10 +549,10 @@ function LavaCastle() {
       if (g.spawnIndex >= g.queue.length && !g.enemies.some((e) => !e.dead && !e.leaked)) finishStage()
       if (now - lastHud > 100) { lastHud = now; syncHud() }
       draw(g, now)
-      raf = requestAnimationFrame(loop)
+      raf = gameClock.requestAnimationFrame(loop)
     }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
+    raf = gameClock.requestAnimationFrame(loop)
+    return () => gameClock.cancelAnimationFrame(raf)
   }, [damageEnemy, finishStage, loseGame, phase, playSound, syncHud])
 
   const shoot = useCallback((event) => {
@@ -557,7 +562,7 @@ function LavaCastle() {
     const rect = canvas.getBoundingClientRect()
     const x = (event.clientX - rect.left) * (GAME_W / rect.width)
     const y = (event.clientY - rect.top) * (FIELD_H / rect.height)
-    const now = performance.now()
+    const now = gameClock.now()
     const level = profileRef.current.levels[g.weapon]
     const weapon = WEAPONS[g.weapon]
     const stats = weapon.levels[Math.max(0, level)]
@@ -605,7 +610,7 @@ function LavaCastle() {
   const useEruption = useCallback(() => {
     const g = gameRef.current
     if (g.phase !== 'playing' || g.ultimate < 100) return
-    const now = performance.now()
+    const now = gameClock.now()
     g.ultimate = 0; g.flash = 0.65; g.shake = 18
     g.enemies.forEach((enemy) => {
       if (!enemy.dead && !enemy.leaked) {
@@ -629,7 +634,7 @@ function LavaCastle() {
     if (current.levels[key] >= 0 || current.coins < def.unlock) return
     const next = { ...current, coins: current.coins - def.unlock, selected: key, levels: { ...current.levels, [key]: 0 } }
     gameRef.current.coins = next.coins; gameRef.current.weapon = key
-    persist(next); syncHud(); setToast(`${def.icon} ${def.name} 해금!`); window.setTimeout(() => setToast(''), 1400)
+    persist(next); syncHud(); setToast(`${def.icon} ${def.name} 해금!`); gameClock.setTimeout(() => setToast(''), 1400)
   }, [persist, syncHud])
 
   const upgradeWeapon = useCallback((key) => {
@@ -640,7 +645,7 @@ function LavaCastle() {
     if (!cost || current.coins < cost) return
     const next = { ...current, coins: current.coins - cost, levels: { ...current.levels, [key]: level + 1 } }
     gameRef.current.coins = next.coins
-    persist(next); syncHud(); setToast(`⬆ ${WEAPONS[key].name} Lv.${level + 2}`); window.setTimeout(() => setToast(''), 1400)
+    persist(next); syncHud(); setToast(`⬆ ${WEAPONS[key].name} Lv.${level + 2}`); gameClock.setTimeout(() => setToast(''), 1400)
   }, [persist, syncHud])
 
   const selectedDef = WEAPONS[profile.selected]
@@ -651,7 +656,7 @@ function LavaCastle() {
     <div className="lc-container" ref={containerRef}>
       <Link className="lc-back" to="/">← 게임 목록</Link>
       <div className="lc-shell" style={{ width: GAME_W * scale, height: GAME_H * scale }}>
-        <div className="lc-game" style={{ width: GAME_W, height: GAME_H, transform: `scale(${scale})` }}>
+        <div className="lc-game" style={{ width: GAME_W, height: GAME_H, '--game-scale': scale, transform: `scale(${scale})` }}>
           <header className="lc-hud" style={{ height: TOP_H }}>
             <div className="lc-brand"><span className="lc-brand-mark">🌋</span><div><b>용암 수호대</b><small>CASTLE GUARD</small></div></div>
             <div className="lc-stat"><small>세 성문</small><strong className="lc-gate-total">

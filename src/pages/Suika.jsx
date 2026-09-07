@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useGameScale } from '../hooks/useGameScale'
@@ -52,8 +53,8 @@ function makeFruit(level, x, y) {
     vx: 0,
     vy: 0,
     radius: def.radius,
-    droppedAt: Date.now(),
-    spawnedAt: Date.now(),
+    droppedAt: gameClock.now(),
+    spawnedAt: gameClock.now(),
     impactUntil: 0,
     isNew: true,
     isImpacting: false,
@@ -247,6 +248,8 @@ function Suika() {
   }, [syncView])
 
   const startGame = useCallback(() => {
+    gameClock.clearTimeouts()
+    keysRef.current = {}
     fruitIdCounter = 0
     fruitsRef.current = []
     scoreRef.current = 0
@@ -276,7 +279,7 @@ function Suika() {
     dropLevelRef.current = nextLevelRef.current
     nextLevelRef.current = randomDropLevel()
 
-    setTimeout(() => {
+    gameClock.setTimeout(() => {
       canDropRef.current = true
       syncView()
     }, DROP_COOLDOWN)
@@ -286,7 +289,7 @@ function Suika() {
   // keyboard
   useEffect(() => {
     const onDown = (e) => {
-      if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+      if (!e.repeat && ['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
         e.preventDefault()
         keysRef.current[e.key] = true
         if (e.key === ' ') dropFruit()
@@ -306,10 +309,10 @@ function Suika() {
     if (gameStateRef.current !== 'playing') return
     const rect = gameAreaRef.current?.getBoundingClientRect()
     if (!rect) return
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX
-    const x = (clientX - rect.left) / scale
+    const clientX = e.clientX
+    const x = (clientX - rect.left) * GAME_W / rect.width
     dropXRef.current = Math.max(10, Math.min(GAME_W - 10, x))
-  }, [scale])
+  }, [])
 
   const handlePointerUp = useCallback(() => {
     if (gameStateRef.current !== 'playing') return
@@ -320,9 +323,9 @@ function Suika() {
   useEffect(() => {
     if (gameState !== 'playing') return
 
-    const loop = setInterval(() => {
+    const loop = gameClock.setInterval(() => {
       if (gameStateRef.current !== 'playing') return
-      const now = Date.now()
+      const now = gameClock.now()
 
       // drop position
       if (keysRef.current['ArrowLeft']) {
@@ -476,65 +479,65 @@ function Suika() {
                 const angle = (Math.PI * 2 * p) / 8 + Math.random() * 0.2
                 const distance = 24 + Math.random() * 24
                 particlesRef.current.push({
-                  id: Date.now() + Math.random() + p,
+                  id: gameClock.now() + Math.random() + p,
                   x: mx,
                   y: my,
                   level: newLevel,
                   dx: Math.cos(angle) * distance,
                   dy: Math.sin(angle) * distance,
                   size: 3 + Math.random() * 4,
-                  born: Date.now(),
+                  born: gameClock.now(),
                 })
               }
 
               mergeBurstsRef.current.push({
-                id: Date.now() + Math.random(),
+                id: gameClock.now() + Math.random(),
                 x: mx,
                 y: my,
                 level: newLevel,
-                born: Date.now(),
+                born: gameClock.now(),
               })
 
               // score popup
               scorePopRef.current.push({
-                id: Date.now() + Math.random(),
+                id: gameClock.now() + Math.random(),
                 x: mx,
                 y: my,
                 value: FRUITS[newLevel].score,
-                born: Date.now(),
+                born: gameClock.now(),
               })
             } else {
               // watermelon merge → both disappear, bonus
               scoreRef.current += 100
 
               scorePopRef.current.push({
-                id: Date.now() + Math.random(),
+                id: gameClock.now() + Math.random(),
                 x: mx,
                 y: my,
                 value: 100,
-                born: Date.now(),
+                born: gameClock.now(),
               })
 
               for (let p = 0; p < 8; p++) {
                 const angle = (Math.PI * 2 * p) / 8
                 particlesRef.current.push({
-                  id: Date.now() + Math.random() + p,
+                  id: gameClock.now() + Math.random() + p,
                   x: mx,
                   y: my,
                   level: 8,
                   dx: Math.cos(angle) * 65,
                   dy: Math.sin(angle) * 65,
                   size: 6,
-                  born: Date.now(),
+                  born: gameClock.now(),
                 })
               }
 
               mergeBurstsRef.current.push({
-                id: Date.now() + Math.random(),
+                id: gameClock.now() + Math.random(),
                 x: mx,
                 y: my,
                 level: 8,
-                born: Date.now(),
+                born: gameClock.now(),
                 finale: true,
               })
             }
@@ -583,7 +586,7 @@ function Suika() {
       syncView()
     }, TICK)
 
-    return () => clearInterval(loop)
+    return () => gameClock.clearInterval(loop)
   }, [gameState, syncView])
 
   const {
@@ -605,7 +608,7 @@ function Suika() {
       <Link to="/" className="sk-back">← 홈으로</Link>
 
       <div className="sk-game-wrapper" style={{ width: LAYOUT_W * scale, height: LAYOUT_H * scale }}>
-        <div style={{ width: LAYOUT_W, height: LAYOUT_H, transform: `scale(${scale})`, transformOrigin: 'top left', padding: '0 3px' }}>
+        <div style={{ width: LAYOUT_W, height: LAYOUT_H, '--game-scale': scale, transform: `scale(${scale})`, transformOrigin: 'top left', padding: '0 3px' }}>
 
           {/* HUD */}
           <div className="sk-hud" style={{ width: GAME_W }}>
@@ -625,10 +628,18 @@ function Suika() {
           <div
             ref={gameAreaRef}
             style={{ position: 'relative', width: GAME_W }}
-            onMouseMove={handlePointerMove}
-            onTouchMove={handlePointerMove}
-            onMouseUp={handlePointerUp}
-            onTouchEnd={handlePointerUp}
+            className="sk-playfield"
+            onPointerDown={(event) => {
+              if (event.target.closest('button, a') || !event.isPrimary || event.button !== 0) return
+              event.currentTarget.setPointerCapture(event.pointerId)
+              handlePointerMove(event)
+            }}
+            onPointerMove={handlePointerMove}
+            onPointerUp={(event) => {
+              if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+              handlePointerMove(event)
+              handlePointerUp()
+            }}
           >
             {/* drop zone */}
             <div className="sk-drop-zone" style={{ width: GAME_W, height: DROP_ZONE_H }}>

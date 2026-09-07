@@ -249,7 +249,7 @@
   background: rgba(255, 100, 100, 0.25);
 }
 
-@media (min-width: 769px) {
+@media (min-width: 769px) and (hover: hover) and (pointer: fine) {
   .tt-touch-controls {
     display: none;
   }

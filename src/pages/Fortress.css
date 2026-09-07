@@ -1,5 +1,6 @@
 /* ── 변수 ── */
-:root {
+.ft-screen,
+.ft-container {
   --p1: #ff3b5c;
   --p2: #00c8ff;
   --gold: #ffd60a;

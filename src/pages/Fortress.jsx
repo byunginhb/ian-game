@@ -1,3 +1,4 @@
+import { gameClock } from '../lib/gameClock'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import './Fortress.css'
@@ -261,6 +262,7 @@ export default function Fortress() {
 
   // ── 게임 초기화 ────────────────────────────────────────────────────────
   const startGame = useCallback((gMode) => {
+    gameClock.clearTimeouts()
     const terrain = genTerrain()
     const newWind = (Math.random() - 0.5) * MAX_WIND * 2
     const battlefield = BATTLEFIELDS[Math.floor(Math.random() * BATTLEFIELDS.length)]
@@ -291,7 +293,7 @@ export default function Fortress() {
     setBanner(`${battlefield.icon} ${battlefield.name}`)
     setScreen('game')
     redraw()
-    setTimeout(() => { setBanner(''); setPhase('aim'); phaseRef.current = 'aim' }, 1900)
+    gameClock.setTimeout(() => { setBanner(''); setPhase('aim'); phaseRef.current = 'aim' }, 1900)
   }, [redraw])
 
   // ── 턴 종료 ────────────────────────────────────────────────────────────
@@ -317,13 +319,13 @@ export default function Fortress() {
       : (curMode === 'ai' ? '🤖 AI의 턴!' : '🔵 플레이어 2의 턴!')
     setBanner(bText)
     setPhase('banner'); phaseRef.current = 'banner'
-    setTimeout(() => {
+    gameClock.setTimeout(() => {
       setBanner('')
       setPhase('aim'); phaseRef.current = 'aim'
 
       // AI 자동 실행
       if (curMode === 'ai' && nextTurn === 1) {
-        setTimeout(() => {
+        gameClock.setTimeout(() => {
           const g = gRef.current
           if (!g) return
           const { angle: aiAngle, power: aiPower } = aiCalc(
@@ -332,7 +334,7 @@ export default function Fortress() {
             newWind,
           )
           setAngle(aiAngle); angleRef.current = aiAngle
-          setTimeout(() => {
+          gameClock.setTimeout(() => {
             if (phaseRef.current !== 'aim') return
             const g2 = gRef.current
             if (!g2) return
@@ -363,16 +365,15 @@ export default function Fortress() {
     const isHuman = modeRef.current === '2p' || turnRef.current === 0
     if (!isHuman) return
 
-    const interval = setInterval(() => {
+    const interval = gameClock.setInterval(() => {
       if (phaseRef.current !== 'aim') return
-      setPowerOsc(prev => {
-        const next = prev + powerDirRef.current * POWER_SPEED
-        if (next >= 100) { powerDirRef.current = -1; return 100 }
-        if (next <= 0)   { powerDirRef.current = 1;  return 0 }
-        return next
-      })
+      const next = powerOscRef.current + powerDirRef.current * POWER_SPEED
+      if (next >= 100) powerDirRef.current = -1
+      if (next <= 0) powerDirRef.current = 1
+      powerOscRef.current = Math.max(0, Math.min(100, next))
+      setPowerOsc(powerOscRef.current)
     }, 16)
-    return () => clearInterval(interval)
+    return () => gameClock.clearInterval(interval)
   }, [screen, turn])
 
   // ── 실제 발사 ─────────────────────────────────────────────────────────
@@ -472,7 +473,7 @@ export default function Fortress() {
     }
 
     // 키 누르고 있으면 연속 이동
-    const holdInterval = setInterval(() => {
+    const holdInterval = gameClock.setInterval(() => {
       if (!isHuman() || phaseRef.current !== 'aim') return
       if (pressedKeys.has('ArrowLeft'))  moveTank(-1)
       if (pressedKeys.has('ArrowRight')) moveTank(1)
@@ -489,7 +490,7 @@ export default function Fortress() {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
-      clearInterval(holdInterval)
+      gameClock.clearInterval(holdInterval)
       pressedKeys.clear()
     }
   }, [screen, moveTank, fireProjectile])
@@ -516,7 +517,7 @@ export default function Fortress() {
   // ── 게임 루프 (포탄 물리) ────────────────────────────────────────────
   useEffect(() => {
     if (screen !== 'game') return
-    const interval = setInterval(() => {
+    const interval = gameClock.setInterval(() => {
       if (phaseRef.current !== 'flying') return
       const g = gRef.current
       if (!g) return
@@ -613,8 +614,8 @@ export default function Fortress() {
             }
           }
           if (nums.length > 0) setDmgNums(p => [...p, ...nums])
-          if (next[0] <= 0) setTimeout(() => { setWinner(1); setScreen('over') }, 800)
-          if (next[1] <= 0) setTimeout(() => { setWinner(0); setScreen('over') }, 800)
+          if (next[0] <= 0) gameClock.setTimeout(() => { setWinner(1); setScreen('over') }, 800)
+          if (next[1] <= 0) gameClock.setTimeout(() => { setWinner(0); setScreen('over') }, 800)
         }
       }
 
@@ -624,19 +625,19 @@ export default function Fortress() {
       if (g.projs.length === 0 && !g.endQueued) {
         g.endQueued = true
         const ct = turnRef.current, cm = modeRef.current
-        setTimeout(() => doEndTurn(ct, cm), 750)
+        gameClock.setTimeout(() => doEndTurn(ct, cm), 750)
       }
     }, 16)
-    return () => clearInterval(interval)
+    return () => gameClock.clearInterval(interval)
   }, [screen, doEndTurn, redraw])
 
   // 플로팅 데미지
   useEffect(() => {
     if (dmgNums.length === 0) return
-    const t = setInterval(() => {
+    const t = gameClock.setInterval(() => {
       setDmgNums(p => p.map(n => ({ ...n, t: n.t + 1, y: n.y - 1.2 })).filter(n => n.t < 48))
     }, 30)
-    return () => clearInterval(t)
+    return () => gameClock.clearInterval(t)
   }, [dmgNums.length])
 
   // ── Canvas 렌더링 ─────────────────────────────────────────────────────
@@ -644,7 +645,13 @@ export default function Fortress() {
     const canvas = canvasRef.current
     if (!canvas || !gRef.current) return
     const g = gRef.current
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    if (canvas.width !== GW * dpr || canvas.height !== GH * dpr) {
+      canvas.width = GW * dpr
+      canvas.height = GH * dpr
+    }
     const ctx = canvas.getContext('2d')
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, GW, GH)
 
     // ── 매 판 달라지는 포트리스풍 전장
@@ -786,7 +793,7 @@ export default function Fortress() {
       // 선택된 탱크 외부 링 (플레이어 인디케이터)
       if (isCur) {
         ctx.strokeStyle = '#fff6a8'; ctx.lineWidth = 2.5
-        ctx.globalAlpha = 0.7 + Math.sin(Date.now() / 280) * 0.18
+        ctx.globalAlpha = 0.7 + Math.sin(gameClock.now() / 280) * 0.18
         ctx.shadowColor = field.accent; ctx.shadowBlur = 18
         ctx.beginPath()
         ctx.arc(tank.x, tank.y - TANK_H / 2, TANK_W * 0.93, Math.PI * .15, Math.PI * .85)
