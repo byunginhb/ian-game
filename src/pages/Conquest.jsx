@@ -2,6 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { ArmySymbols, Commander } from '../components/ConquestArt'
 import { createWorld, FACTIONS, getLevelConfig, MAX_LEVEL, marchingSoldiers, readProgress, recordWin, SAVE_KEY, sendTroops, territoryAt, tickWorld } from '../lib/conquest'
 import { gameClock } from '../lib/gameClock'
+import useConquestAudio from '../hooks/useConquestAudio'
 import './Conquest.css'
 
 function initialize() {
@@ -162,11 +163,10 @@ function BattleMap({ world, source, setSource, onSend }) {
 export default function Conquest() {
   const [state, dispatch] = useReducer(reducer, undefined, initialize)
   const [source, setSource] = useState(null)
-  const [sound, setSound] = useState(false)
   const [help, setHelp] = useState(false)
-  const audioRef = useRef(null)
   const resultRef = useRef(null)
   const { progress, selected, level, world, mode } = state
+  const audio = useConquestAudio(world, help, state.round)
   const team = FACTIONS[selected], config = getLevelConfig(level)
   const won = world?.status === 'won', finished = world && world.status !== 'playing'
   const counts = world ? FACTIONS.map((_, index) => world.territories.filter((land) => land.owner === index).length) : []
@@ -179,24 +179,9 @@ export default function Conquest() {
     return () => gameClock.clearInterval(timer)
   }, [mode, world?.status, help])
   useEffect(() => { if (finished) resultRef.current?.focus() }, [finished])
-  useEffect(() => () => { audioRef.current?.close().catch(() => {}) }, [])
 
-  const chirp = (frequency = 660) => {
-    if (!sound) return
-    try {
-      const Audio = window.AudioContext || window.webkitAudioContext
-      if (!Audio) return
-      const context = audioRef.current || (audioRef.current = new Audio())
-      if (context.state === 'suspended') context.resume().catch(() => {})
-      const oscillator = context.createOscillator(), gain = context.createGain()
-      oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(frequency, context.currentTime)
-      oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.5, context.currentTime + .12)
-      gain.gain.setValueAtTime(.06, context.currentTime); gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + .18)
-      oscillator.connect(gain); gain.connect(context.destination); oscillator.start(); oscillator.stop(context.currentTime + .19)
-    } catch { /* Silent play is always supported. */ }
-  }
   const start = (type = 'start') => {
-    setSource(null); setHelp(false); chirp()
+    setSource(null); setHelp(false); audio.start()
     dispatch({ type, portrait: window.matchMedia('(max-width: 650px) and (orientation: portrait)').matches })
     window.scrollTo({ top: 0 })
   }
@@ -204,12 +189,12 @@ export default function Conquest() {
 
   return <main className={`ct-container ${mode === 'battle' ? 'ct-playing' : ''}`} style={{ '--team-color': team.color, '--team-light': team.light }}>
     <div className="ct-shell">
-      <header className="ct-topline"><span className="ct-brand"><span>⚑</span> 이안의 영토 대작전</span><div className="ct-top-actions"><button onClick={() => setSound(!sound)} aria-label={sound ? '소리 끄기' : '소리 켜기'} aria-pressed={sound}>{sound ? '♪' : '♩'}<span>소리 {sound ? '켜짐' : '꺼짐'}</span></button><button onClick={() => { setSource(null); setHelp(!help) }} aria-label="놀이 방법" aria-expanded={help} aria-controls="ct-guide">? <span>놀이 방법</span></button></div></header>
-      {help && <section className="ct-guide" id="ct-guide" aria-label="놀이 방법"><div><h2>손가락 하나로, 땅을 내 것으로!</h2><p><b>① 기다리기</b> 내 땅에서 군사가 조금씩 모여요. 땅마다 최대 150명!</p><p><b>② 끌어 보내기</b> 내 땅을 누른 채 다른 땅에 놓으면 군사 전원이 출발해요. 두 땅을 차례로 눌러도 돼요. 바다에 놓으면 취소돼요.</p><p><b>③ 땅 차지하기</b> 길에서 다른 팀 군사를 만나면 한 명씩 함께 사라져요. 살아남은 군사로 상대 병력을 이기면 내 깃발이 꽂혀요. 빈 땅도 차지해야 해요!</p><p><b>④ 힘 합치기</b> 우리 땅에 보내면 지원군! 군사 전원이 다섯 명씩 출발하고, 도착한 만큼 힘을 보태요.</p><small>키보드로도 가능해요: Tab으로 땅 선택 → Enter로 출발지와 도착지 선택. Esc로 선택 취소.</small>{mode === 'battle' && <strong className="ct-guide-paused">설명을 읽는 동안 전투는 멈춰 있어요.</strong>}</div><button onClick={() => setHelp(false)}>알겠어요 ✓</button></section>}
+      <header className="ct-topline"><span className="ct-brand"><span>⚑</span> 이안의 영토 대작전</span><div className="ct-top-actions"><button className="ct-sound-button" onClick={audio.toggleSound} aria-label={audio.sound ? '소리 끄기' : '소리 켜기'} aria-pressed={audio.sound} title="효과음과 배경음 켜기 · 끄기"><span className="ct-sound-bars" aria-hidden="true"><i /><i /><i /></span><span>소리 {audio.sound ? '켜짐' : '꺼짐'}</span></button><button onClick={() => { setSource(null); setHelp(!help) }} aria-label="놀이 방법" aria-expanded={help} aria-controls="ct-guide">? <span>놀이 방법</span></button></div></header>
+      {help && <section className="ct-guide" id="ct-guide" aria-label="놀이 방법"><div><h2>손가락 하나로, 땅을 내 것으로!</h2><p><b>① 기다리기</b> 내 땅에서 군사가 조금씩 모여요. 땅마다 최대 150명!</p><p><b>② 끌어 보내기</b> 내 땅을 누른 채 다른 땅에 놓으면 군사 전원이 출발해요. 두 땅을 차례로 눌러도 돼요. 바다에 놓으면 취소돼요.</p><p><b>③ 땅 차지하기</b> 길에서 다른 팀 군사를 만나면 한 명씩 함께 사라져요. 살아남은 군사로 상대 병력을 이기면 내 깃발이 꽂혀요. 빈 땅도 차지해야 해요!</p><p><b>④ 힘 합치기</b> 우리 땅에 보내면 지원군! 군사 전원이 다섯 명씩 출발하고, 도착한 만큼 힘을 보태요.</p><small>♪ 출정·충돌·점령마다 다른 소리가 나요. 위의 소리 버튼으로 배경음과 효과음을 함께 끌 수 있어요.</small><small>키보드로도 가능해요: Tab으로 땅 선택 → Enter로 출발지와 도착지 선택. Esc로 선택 취소.</small>{mode === 'battle' && <strong className="ct-guide-paused">설명을 읽는 동안 전투는 멈춰 있어요.</strong>}</div><button onClick={() => setHelp(false)}>알겠어요 ✓</button></section>}
       {mode === 'menu' ? <>
         <section className="ct-intro"><div className="ct-intro-copy"><span className="ct-eyebrow">여섯 영웅의 한판 승부</span><h1>내가 <span>다 먹었다!</span><i aria-hidden="true">✦</i></h1><p>내가 좋아하는 팀과 함께,<br />작은 섬 하나부터 온 세상을 차지해 봐!</p><div className="ct-feature-pills"><span>☝ 쭉 끌어서 출정</span><span>⚑ 6개 진영</span><span>✦ 20탄의 모험</span></div></div><MapPreview player={selected} /></section>
         <section className="ct-team-section" aria-labelledby="ct-team-title"><div className="ct-section-heading"><h2 id="ct-team-title"><span>01</span> 누구와 함께 정복할까?</h2><p>팀마다 다른 힘, 골라서 출발!</p></div><div className="ct-team-grid">
-          {FACTIONS.map((faction, index) => <button key={faction.id} className={`ct-team-card${selected === index ? ' is-selected' : ''}`} style={{ '--faction': faction.color, '--faction-light': faction.light }} onClick={() => { dispatch({ type: 'select', team: index }); chirp(440 + index * 70) }} aria-pressed={selected === index} aria-label={`${faction.name}, ${faction.hero}`}>
+          {FACTIONS.map((faction, index) => <button key={faction.id} className={`ct-team-card${selected === index ? ' is-selected' : ''}`} style={{ '--faction': faction.color, '--faction-light': faction.light }} onClick={() => { dispatch({ type: 'select', team: index }); audio.play('select', index) }} aria-pressed={selected === index} aria-label={`${faction.name}, ${faction.hero}`}>
             <Commander team={faction} /><div className="ct-team-copy"><small>{faction.name}</small><h3>{faction.hero}</h3><span className="ct-trait">{faction.trait}</span>{progress.cleared[index] > 0 && <span className="ct-team-progress">⚑ {progress.cleared[index]}탄 정복</span>}</div><span className="ct-selected-check" aria-hidden="true">{selected === index ? '✓' : '+'}</span>
           </button>)}
         </div></section>
@@ -219,7 +204,7 @@ export default function Conquest() {
       </> : <>
         <div className="ct-battle-heading"><div><span className="ct-eyebrow">{config.region} · {level} / 20탄</span><h1>{config.name}</h1></div><div className="ct-battle-clock" aria-label="진행 시간">◷ {formatTime(world.time)}</div></div>
         <div className="ct-battle-layout"><section className="ct-arena" aria-label="전투"><div className="ct-arena-hud"><span><b style={{ color: team.color }}>⚑ 내 땅</b> <strong data-testid="ct-owned">{counts[selected]}</strong> / {config.count}</span><div className="ct-dominance" aria-label="팀별 영토 비율">{FACTIONS.map((faction, index) => <span key={faction.id} style={{ width: `${counts[index] / config.count * 100}%`, background: faction.color }} />)}</div><span className="ct-objective">모든 땅에 내 깃발을!</span></div>
-          <div className="ct-map-stage" inert={finished || help}><BattleMap key={`${level}-${selected}-${world.width}-${state.round}`} world={world} source={source} setSource={setSource} onSend={(from, to) => { dispatch({ type: 'send', from, to }); chirp(550) }} /></div>
+          <div className="ct-map-stage" inert={finished || help}><BattleMap key={`${level}-${selected}-${world.width}-${state.round}`} world={world} source={source} setSource={setSource} onSend={(from, to) => { audio.unlock(); dispatch({ type: 'send', from, to }) }} /></div>
           <div className="ct-battle-controls"><p className="ct-march-note"><span aria-hidden="true">⚑</span> 전원 출정 · 다섯 명씩 차례로!</p><button className="ct-restart" disabled={finished} onClick={() => start()} aria-label="이번 탄 다시 시작">↻ <span>다시</span></button></div>
         </section><aside className="ct-sidebar"><div className="ct-player-card"><Commander team={team} /><span>우리 팀의 대장</span><h2>{team.hero}</h2><p>{team.trait}</p></div><div className="ct-scoreboard"><h3>지금, 여섯 진영은 <span>⚑</span></h3>{FACTIONS.map((faction, index) => { const alive = counts[index] > 0 || world.fleets.some((fleet) => fleet.owner === index); return <div key={faction.id} className={!alive ? 'ct-eliminated' : ''}><span className="ct-team-dot" style={{ background: faction.color }}>{faction.symbol}</span><span>{faction.hero}{index === selected && <small>나</small>}</span><b>{counts[index]}<small> 땅</small></b></div> })}</div><div className="ct-tip-card"><b>대장님, 작은 힌트!</b><p>{level < 6 ? '숫자가 작은 빈 땅부터 차지해요. 땅이 많아지면 군사도 더 빨리 모여요!' : '우리 땅끼리 지원군을 보내 보세요. 힘을 모으면 큰 땅도 차지할 수 있어요!'}</p></div><button className="ct-menu-button" onClick={menu}>← 팀 · 모험 고르기</button></aside></div>
         <button className="ct-mobile-menu" onClick={menu}>← 팀 · 모험 고르기</button>
