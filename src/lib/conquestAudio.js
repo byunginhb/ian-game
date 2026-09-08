@@ -6,7 +6,7 @@ export function readSoundPreference(storage) {
 
 // Compare committed snapshots so rendering, pausing and old collision sparks never replay sounds.
 export function conquestSoundEvents(previous, world) {
-  if (!previous || !world || world.time < previous.time || world.player !== previous.player || world.config.level !== previous.config.level) return []
+  if (!previous || !world || world.time < previous.time || world.player !== previous.player || world.config.level !== previous.config.level || world.config.difficulty !== previous.config.difficulty) return []
   if (previous.status !== 'playing') return []
   if (world.status !== 'playing') return [world.status === 'won' ? 'victory' : 'defeat']
   const events = []

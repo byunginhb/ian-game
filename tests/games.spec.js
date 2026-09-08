@@ -31,6 +31,7 @@ for (const game of games) {
     await page.goto(`/game/${game.id}`)
     await expect(page.locator('.game-loading')).toHaveCount(0)
     await expect(page.locator('.session-title')).toContainText(game.title)
+    if (game.id === 'conquest') await page.getByRole('button', { name: '아이 모드로 시작', exact: true }).click()
     if (game.id === 'swimming-race') await page.getByRole('button', { name: /어린이/ }).click()
     if (starts[game.id]) {
       const start = page.getByRole('button', { name: starts[game.id] }).first()

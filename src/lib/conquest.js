@@ -1,4 +1,10 @@
 export const SAVE_KEY = 'ian-conquest-v1'
+export const ADULT_SAVE_KEY = 'ian-conquest-adult-v1'
+export const DIFFICULTIES = {
+  child: { label: '아이', subtitle: '차근차근 즐기는 모험', description: '군사를 모을 시간은 넉넉하게! 작은 땅부터 하나씩 차지해요.', symbol: '⚑' },
+  adult: { label: '어른', subtitle: '빠른 판단, 치열한 승부', description: '빠르게 확장하는 상대와 한판! 공격과 지원의 타이밍을 노려요.', symbol: '♜' },
+}
+export const progressKey = (difficulty) => difficulty === 'adult' ? ADULT_SAVE_KEY : SAVE_KEY
 export const MAX_LEVEL = 20
 export const MAX_TROOPS = 150
 export const WAVE_SIZE = 5
@@ -41,9 +47,11 @@ export const FACTIONS = [
 
 const NAMES = ['첫 번째 깃발', '옆 섬으로 출발', '세 갈래 바닷길', '초록빛 군도', '모험은 지금부터', '바람의 해협', '이어지는 섬들', '작은 땅, 큰 작전', '여섯 깃발의 바다', '반짝이는 수평선', '황금빛 산호섬', '한 걸음 더 멀리', '거대한 군도', '빼앗고 지키고', '용감한 대장', '왕관의 대륙', '끝없는 진격', '마지막 바닷길', '정복왕의 도전', '내가 다 먹었다!']
 
-export function getLevelConfig(level) {
+export function getLevelConfig(level, difficulty = 'child') {
   const number = Math.max(1, Math.min(MAX_LEVEL, Math.floor(Number(level) || 1)))
-  return { level: number, name: NAMES[number - 1], count: 12 + Math.floor((number - 1) * 24 / 19), playerStart: 62 - number, enemyStart: 11 + number, neutralStart: 4 + Math.floor(number * .75), aiInterval: 6.2 - number * .205, grace: 8.5 - number * .3, enemyGrowth: .6 + number * .026, region: ['초록빛 군도', '바람의 해협', '황금빛 산호섬', '왕관의 대륙'][Math.floor((number - 1) / 5)] }
+  const config = { level: number, difficulty: 'child', name: NAMES[number - 1], count: 12 + Math.floor((number - 1) * 24 / 19), playerStart: 62 - number, enemyStart: 11 + number, neutralStart: 4 + Math.floor(number * .75), aiInterval: 6.2 - number * .205, grace: 8.5 - number * .3, enemyGrowth: .6 + number * .026, region: ['초록빛 군도', '바람의 해협', '황금빛 산호섬', '왕관의 대륙'][Math.floor((number - 1) / 5)] }
+  if (difficulty !== 'adult') return config
+  return { ...config, difficulty: 'adult', playerStart: 44 - Math.floor(number * .4), enemyStart: 30 + Math.floor(number * .8), neutralStart: 6 + Math.floor(number * .6), aiInterval: 1.9 - number * .05, grace: 2.6 - number * .065, enemyGrowth: 1.15 + number * .023, aiOrders: 1 + Math.floor((number - 1) / 7) }
 }
 
 function randomSequence(seed) {
@@ -133,8 +141,8 @@ function createGeography(config, width, height, random) {
   })
 }
 
-export function createWorld(level, player = 0, portrait = false) {
-  const config = getLevelConfig(level)
+export function createWorld(level, player = 0, portrait = false, difficulty = 'child') {
+  const config = getLevelConfig(level, difficulty)
   const width = portrait ? 660 : 960, height = portrait ? 860 : 660
   const random = randomSequence(config.level * 7919)
   const points = createGeography(config, width, height, random)
@@ -293,6 +301,49 @@ function runAI(world, owner) {
   return world
 }
 
+// Count only surviving soldiers that can arrive within the forecast, including queued waves.
+function arrivingUnits(fleet, time) {
+  const end = Math.min(fleet.totalUnits, Math.max(0, Math.floor((time - fleet.departure - fleet.duration) / WAVE_INTERVAL) + 1) * WAVE_SIZE)
+  return Math.max(0, end - fleet.arrived - fleet.casualties.filter((index) => index >= fleet.arrived && index < end).length)
+}
+
+function runAdultAI(world, owner) {
+  const own = world.territories.filter((land) => land.owner === owner)
+  const opponents = world.territories.filter((land) => land.owner !== owner)
+  if (!own.length || !opponents.length) return world
+  const incoming = (land, horizon, friendly) => world.fleets.filter((fleet) => fleet.toId === land.id && (fleet.owner === land.owner) === friendly)
+    .reduce((power, fleet) => power + arrivingUnits(fleet, world.time + horizon) * (friendly ? FACTIONS[land.owner]?.defense || 1 : FACTIONS[fleet.owner].attack), 0)
+  const growth = (land) => land.owner < 0 ? 0 : (land.owner === world.player ? 1.25 : world.config.enemyGrowth) * FACTIONS[land.owner].growth
+  const defenseAt = (land, horizon) => (land.troops + growth(land) * horizon) * (FACTIONS[land.owner]?.defense || 1) + incoming(land, horizon, true) - incoming(land, horizon, false)
+  const frontier = (land) => Math.min(...opponents.map((other) => Math.hypot(land.x - other.x, land.y - other.y)))
+  let best = null
+  for (const from of own.filter((land) => land.troops >= 8)) {
+    // All-in orders must not abandon a home that visible enemy soldiers will reach soon.
+    if (incoming(from, 4.5, false) > growth(from) * 4.5 * FACTIONS[owner].defense + incoming(from, 4.5, true)) continue
+    const departure = Math.max(world.time, ...world.fleets.filter((fleet) => fleet.fromId === from.id && fleet.owner === owner).map((fleet) => fleet.departure + Math.ceil(fleet.totalUnits / WAVE_SIZE) * WAVE_INTERVAL))
+    for (const to of world.territories) {
+      if (from.id === to.id) continue
+      const travel = Math.hypot(from.x - to.x, from.y - to.y) / (100 * FACTIONS[owner].speed) + .3
+      const eta = departure - world.time + travel + (Math.ceil(Math.floor(from.troops) / WAVE_SIZE) - 1) * WAVE_INTERVAL / 2
+      let score
+      if (to.owner === owner) {
+        const threatened = incoming(to, 6, false) > 0 && defenseAt(to, 6) < 6
+        if (threatened && eta < 6) score = 200 - eta * 8
+        else if (from.troops >= 16 && frontier(from) - frontier(to) > 60 && to.troops + incoming(to, eta, true) < 100) score = 25 + (frontier(from) - frontier(to)) * .04 - eta * 4
+        else continue
+      } else {
+        const needed = Math.max(0, defenseAt(to, eta))
+        // Do not send a second army after a target already covered by arriving allies.
+        if (needed === 0 && world.fleets.some((fleet) => fleet.owner === owner && fleet.toId === to.id)) continue
+        if (Math.floor(from.troops) * FACTIONS[owner].attack < needed + 3) continue
+        score = 90 - eta * 7 - needed * .55 + (to.owner < 0 ? 8 : 14)
+      }
+      if (!best || score > best.score) best = { from, to, score }
+    }
+  }
+  return best ? sendTroops(world, best.from.id, best.to.id, owner) : world
+}
+
 export function getOutcome(world) {
   const hasLand = world.territories.some((item) => item.owner === world.player)
   const hasArmy = world.fleets.some((fleet) => fleet.owner === world.player)
@@ -338,15 +389,17 @@ export function tickWorld(previous, delta) {
   for (let owner = 0; owner < FACTIONS.length; owner++) {
     if (owner === world.player || world.time < world.nextAI[owner]) continue
     world.nextAI[owner] = world.time + world.config.aiInterval + ((owner + world.config.level) % 3) * .17
-    world = runAI(world, owner)
+    if (world.config.difficulty === 'adult') {
+      for (let order = 0; order < world.config.aiOrders; order++) world = runAdultAI(world, owner)
+    } else world = runAI(world, owner)
   }
   return world
 }
 
-export function readProgress(storage) {
+export function readProgress(storage, difficulty = 'child') {
   const empty = { selected: 0, cleared: Array(6).fill(0), stars: {} }
   try {
-    const data = JSON.parse(storage.getItem(SAVE_KEY))
+    const data = JSON.parse(storage.getItem(progressKey(difficulty)))
     if (!data || typeof data !== 'object') return empty
     return { selected: Number.isInteger(data.selected) && data.selected >= 0 && data.selected < 6 ? data.selected : 0, cleared: empty.cleared.map((_, i) => Math.max(0, Math.min(20, Math.floor(Number(data.cleared?.[i]) || 0)))), stars: Object.fromEntries(Object.entries(data.stars || {}).filter(([key, value]) => /^[0-5]-(?:[1-9]|1[0-9]|20)$/.test(key) && Number.isInteger(value) && value >= 1 && value <= 3)) }
   } catch { return empty }

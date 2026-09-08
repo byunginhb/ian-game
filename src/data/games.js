@@ -3,7 +3,7 @@ export const games = [
       id: "conquest",
       title: "내가 다 먹었다!",
       emoji: "🚩",
-      description: "좋아하는 영웅을 골라 군사를 쭉 끌어 출정! 여섯 진영과 겨루는 20탄 땅따먹기!",
+      description: "아이와 어른, 나에게 맞는 모험으로! 여섯 영웅과 함께하는 20탄 땅따먹기!",
       color: "#20885c",
       tags: ["new", "hot", "action"],
     },

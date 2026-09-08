@@ -4,6 +4,7 @@ test.beforeEach(async ({ page }) => { await page.clock.install() })
 
 async function start(page) {
   await page.goto('/game/conquest')
+  await page.getByRole('button', { name: '아이 모드로 시작', exact: true }).click()
   await page.getByRole('button', { name: '1탄 출정하기' }).click()
   await expect(page.locator('.ct-land')).toHaveCount(12)
 }
@@ -19,6 +20,7 @@ test('six teams, sequential locks, returning team progress and narrow layout', a
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/game/conquest')
+  await page.getByRole('button', { name: '아이 모드로 시작', exact: true }).click()
   await expect(page.locator('.ct-team-card')).toHaveCount(6)
   for (const name of ['로이드', '소닉', '마리오', '대마왕', '손오공', '아이언맨']) await expect(page.locator('.ct-team-card').getByRole('img', { name, exact: true })).toBeVisible()
   await page.getByRole('button', { name: '소닉팀, 소닉', exact: true }).click()
@@ -30,6 +32,7 @@ test('six teams, sequential locks, returning team progress and narrow layout', a
   await expect(page.locator('.ct-land[data-owner="1"]')).toHaveCount(1)
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
   await page.reload()
+  await page.getByRole('button', { name: '아이 모드로 시작', exact: true }).click()
   await expect(page.getByRole('button', { name: '소닉팀, 소닉', exact: true })).toHaveAttribute('aria-pressed', 'true')
   expect(errors).toEqual([])
 })
@@ -147,6 +150,7 @@ test('dropping in the sea inside the board cancels the order', async ({ page }) 
 test('saved stages unlock per faction, including all 36 lands in the finale', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('ian-conquest-v1', JSON.stringify({ selected: 3, cleared: [0, 0, 0, 19, 0, 0], stars: { '3-19': 2 } })))
   await page.goto('/game/conquest')
+  await page.getByRole('button', { name: '아이 모드로 시작', exact: true }).click()
   await page.getByRole('button', { name: '20탄 출정하기' }).click()
   await expect(page.locator('.ct-land')).toHaveCount(36)
   await expect(page.locator('.ct-land[data-owner="3"]')).toHaveCount(1)
@@ -182,6 +186,7 @@ test('winning through real controls unlocks the next stage and persists across r
   await page.getByRole('button', { name: '2탄으로 출발' }).click()
   await expect(page.locator('.ct-land')).toHaveCount(13)
   await page.reload()
+  await page.getByRole('button', { name: '아이 모드로 시작', exact: true }).click()
   await expect(page.getByRole('button', { name: '2탄 출정하기' })).toBeVisible()
   await page.getByRole('button', { name: '소닉팀, 소닉', exact: true }).click()
   await expect(page.getByRole('button', { name: '1탄 출정하기' })).toBeVisible()
