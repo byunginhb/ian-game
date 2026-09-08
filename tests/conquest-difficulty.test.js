@@ -23,6 +23,16 @@ test('adult stages preserve the map and factions while providing progressively s
   assert.deepEqual(getLevelConfig(1, 'unknown'), getLevelConfig(1, 'child'))
 })
 
+test('the adult opening leaves time to choose a target before enemies start marching', () => {
+  for (let player = 0; player < 6; player++) {
+    let world = createWorld(1, player, false, 'adult')
+    for (let step = 0; step < 35; step++) world = tickWorld(world, .1)
+    assert.equal(world.fleets.length, 0, 'the first 3.5 seconds remain free of enemy orders')
+    for (let step = 0; step < 30; step++) world = tickWorld(world, .1)
+    assert.ok(world.fleets.some((fleet) => fleet.owner !== player), 'enemies still join the battle promptly')
+  }
+})
+
 // Small public worlds isolate decisions without bypassing the real simulation or dispatch rules.
 function scenario(lands, difficulty = 'adult', level = 1) {
   const world = createWorld(level, 0, false, difficulty)

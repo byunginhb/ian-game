@@ -51,7 +51,9 @@ export function getLevelConfig(level, difficulty = 'child') {
   const number = Math.max(1, Math.min(MAX_LEVEL, Math.floor(Number(level) || 1)))
   const config = { level: number, difficulty: 'child', name: NAMES[number - 1], count: 12 + Math.floor((number - 1) * 24 / 19), playerStart: 62 - number, enemyStart: 11 + number, neutralStart: 4 + Math.floor(number * .75), aiInterval: 6.2 - number * .205, grace: 8.5 - number * .3, enemyGrowth: .6 + number * .026, region: ['초록빛 군도', '바람의 해협', '황금빛 산호섬', '왕관의 대륙'][Math.floor((number - 1) / 5)] }
   if (difficulty !== 'adult') return config
-  return { ...config, difficulty: 'adult', playerStart: 44 - Math.floor(number * .4), enemyStart: 30 + Math.floor(number * .8), neutralStart: 6 + Math.floor(number * .6), aiInterval: 1.9 - number * .05, grace: 2.6 - number * .065, enemyGrowth: 1.15 + number * .023, aiOrders: 1 + Math.floor((number - 1) / 7) }
+  // Ease into adult play over the first five stages, with a slightly calmer pace throughout.
+  const opening = Math.max(0, (6 - number) / 5)
+  return { ...config, difficulty: 'adult', playerStart: 44 - Math.floor(number * .4) + Math.round(4 * opening), enemyStart: 30 + Math.floor(number * .8) - Math.round(2 * opening), neutralStart: 6 + Math.floor(number * .6), aiInterval: (1.9 - number * .05) * 1.1 + .2 * opening, grace: 2.6 - number * .065 + 1.4 * opening, enemyGrowth: 1.15 + number * .023, aiOrders: 1 + Math.floor((number - 1) / 7) }
 }
 
 function randomSequence(seed) {
