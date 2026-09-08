@@ -2,6 +2,7 @@ import { gameClock } from '../lib/gameClock'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTouchLock } from '../hooks/useTouchLock'
+import SwimmingRacer from './SwimmingRacer'
 import './SwimmingRace.css'
 
 const FINISH = 100
@@ -62,6 +63,14 @@ const SWIMMERS = [
 ]
 
 const AI_VARIANCE = [-0.28, 0.02, 0, 0.2, 0.38, 0.52]
+const SKIN_TONES = [
+  ['#f4d3ae', '#dca57b', '#a86c50'],
+  ['#d7a47d', '#ac7353', '#754634'],
+  ['#ffe0ba', '#e7b086', '#b77a58'],
+  ['#bf8a65', '#925b40', '#603b30'],
+  ['#efd0b1', '#cf9a77', '#95634c'],
+  ['#e6ba93', '#bd8660', '#82513b'],
+]
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
@@ -394,7 +403,7 @@ function SwimmingRace() {
   }
 
   return (
-    <main ref={containerRef} className={`swim-container${boosting ? ' is-boosting' : ''}${playerType ? ` is-${playerType}` : ''}`}>
+    <main ref={containerRef} className={`swim-container${phase === 'racing' ? ' is-racing' : ''}${boosting ? ' is-boosting' : ''}${playerType ? ` is-${playerType}` : ''}`}>
       <div className="swim-shell">
         <header className="swim-topbar">
           <Link to="/" className="swim-back" aria-label="게임 목록으로 돌아가기">← 게임 목록</Link>
@@ -454,17 +463,17 @@ function SwimmingRace() {
                 style={{
                   '--swimmer-color': racer.color,
                   '--cap-color': racer.cap,
+                  '--skin-light': SKIN_TONES[racer.lane - 1][0],
+                  '--skin-color': SKIN_TONES[racer.lane - 1][1],
+                  '--skin-shadow': SKIN_TONES[racer.lane - 1][2],
+                  '--stroke-duration': `${1.05 + racer.lane * 0.045}s`,
+                  '--stroke-delay': `${-racer.lane * 0.19}s`,
                 }}
               >
                 <span className="swim-wake" />
                 <span className="swim-splash swim-splash-one" />
                 <span className="swim-splash swim-splash-two" />
-                <span className="swim-figure">
-                  <i className="swim-arm swim-arm-top" />
-                  <i className="swim-arm swim-arm-bottom" />
-                  <i className="swim-body" />
-                  <i className="swim-head" />
-                </span>
+                <SwimmingRacer id={racer.id} lane={racer.lane} />
                 {racer.player && <span className="swim-you">YOU</span>}
               </div>
             </div>

@@ -338,87 +338,88 @@
   z-index: 8;
   left: 0;
   top: 50%;
-  width: 68px;
-  height: 34px;
+  width: 104px;
+  height: 64px;
   transform: translate3d(var(--racer-x), -50%, 0) translateX(-50%) scale(var(--racer-scale));
   will-change: transform;
   filter: drop-shadow(0 5px 4px rgba(0, 59, 93, 0.3));
 }
 
 .swim-racer.is-player { --racer-scale: 1.08; z-index: 10; }
-.swim-racer.is-finished .swim-figure { animation: swimFinishBob 0.38s ease-in-out infinite alternate; }
 
 .swim-figure {
   position: absolute;
   z-index: 3;
   inset: 0;
-  animation: swimBodyBob 0.42s ease-in-out infinite alternate;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.swim-body {
-  position: absolute;
-  left: 20px;
-  top: 11px;
-  width: 34px;
-  height: 12px;
-  border-radius: 70% 30% 30% 70%;
-  transform: rotate(-2deg);
-  background: linear-gradient(180deg, rgba(255,255,255,0.7), var(--swimmer-color) 40% 100%);
-  box-shadow: inset -5px -2px rgba(0,34,56,0.18);
+.swim-underwater-shadow { fill: #063c58; opacity: 0.18; }
+.swim-anatomy {
+  transform-origin: 75px 36px;
+  animation: swimBodyRoll var(--stroke-duration) ease-in-out infinite;
+  animation-delay: var(--stroke-delay);
 }
 
-.swim-head {
-  position: absolute;
-  left: 49px;
-  top: 10px;
-  width: 16px;
-  height: 15px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, var(--cap-color) 0 46%, #f0ae7a 48% 100%);
-  border-right: 2px solid rgba(0,34,56,0.22);
-}
-
-.swim-arm {
-  position: absolute;
-  left: 29px;
-  width: 34px;
-  height: 5px;
-  border-radius: 99px;
-  transform-origin: left center;
-  background: #edb07e;
+.swim-arm, .swim-forearm, .swim-leg, .swim-shin, .swim-anatomy {
+  transform-box: view-box;
 }
 
 .swim-arm-top {
-  top: 8px;
-  animation: swimArmTop 0.64s ease-in-out infinite;
+  transform-origin: 88px 26px;
+  animation: swimFreestyleTop var(--stroke-duration) ease-in-out infinite;
 }
-
 .swim-arm-bottom {
-  top: 23px;
-  animation: swimArmBottom 0.64s ease-in-out infinite;
+  transform-origin: 88px 45px;
+  animation: swimFreestyleBottom var(--stroke-duration) ease-in-out infinite;
 }
-
-.swim-racer.is-player.is-stroke-left .swim-arm-top {
-  animation: swimPlayerArmPull 0.22s ease-out both;
+.swim-forearm-top {
+  transform-origin: 110px 23px;
+  animation: swimElbowTop var(--stroke-duration) ease-in-out infinite;
 }
-
-.swim-racer.is-player.is-stroke-left .swim-arm-bottom {
-  animation: swimPlayerArmReach 0.22s ease-out both;
+.swim-forearm-bottom {
+  transform-origin: 110px 49px;
+  animation: swimElbowBottom var(--stroke-duration) ease-in-out infinite;
 }
+.swim-arm, .swim-forearm { animation-delay: var(--stroke-delay); }
+.swim-leg-top { transform-origin: 49px 32px; animation: swimFlutter 0.32s ease-in-out infinite alternate; }
+.swim-leg-bottom { transform-origin: 49px 42px; animation: swimFlutter 0.32s -0.32s ease-in-out infinite alternate; }
+.swim-shin-top { transform-origin: 22px 32px; animation: swimAnkle 0.32s ease-in-out infinite alternate; }
+.swim-shin-bottom { transform-origin: 22px 43px; animation: swimAnkle 0.32s -0.32s ease-in-out infinite alternate; }
 
-.swim-racer.is-player.is-stroke-right .swim-arm-top {
-  animation: swimPlayerArmReach 0.22s ease-out both;
+/* Player joints interpolate from their current pose on every alternating input. */
+.swim-racer.is-player .swim-arm,
+.swim-racer.is-player .swim-forearm,
+.swim-racer.is-player .swim-anatomy {
+  animation: none;
+  transition: transform 180ms cubic-bezier(0.2, 0.65, 0.3, 1);
 }
+.swim-racer.is-player.is-stroke-left .swim-arm-top { transform: rotate(-130deg); }
+.swim-racer.is-player.is-stroke-left .swim-forearm-top { transform: rotate(55deg); }
+.swim-racer.is-player.is-stroke-left .swim-anatomy { transform: rotate(-2deg) scaleY(0.96); }
+.swim-racer.is-player.is-stroke-right .swim-arm-bottom { transform: rotate(130deg); }
+.swim-racer.is-player.is-stroke-right .swim-forearm-bottom { transform: rotate(-55deg); }
+.swim-racer.is-player.is-stroke-right .swim-anatomy { transform: rotate(2deg) scaleY(0.96); }
 
-.swim-racer.is-player.is-stroke-right .swim-arm-bottom {
-  animation: swimPlayerArmPull 0.22s ease-out both;
+.swim-container:not(.is-racing) .swim-figure *,
+.swim-racer.is-finished .swim-figure * {
+  animation-play-state: paused;
+}
+.swim-container .swim-racer.is-finished .swim-arm,
+.swim-container .swim-racer.is-finished .swim-forearm,
+.swim-container .swim-racer.is-finished .swim-anatomy {
+  animation: none;
+  transform: none;
+  transition: transform 200ms ease-out;
 }
 
 .swim-wake {
   position: absolute;
   z-index: 1;
-  right: 46px;
-  top: 9px;
+  right: 78px;
+  top: 23px;
   width: 55px;
   height: 18px;
   border-radius: 50%;
@@ -438,14 +439,14 @@
   opacity: 0;
 }
 
-.swim-splash-one { left: 23px; top: 1px; animation: swimSplash 0.72s ease-out infinite; }
-.swim-splash-two { left: 15px; bottom: 0; animation: swimSplash 0.72s 0.35s ease-out infinite; }
+.swim-splash-one { left: 73%; top: 20%; animation: swimSplash 0.72s ease-out infinite; }
+.swim-splash-two { left: 12%; bottom: 28%; animation: swimSplash 0.72s 0.35s ease-out infinite; }
 
 .swim-you {
   position: absolute;
   z-index: 12;
-  left: 34px;
-  top: -12px;
+  left: 66%;
+  top: -1px;
   transform: translateX(-50%);
   color: #062f47;
   background: var(--yellow);
@@ -808,28 +809,43 @@
   to { background-position: -30% 0, 25% 0; }
 }
 
-@keyframes swimArmTop {
-  0%, 100% { transform: rotate(-30deg) scaleX(0.65); }
-  50% { transform: rotate(38deg) scaleX(1); }
+@keyframes swimFreestyleTop {
+  0%, 100% { transform: rotate(0deg); }
+  45% { transform: rotate(-135deg); }
+  70% { transform: rotate(-75deg); }
 }
 
-@keyframes swimArmBottom {
-  0%, 100% { transform: rotate(34deg) scaleX(1); }
-  50% { transform: rotate(-30deg) scaleX(0.65); }
+@keyframes swimFreestyleBottom {
+  0%, 100% { transform: rotate(135deg); }
+  20% { transform: rotate(75deg); }
+  50% { transform: rotate(0deg); }
 }
 
-@keyframes swimPlayerArmPull {
-  0% { transform: rotate(-48deg) scaleX(1.08); }
-  100% { transform: rotate(42deg) scaleX(0.7); }
+@keyframes swimElbowTop {
+  0%, 100% { transform: rotate(0deg); }
+  45% { transform: rotate(25deg); }
+  70% { transform: rotate(95deg); }
 }
 
-@keyframes swimPlayerArmReach {
-  0% { transform: rotate(38deg) scaleX(0.7); }
-  100% { transform: rotate(-42deg) scaleX(1.08); }
+@keyframes swimElbowBottom {
+  0%, 100% { transform: rotate(-25deg); }
+  20% { transform: rotate(-95deg); }
+  50% { transform: rotate(0deg); }
 }
 
-@keyframes swimBodyBob {
-  to { transform: translateY(2px); }
+@keyframes swimBodyRoll {
+  0%, 100% { transform: rotate(-2deg) scaleY(0.95); }
+  50% { transform: rotate(2deg) scaleY(1); }
+}
+
+@keyframes swimFlutter {
+  from { transform: rotate(-5deg) scaleY(0.92); }
+  to { transform: rotate(5deg) scaleY(1); }
+}
+
+@keyframes swimAnkle {
+  from { transform: rotate(8deg); }
+  to { transform: rotate(-7deg); }
 }
 
 @keyframes swimWake {
@@ -840,10 +856,6 @@
 @keyframes swimSplash {
   0% { opacity: 0.9; transform: scale(0.2) translate(0, 0); }
   100% { opacity: 0; transform: scale(1.6) translate(-12px, -6px); }
-}
-
-@keyframes swimFinishBob {
-  to { transform: translateY(-3px) rotate(-4deg); }
 }
 
 @keyframes swimTouchRing {
@@ -893,14 +905,9 @@
   .swim-lane { min-height: 42px; border-bottom-width: 4px; }
   .swim-lane-label { left: 1px; width: 28px; }
   .swim-lane-label span { max-width: 28px; font-size: 6px; }
-  .swim-racer { width: 52px; height: 28px; }
-  .swim-body { left: 14px; top: 10px; width: 27px; height: 9px; }
-  .swim-head { left: 38px; top: 8px; width: 13px; height: 13px; }
-  .swim-arm { left: 21px; width: 27px; height: 4px; }
-  .swim-arm-top { top: 7px; }
-  .swim-arm-bottom { top: 20px; }
-  .swim-wake { right: 37px; width: 35px; }
-  .swim-you { left: 27px; top: -9px; }
+  .swim-racer { width: 74px; height: 46px; }
+  .swim-wake { right: 55px; top: 15px; width: 35px; height: 14px; }
+  .swim-you { top: -4px; }
   .swim-controls { min-height: 72px; grid-template-columns: 1fr 0.78fr 1fr; gap: 5px; }
   .swim-stroke-button, .swim-boost-button { min-height: 72px; padding: 6px 8px; column-gap: 5px; }
   .swim-stroke-button > span, .swim-boost-button > span { font-size: 25px; }
@@ -943,5 +950,6 @@
   .swim-container *, .swim-container *::before, .swim-container *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 }
