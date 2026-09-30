@@ -37,12 +37,18 @@ export const SONGS = [
     chords: 'C C C C C C G G C C C C C C G G C C',
   },
   {
+    // Overworld theme: intro, A section twice, B section.
+    id: 'mario-theme', title: 'Super Mario Bros. Theme', ko: '슈퍼 마리오 브라더스', host: 'mario', bpm: 190, repeat: 2, meter: 4, chordBeats: 2,
+    melody: 'E5-.5 E5-.5 R-.5 E5-.5 R-.5 C5-.5 E5-.5 R-.5 G5-.5 R-1.5 G4-.5 R-1.5 C5-.5 R-1 G4-.5 R-1 E4-.5 R-.5 R-.5 A4-.5 R-.5 B4-.5 R-.5 Bb4-.5 A4-.5 R-.5 G4-2/3 E5-2/3 G5-2/3 A5-.5 R-.5 F5-.5 G5-.5 R-.5 E5-.5 R-.5 C5-.5 D5-.5 B4-.5 R-1 C5-.5 R-1 G4-.5 R-1 E4-.5 R-.5 R-.5 A4-.5 R-.5 B4-.5 R-.5 Bb4-.5 A4-.5 R-.5 G4-2/3 E5-2/3 G5-2/3 A5-.5 R-.5 F5-.5 G5-.5 R-.5 E5-.5 R-.5 C5-.5 D5-.5 B4-.5 R-1 R-1 G5-.5 F#5-.5 F5-.5 D#5-.5 R-.5 E5-.5 R-.5 G#4-.5 A4-.5 C5-.5 R-.5 A4-.5 C5-.5 D5-.5 R-1 G5-.5 F#5-.5 F5-.5 D#5-.5 R-.5 E5-.5 R-.5 C6-.5 R-.5 C6-.5 C6-.5 R-1.5 R-1 G5-.5 F#5-.5 F5-.5 D#5-.5 R-.5 E5-.5 R-.5 G#4-.5 A4-.5 C5-.5 R-.5 A4-.5 C5-.5 D5-.5 R-1 D#5-.5 R-1 D5-.5 R-1 C5-.5 R-3.5',
+    chords: 'D D G G C C A A C F C G C C A A C F C G C C F F C C C C C C F F Ab Bb C C',
+  },
+  {
     id: 'oh-susanna', title: 'Oh! Susanna', ko: '오! 수재너', host: 'sonic', bpm: 160, repeat: 2, meter: 4, chordBeats: 2,
     melody: 'R-3 C4-.5 D4-.5 E4-1 G4-1 G4-1.5 A4-.5 G4-1 E4-1 C4-1.5 D4-.5 E4-1 E4-1 D4-1 C4-1 D4-3 C4-.5 D4-.5 E4-1 G4-1 G4-1.5 A4-.5 G4-1 E4-1 C4-1.5 D4-.5 E4-1 E4-1 D4-1 D4-1 C4-3 R-1 F4-2 F4-2 A4-1 A4-2 A4-1 G4-1 G4-1 E4-1 C4-1 D4-3 C4-.5 D4-.5 E4-1 G4-1 G4-1.5 A4-.5 G4-1 E4-1 C4-1.5 D4-.5 E4-1 E4-1 D4-1 D4-1 C4-3 R-1',
     chords: 'C C C C C C C C G G C C C C C G C C F F F F C C G G C C C C C G C C',
   },
   {
-    id: 'ball-game', title: 'Take Me Out to the Ball Game', ko: '야구장에 데려가 줘', host: 'mario', bpm: 170, repeat: 2, meter: 3, chordBeats: 3,
+    id: 'ball-game', title: 'Take Me Out to the Ball Game', ko: '야구장에 데려가 줘', host: 'luigi', bpm: 170, repeat: 2, meter: 3, chordBeats: 3,
     melody: 'C4-2 C5-1 A4-1 G4-1 E4-1 G4-3 D4-3 C4-2 C5-1 A4-1 G4-1 E4-1 G4-5 R-1 A4-1 G#4-1 A4-1 E4-1 F4-1 G4-1 A4-2 F4-1 D4-3 A4-2 A4-1 A4-1 B4-1 C5-1 D5-1 B4-1 A4-1 G4-1 E4-1 D4-1 C4-2 C5-1 A4-1 G4-1 E4-1 G4-3 D4-2 D4-1 C4-2 D4-1 E4-1 F4-1 G4-1 A4-4 A4-1 B4-1 C5-3 C5-3 C5-1 B4-1 A4-1 G4-1 F#4-1 G4-1 A4-3 B4-3 C5-4 R-2',
     chords: 'C C G G C C G G A A D D D D G G C C G G C C F F F F C A D G C C',
   },
@@ -96,12 +102,15 @@ export function parseMelody(text) {
   const notes = []
   for (const token of text.trim().split(/\s+/)) {
     const [name, length = '1'] = token.split('-')
-    const beats = Number(length)
+    // Fractions such as 2/3 write triplets.
+    const [top, bottom = '1'] = length.split('/')
+    const beats = Number(top) / Number(bottom)
     if (!(beats > 0)) throw new Error(`잘못된 박자: ${token}`)
     if (name !== 'R') notes.push({ beat, beats, midi: toMidi(name) })
     beat += beats
   }
-  return { notes, beats: beat }
+  // Snap float drift from triplets back onto the beat grid.
+  return { notes, beats: Math.round(beat * 1e6) / 1e6 }
 }
 
 /** Higher pitches land further right, like a piano. */

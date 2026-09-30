@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 async function startSong(page, mode = '아이') {
   await page.goto('/game/rhythm-party')
   await page.getByRole('button', { name: new RegExp(`^${mode}`) }).click()
-  await expect(page.locator('.rp-song')).toHaveCount(11)
+  await expect(page.locator('.rp-song')).toHaveCount(12)
   await page.getByRole('button', { name: /When the Saints/ }).click()
   await expect(page.locator('.rp-pad')).toHaveCount(5)
 }
