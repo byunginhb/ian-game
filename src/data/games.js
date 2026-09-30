@@ -1,5 +1,13 @@
 export const games = [
     {
+      id: "rhythm-party",
+      title: "리듬 파티",
+      emoji: "🎹",
+      description: "피카츄·마리오·소닉·닌자고 친구들과 동요 10곡을 건반으로 연주하는 리듬 게임!",
+      color: "#7c3aed",
+      tags: ["new", "hot", "action"],
+    },
+    {
       id: "conquest",
       title: "내가 다 먹었다!",
       emoji: "🚩",
