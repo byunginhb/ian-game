@@ -183,7 +183,7 @@ export default function RhythmParty() {
   const waitLane = play?.waiting?.lane
 
   return (
-    <div ref={rootRef} className={`rp-container rp-${screen}`} style={{ '--host': host.color }}>
+    <div ref={rootRef} className={`rp-container is-${screen}`} style={{ '--host': host.color }}>
       {screen === 'menu' && (
         <div className="rp-menu">
           <header className="rp-menu-head">

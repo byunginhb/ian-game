@@ -3,7 +3,7 @@ export const games = [
       id: "rhythm-party",
       title: "리듬 파티",
       emoji: "🎹",
-      description: "피카츄·마리오·소닉·닌자고 친구들과 미국·캐나다 학교 노래 10곡을 드럼 반주에 맞춰 연주!",
+      description: "피카츄·마리오·소닉·닌자고 친구들과 미국·캐나다 학교 노래 11곡을 드럼 반주에 맞춰 연주!",
       color: "#7c3aed",
       tags: ["new", "hot", "action"],
     },

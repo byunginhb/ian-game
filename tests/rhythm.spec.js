@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 async function startSong(page, mode = '아이') {
   await page.goto('/game/rhythm-party')
   await page.getByRole('button', { name: new RegExp(`^${mode}`) }).click()
-  await expect(page.locator('.rp-song')).toHaveCount(10)
+  await expect(page.locator('.rp-song')).toHaveCount(11)
   await page.getByRole('button', { name: /When the Saints/ }).click()
   await expect(page.locator('.rp-pad')).toHaveCount(5)
 }
@@ -63,4 +63,20 @@ test('kid mode stops at a missed note until its pad is pressed', async ({ page }
   await target.dispatchEvent('pointerdown')
   await expect.poll(() => score(page)).toBeGreaterThan(0)
   await expect(page.locator('.rp-feedback')).toHaveText(/최고|좋아|잘했어/)
+})
+
+test('menu, play and result screens fill the screen below the toolbar', async ({ page }) => {
+  await page.goto('/game/rhythm-party')
+  const fits = () => page.evaluate(() => {
+    const box = document.querySelector('.rp-container').getBoundingClientRect()
+    const toolbar = document.querySelector('.session-toolbar').getBoundingClientRect()
+    return Math.abs(box.top - toolbar.bottom) < 2 && Math.abs(box.bottom - innerHeight) < 2
+  })
+  await expect(page.locator('.rp-song').first()).toBeVisible()
+  expect(await fits()).toBe(true)
+  await page.locator('.rp-song').last().scrollIntoViewIfNeeded()
+  await expect(page.locator('.rp-song').last()).toBeInViewport()
+  await page.getByRole('button', { name: /When the Saints/ }).click()
+  expect(await fits()).toBe(true)
+  await expect(page.locator('.rp-pad').first()).toBeInViewport()
 })

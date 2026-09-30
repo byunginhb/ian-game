@@ -31,6 +31,12 @@ export const SONGS = [
     chords: 'C C C C C C C C C C C C C C G G G G C C C C F F F C C C C G C C',
   },
   {
+    // Pitches: noobnotes.net letter notes; rhythm: Wikipedia score (eighths doubled).
+    id: 'wheels-bus', title: 'The Wheels on the Bus', ko: '버스 바퀴가 빙글빙글', host: 'pikachu', bpm: 170, repeat: 4, meter: 4, chordBeats: 2,
+    melody: 'R-3 G3-1 C4-1 C4-.5 C4-.5 C4-1 E4-1 G4-1 E4-1 C4-2 D4-1 B3-1 G3-2 E4-1 D4-1 C4-1.5 G3-.5 C4-1 C4-.5 C4-.5 C4-1 E4-1 G4-1 E4-1 C4-2 D4-2 G3-1.5 G3-.5 C4-3 R-1',
+    chords: 'C C C C C C G G C C C C C C G G C C',
+  },
+  {
     id: 'oh-susanna', title: 'Oh! Susanna', ko: '오! 수재너', host: 'sonic', bpm: 160, repeat: 2, meter: 4, chordBeats: 2,
     melody: 'R-3 C4-.5 D4-.5 E4-1 G4-1 G4-1.5 A4-.5 G4-1 E4-1 C4-1.5 D4-.5 E4-1 E4-1 D4-1 C4-1 D4-3 C4-.5 D4-.5 E4-1 G4-1 G4-1.5 A4-.5 G4-1 E4-1 C4-1.5 D4-.5 E4-1 E4-1 D4-1 D4-1 C4-3 R-1 F4-2 F4-2 A4-1 A4-2 A4-1 G4-1 G4-1 E4-1 C4-1 D4-3 C4-.5 D4-.5 E4-1 G4-1 G4-1.5 A4-.5 G4-1 E4-1 C4-1.5 D4-.5 E4-1 E4-1 D4-1 D4-1 C4-3 R-1',
     chords: 'C C C C C C C C G G C C C C C G C C F F F F C C G G C C C C C G C C',

@@ -2,9 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { SONGS, MODES, parseMelody, buildChart, findHit, judge, starsFor, toMidi, nextOpenNote } from '../src/lib/rhythm.js'
 
-test('ten songs whose melodies line up with their bass chords', () => {
-  assert.equal(SONGS.length, 10)
-  assert.equal(new Set(SONGS.map((song) => song.id)).size, 10)
+test('eleven songs whose melodies line up with their bass chords', () => {
+  assert.equal(SONGS.length, 11)
+  assert.equal(new Set(SONGS.map((song) => song.id)).size, 11)
   for (const song of SONGS) {
     const { beats } = parseMelody(song.melody)
     const bars = song.chords.trim().split(/\s+/).length
