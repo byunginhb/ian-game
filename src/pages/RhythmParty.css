@@ -94,3 +94,14 @@
   .rp-pad { height: 64px; }
   .rp-result { flex-direction: row; flex-wrap: wrap; }
 }
+
+/* Kid mode waits on the note at the line. */
+.rp-lane.is-target { animation: rp-target .6s ease-in-out infinite alternate; }
+.rp-pad.is-target { animation: rp-target-pad .6s ease-in-out infinite alternate; }
+.rp-stage.is-waiting .rp-note:not(.is-miss) { filter: saturate(.6); }
+.rp-wait { position: absolute; top: calc(86% - 70px); transform: translateX(-50%); padding: 6px 12px; border-radius: 12px; font-size: 15px; font-weight: 900; white-space: nowrap; color: #1e1b4b; background: #fde047; box-shadow: 0 4px 0 #a16207; pointer-events: none; animation: rp-wait-bob .6s ease-in-out infinite alternate; }
+.rp-feedback.is-late { color: #7dd3fc; }
+.rp-feedback.is-stray { color: #fdba74; font-size: 16px; }
+@keyframes rp-target { from { background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--lane) 25%, transparent)); } to { background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--lane) 70%, transparent)); } }
+@keyframes rp-target-pad { from { transform: translateY(0); } to { transform: translateY(-6px); box-shadow: 0 12px 0 color-mix(in srgb, var(--lane) 50%, #000), 0 0 24px var(--lane); } }
+@keyframes rp-wait-bob { from { transform: translate(-50%, 0); } to { transform: translate(-50%, -6px); } }
