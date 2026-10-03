@@ -1,3 +1,5 @@
+import { grooveHits } from './rhythmGrooves.js'
+
 export const LANE_KEYS = ['KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM']
 export const LANE_LABELS = ['C', 'V', 'B', 'N', 'M']
 export const CHARACTERS = {
@@ -11,8 +13,13 @@ export const CHARACTERS = {
   lloyd: { name: '로이드', color: '#16a34a' },
   kai: { name: '카이', color: '#dc2626' },
   jay: { name: '제이', color: '#2563eb' },
+  bowser: { name: '쿠파', color: '#65a30d' },
 }
 
+// Notes this long (in beats) must be held down until their tail passes the line.
+export const HOLD_BEATS = 2
+// Letting go this close to the end still counts as a full hold.
+export const HOLD_GRACE = 150
 export const RECORD_KEY = 'ian-rhythm-best-v1'
 
 export const MODES = {
@@ -26,64 +33,70 @@ export const MODES = {
 // Melody tokens: NOTE[-beats], R = rest. Chords hold one bass root per `chordBeats`.
 export const SONGS = [
   {
-    id: 'saints', title: 'When the Saints Go Marching In', ko: '성자들의 행진', host: 'lloyd', bpm: 120, repeat: 2, meter: 4, chordBeats: 2,
+    id: 'saints', title: 'When the Saints Go Marching In', ko: '성자들의 행진', host: 'lloyd', bpm: 120, repeat: 2, meter: 4, chordBeats: 2, groove: 'dixie',
     melody: 'R-1 C4-1 E4-1 F4-1 G4-4 R-1 C4-1 E4-1 F4-1 G4-4 R-1 C4-1 E4-1 F4-1 G4-2 E4-2 C4-2 E4-2 D4-4 R-1 E4-1 E4-1 D4-1 C4-4 E4-2 G4-2 G4-1 F4-3 R-2 E4-1 F4-1 G4-2 E4-2 C4-2 D4-2 C4-4',
     chords: 'C C C C C C C C C C C C C C G G G G C C C C F F F C C C C G C C',
   },
   {
     // Pitches: noobnotes.net letter notes; rhythm: Wikipedia score (eighths doubled).
-    id: 'wheels-bus', title: 'The Wheels on the Bus', ko: '버스 바퀴가 빙글빙글', host: 'pikachu', bpm: 170, repeat: 4, meter: 4, chordBeats: 2,
+    id: 'wheels-bus', title: 'The Wheels on the Bus', ko: '버스 바퀴가 빙글빙글', host: 'pikachu', bpm: 170, repeat: 4, meter: 4, chordBeats: 2, groove: 'pop',
     melody: 'R-3 G3-1 C4-1 C4-.5 C4-.5 C4-1 E4-1 G4-1 E4-1 C4-2 D4-1 B3-1 G3-2 E4-1 D4-1 C4-1.5 G3-.5 C4-1 C4-.5 C4-.5 C4-1 E4-1 G4-1 E4-1 C4-2 D4-2 G3-1.5 G3-.5 C4-3 R-1',
     chords: 'C C C C C C G G C C C C C C G G C C',
   },
   {
     // Overworld theme: intro, A section twice, B section.
-    id: 'mario-theme', title: 'Super Mario Bros. Theme', ko: '슈퍼 마리오 브라더스', host: 'mario', bpm: 190, repeat: 2, meter: 4, chordBeats: 2,
+    id: 'mario-theme', title: 'Super Mario Bros. Theme', ko: '슈퍼 마리오 브라더스', host: 'mario', bpm: 190, repeat: 2, meter: 4, chordBeats: 2, groove: 'calypso',
     melody: 'E5-.5 E5-.5 R-.5 E5-.5 R-.5 C5-.5 E5-.5 R-.5 G5-.5 R-1.5 G4-.5 R-1.5 C5-.5 R-1 G4-.5 R-1 E4-.5 R-.5 R-.5 A4-.5 R-.5 B4-.5 R-.5 Bb4-.5 A4-.5 R-.5 G4-2/3 E5-2/3 G5-2/3 A5-.5 R-.5 F5-.5 G5-.5 R-.5 E5-.5 R-.5 C5-.5 D5-.5 B4-.5 R-1 C5-.5 R-1 G4-.5 R-1 E4-.5 R-.5 R-.5 A4-.5 R-.5 B4-.5 R-.5 Bb4-.5 A4-.5 R-.5 G4-2/3 E5-2/3 G5-2/3 A5-.5 R-.5 F5-.5 G5-.5 R-.5 E5-.5 R-.5 C5-.5 D5-.5 B4-.5 R-1 R-1 G5-.5 F#5-.5 F5-.5 D#5-.5 R-.5 E5-.5 R-.5 G#4-.5 A4-.5 C5-.5 R-.5 A4-.5 C5-.5 D5-.5 R-1 G5-.5 F#5-.5 F5-.5 D#5-.5 R-.5 E5-.5 R-.5 C6-.5 R-.5 C6-.5 C6-.5 R-1.5 R-1 G5-.5 F#5-.5 F5-.5 D#5-.5 R-.5 E5-.5 R-.5 G#4-.5 A4-.5 C5-.5 R-.5 A4-.5 C5-.5 D5-.5 R-1 D#5-.5 R-1 D5-.5 R-1 C5-.5 R-3.5',
     chords: 'D D G G C C A A C F C G C C A A C F C G C C F F C C C C C C F F Ab Bb C C',
   },
   {
-    id: 'oh-susanna', title: 'Oh! Susanna', ko: '오! 수재너', host: 'sonic', bpm: 160, repeat: 2, meter: 4, chordBeats: 2,
+    // Castle (World 1-4) from the VGMusic NES MIDI: upper voice of the chromatic trill, its bass line, drums on the second lap.
+    id: 'bowser-castle', title: "Bowser's Castle", ko: '쿠파성', host: 'bowser', bpm: 88, repeat: 2, meter: 4, groove: 'castle', drumsFrom: 24,
+    melody: 'D5-.25 C#5-.25 C5-.25 C#5-.25 D5-.25 D#5-.25 D5-.25 C#5-.25 D5-.25 C#5-.25 C5-.25 C#5-.25 D5-.25 D#5-.25 D5-.25 C#5-.25 C#5-.25 C5-.25 C#5-.25 D5-.25 C#5-.25 D5-.25 C#5-.25 C5-.25 C#5-.25 C5-.25 C#5-.25 D5-.25 C#5-.25 D5-.25 C#5-.25 C5-.25 F5-.25 F#5-.25 F5-.25 E5-.25 F5-.25 E5-.25 D#5-.25 E5-.25 F5-.25 F#5-.25 F5-.25 E5-.25 F5-.25 E5-.25 D#5-.25 E5-.25 D5-.25 C#5-.25 C5-.25 C#5-.25 D5-.25 D#5-.25 D5-.25 C#5-.25 D5-.25 C#5-.25 C5-.25 C#5-.25 D5-.25 D#5-.25 D5-.25 C#5-.25 C#5-.25 C5-.25 C#5-.25 D5-.25 C#5-.25 D5-.25 C#5-.25 C5-.25 C#5-.25 C5-.25 C#5-.25 D5-.25 C#5-.25 D5-.25 C#5-.25 C5-.25 F5-.25 F#5-.25 F5-.25 E5-.25 F5-.25 E5-.25 D#5-.25 E5-.25 F5-.25 F#5-.25 F5-.25 E5-.25 F5-.25 E5-.25 D#5-.25 E5-.25',
+    bass: 'D#3-2 D3 F#3 F3-2 E3 A#3 A3 E3 D#3 E3 D#3-2 D3 F#3 F3-2 E3 A#3 A3 E3 D#3 E3',
+  },
+  {
+    id: 'oh-susanna', title: 'Oh! Susanna', ko: '오! 수재너', host: 'sonic', bpm: 160, repeat: 2, meter: 4, chordBeats: 2, groove: 'country',
     melody: 'R-3 C4-.5 D4-.5 E4-1 G4-1 G4-1.5 A4-.5 G4-1 E4-1 C4-1.5 D4-.5 E4-1 E4-1 D4-1 C4-1 D4-3 C4-.5 D4-.5 E4-1 G4-1 G4-1.5 A4-.5 G4-1 E4-1 C4-1.5 D4-.5 E4-1 E4-1 D4-1 D4-1 C4-3 R-1 F4-2 F4-2 A4-1 A4-2 A4-1 G4-1 G4-1 E4-1 C4-1 D4-3 C4-.5 D4-.5 E4-1 G4-1 G4-1.5 A4-.5 G4-1 E4-1 C4-1.5 D4-.5 E4-1 E4-1 D4-1 D4-1 C4-3 R-1',
     chords: 'C C C C C C C C G G C C C C C G C C F F F F C C G G C C C C C G C C',
   },
   {
-    id: 'ball-game', title: 'Take Me Out to the Ball Game', ko: '야구장에 데려가 줘', host: 'luigi', bpm: 170, repeat: 2, meter: 3, chordBeats: 3,
+    id: 'ball-game', title: 'Take Me Out to the Ball Game', ko: '야구장에 데려가 줘', host: 'luigi', bpm: 170, repeat: 2, meter: 3, chordBeats: 3, groove: 'waltz',
     melody: 'C4-2 C5-1 A4-1 G4-1 E4-1 G4-3 D4-3 C4-2 C5-1 A4-1 G4-1 E4-1 G4-5 R-1 A4-1 G#4-1 A4-1 E4-1 F4-1 G4-1 A4-2 F4-1 D4-3 A4-2 A4-1 A4-1 B4-1 C5-1 D5-1 B4-1 A4-1 G4-1 E4-1 D4-1 C4-2 C5-1 A4-1 G4-1 E4-1 G4-3 D4-2 D4-1 C4-2 D4-1 E4-1 F4-1 G4-1 A4-4 A4-1 B4-1 C5-3 C5-3 C5-1 B4-1 A4-1 G4-1 F#4-1 G4-1 A4-3 B4-3 C5-4 R-2',
     chords: 'C C G G C C G G A A D D D D G G C C G G C C F F F F C A D G C C',
   },
   {
-    id: 'sunshine', title: 'You Are My Sunshine', ko: '너는 나의 햇살', host: 'pikachu', bpm: 110, repeat: 2, meter: 4, chordBeats: 2,
+    id: 'sunshine', title: 'You Are My Sunshine', ko: '너는 나의 햇살', host: 'pikachu', bpm: 110, repeat: 2, meter: 4, chordBeats: 2, groove: 'brush',
     melody: 'R-1 G3-1 C4-1 D4-1 E4-2 E4-3 E4-1 D#4-1 E4-1 C4-2 C4-3 C4-1 D4-1 E4-1 F4-2 A4-3 A4-1 G4-1 F4-1 E4-5 C4-1 D4-1 E4-1 F4-2 A4-3 A4-1 G4-1 F4-1 E4-2 C4-3 R-1 C4-1 D4-1 E4-3 F4-1 D4-1 D4-2 E4-1 C4-4',
     chords: 'C C C C C C C C C C F F F F C C C C F F F F C C A A C C G G C C',
   },
   {
-    id: 'this-land', title: 'This Land Is Your Land', ko: '이 땅은 너의 땅', host: 'luigi', bpm: 100, repeat: 3, meter: 4, chordBeats: 2,
+    id: 'this-land', title: 'This Land Is Your Land', ko: '이 땅은 너의 땅', host: 'luigi', bpm: 100, repeat: 3, meter: 4, chordBeats: 2, groove: 'folk',
     melody: 'R-2.5 C4-.5 D4-.5 E4-.5 F4-1 F4-1.5 F4-.5 C4-.5 D4-.5 E4-1 E4-1.5 C4-.5 C4-.5 E4-.5 D4-1 D4-1.5 D4-.25 D4-.25 C4-.5 D4-.5 E4-1 E4-1.5 C4-.25 C4-.25 D4-.5 E4-.5 F4-1 F4-1.5 F4-.25 F4-.25 C4-.5 D4-.5 E4-1 E4-3 D4-.5 D4-1 C4-.5 B3-.5 B3-.5 C4-.5 D4-.5 C4-2.5 R-1.5',
     chords: 'C C F F C C G G C C F F C C G G C C',
   },
   {
-    id: 'mountain', title: "She'll Be Coming 'Round the Mountain", ko: '산을 돌아 그녀가 온다네', host: 'knuckles', bpm: 120, repeat: 3, meter: 2, chordBeats: 2,
+    id: 'mountain', title: "She'll Be Coming 'Round the Mountain", ko: '산을 돌아 그녀가 온다네', host: 'knuckles', bpm: 120, repeat: 3, meter: 2, chordBeats: 2, groove: 'polka',
     melody: 'R-1 D4-.5 E4-.5 G4-.5 G4-.5 G4-.5 G4-.5 E4-.5 D4-.5 B3-.5 D4-.5 G4-2 R-1 G4-.5 A4-.5 B4-.5 B4-.5 B4-.5 B4-.5 D5-.5 B4-.5 A4-.5 G4-.5 A4-2 R-1 D5-.5 C5-.5 B4-.5 B4-.5 B4-.5 B4-.5 A4-.5 G4-.5 G4-.5 G4-.5 E4-.5 E4-.5 E4-.5 E4-.5 A4-.5 G4-.5 F#4-.5 E4-.5 D4-.5 D4-.5 D4-.5 D4-.5 B4-.5 A4-.5 F#4-.5 D4-.5 G4-2 R-2',
     chords: 'G G G G G G G D D G G C C G D G G',
   },
   {
-    id: 'yankee-doodle', title: 'Yankee Doodle', ko: '양키 두들', host: 'jay', bpm: 115, repeat: 3, meter: 2, chordBeats: 2,
+    id: 'yankee-doodle', title: 'Yankee Doodle', ko: '양키 두들', host: 'jay', bpm: 115, repeat: 3, meter: 2, chordBeats: 2, groove: 'fife',
     melody: 'G4-.5 G4-.5 A4-.5 B4-.5 G4-.5 B4-.5 A4-.5 D4-.5 G4-.5 G4-.5 A4-.5 B4-.5 G4-1 F#4-1 G4-.5 G4-.5 A4-.5 B4-.5 C5-.5 B4-.5 A4-.5 G4-.5 F#4-.5 D4-.5 E4-.5 F#4-.5 G4-1 G4-1 E4-.75 F#4-.25 E4-.5 D4-.5 E4-.5 F#4-.5 G4-1 D4-.75 E4-.25 D4-.5 C4-.5 B3-1 D4-1 E4-.75 F#4-.25 E4-.5 D4-.5 E4-.5 F#4-.5 G4-.5 E4-.5 D4-.5 G4-.5 F#4-.5 A4-.5 G4-1 G4-.5 R-.5',
     chords: 'G G G D G C D G C G D G C C D G',
   },
   {
-    id: 'ode-to-joy', title: 'Ode to Joy', ko: '환희의 송가', host: 'jigglypuff', bpm: 104, repeat: 2, meter: 4, chordBeats: 2,
+    id: 'ode-to-joy', title: 'Ode to Joy', ko: '환희의 송가', host: 'jigglypuff', bpm: 104, repeat: 2, meter: 4, chordBeats: 2, groove: 'folk', drumsFrom: 64,
     melody: 'E4-1 E4-1 F4-1 G4-1 G4-1 F4-1 E4-1 D4-1 C4-1 C4-1 D4-1 E4-1 E4-1.5 D4-.5 D4-2 E4-1 E4-1 F4-1 G4-1 G4-1 F4-1 E4-1 D4-1 C4-1 C4-1 D4-1 E4-1 D4-1.5 C4-.5 C4-2 D4-1 D4-1 E4-1 C4-1 D4-1 E4-.5 F4-.5 E4-1 C4-1 D4-1 E4-.5 F4-.5 E4-1 D4-1 C4-1 D4-1 G3-2 E4-1 E4-1 F4-1 G4-1 G4-1 F4-1 E4-1 D4-1 C4-1 C4-1 D4-1 E4-1 D4-1.5 C4-.5 C4-2',
     chords: 'C C G G C C G G C C G G C C G C G C G C G G C G C C G G C C G C',
   },
   {
-    id: 'o-canada', title: 'O Canada', ko: '오 캐나다', host: 'kai', bpm: 84, repeat: 1, meter: 4, chordBeats: 2,
+    id: 'o-canada', title: 'O Canada', ko: '오 캐나다', host: 'kai', bpm: 84, repeat: 1, meter: 4, chordBeats: 2, groove: 'anthem', drumsFrom: 32,
     melody: 'E4-2 G4-1.5 G4-.5 C4-3 D4-1 E4-1 F4-1 G4-1 A4-1 D4-4 E4-2 F#4-1.5 F#4-.5 G4-3 A4-1 B4-1 B4-1 A4-1 A4-1 G4-3 D4-.75 E4-.25 F4-1.5 E4-.5 D4-1 E4-.75 F4-.25 G4-1.5 F4-.5 E4-1 F4-.75 G4-.25 A4-1 G4-1 F4-1 E4-1 D4-3 D4-.75 E4-.25 F4-1.5 E4-.5 D4-1 E4-.75 F4-.25 G4-1.5 F4-.5 E4-1 E4-1 D4-1 G4-1 G4-.5 F#4-.5 E4-.5 F#4-.5 G4-4 E4-2 G4-1.5 G4-.5 C4-4 F4-2 A4-1.5 A4-.5 D4-4 G4-2 G#4-1.5 G#4-.5 A4-1 F4-1 E4-1 D4-1 C4-2 D4-2 E4-4 G4-2 C5-1.5 C5-.5 A4-1 F4-1 E4-1 D4-1 G4-2 B3-2 C4-4',
     chords: 'C G A A C C G G C B E E G D G G G G C C F D G G G G C C G D G G C G A A D F G G C E F C C G C C C A F C C G C C',
   },
   {
-    id: 'jingle-bells', title: 'Jingle Bells', ko: '징글벨', host: 'tails', bpm: 130, repeat: 1, meter: 4, chordBeats: 2,
+    id: 'jingle-bells', title: 'Jingle Bells', ko: '징글벨', host: 'tails', bpm: 130, repeat: 1, meter: 4, chordBeats: 2, groove: 'sleigh',
     melody: 'G3-1 E4-1 D4-1 C4-1 G3-3 G3-.5 G3-.5 G3-1 E4-1 D4-1 C4-1 A3-4 A3-1 F4-1 E4-1 D4-1 B3-4 G4-1 G4-1 F4-1 D4-1 E4-4 G3-1 E4-1 D4-1 C4-1 G3-4 G3-1 E4-1 D4-1 C4-1 A3-3 R-.5 A3-.5 A3-1 F4-1 E4-1 D4-1 G4-1 G4-1 G4-1.5 G4-.5 A4-1 G4-1 F4-1 D4-1 C4-2 R-2 E4-1 E4-1 E4-2 E4-1 E4-1 E4-2 E4-1 G4-1 C4-1.5 D4-.5 E4-4 F4-1 F4-1 F4-1.5 F4-.5 F4-1 E4-1 E4-1 E4-.5 E4-.5 E4-1 D4-1 D4-1 E4-1 D4-2 G4-2 E4-1 E4-1 E4-2 E4-1 E4-1 E4-2 E4-1 G4-1 C4-1.5 D4-.5 E4-4 F4-1 F4-1 F4-1.5 F4-.5 F4-1 E4-1 E4-1 E4-.5 E4-.5 G4-1 G4-1 F4-1 D4-1 C4-2 R-2',
     chords: 'C C C C C C F F D D G G G G C C C C C C C C F F D D G G G G C G C C C C C C C C F F C C D D G G C C C C C C C C F F C C G G C C',
   },
@@ -119,39 +132,33 @@ export function laneForPitch(midi, pitches) {
   return Math.min(4, Math.floor((rank * 5) / pitches.length))
 }
 
-const DRUMS = {
-  // Beat positions within a bar, in beats.
-  4: { kick: [0, 2, 2.5], snare: [1, 3], hat: [0, .5, 1, 1.5, 2, 2.5, 3, 3.5] },
-  3: { kick: [0], snare: [1, 2], hat: [0, .5, 1, 1.5, 2, 2.5] },
-  2: { kick: [0], snare: [1], hat: [0, .5, 1, 1.5] },
-}
-
 export function buildChart(song, mode) {
   const { notes, beats } = parseMelody(song.melody)
   const pitches = [...new Set(notes.map((note) => note.midi))].sort((a, b) => a - b)
   const beatMs = 60000 / (song.bpm * mode.tempo)
-  const roots = song.chords.trim().split(/\s+/)
-  const meter = song.meter ?? 4
+  const roots = song.chords?.trim().split(/\s+/) ?? []
+  const bassLine = song.bass && parseMelody(song.bass)
   const chart = []
   const backing = []
   for (let round = 0; round < song.repeat; round++) {
     const offset = round * beats
     notes.forEach((note) => chart.push({
       id: chart.length, time: (offset + note.beat) * beatMs, midi: note.midi,
-      length: note.beats * beatMs, lane: laneForPitch(note.midi, pitches),
+      length: note.beats * beatMs, lane: laneForPitch(note.midi, pitches), hold: note.beats >= HOLD_BEATS,
     }))
-    roots.forEach((root, index) => {
-      const midi = toMidi(`${root}2`)
-      for (let step = 0; step < song.chordBeats; step++) {
-        // Oom-pah: root on the strong beat, fifth in between.
-        backing.push({ time: (offset + index * song.chordBeats + step) * beatMs, kind: 'bass', midi: step % 2 ? midi + 7 : midi })
-      }
-    })
-    for (let bar = 0; bar < Math.floor(beats / meter); bar++) {
-      for (const [kind, hits] of Object.entries(DRUMS[meter])) {
-        hits.forEach((at) => backing.push({ time: (offset + bar * meter + at) * beatMs, kind }))
-      }
+    if (bassLine) {
+      bassLine.notes.forEach((note) => backing.push({ time: (offset + note.beat) * beatMs, kind: 'bass', midi: note.midi, length: note.beats * beatMs }))
+    } else {
+      roots.forEach((root, index) => {
+        const midi = toMidi(`${root}2`)
+        for (let step = 0; step < song.chordBeats; step++) {
+          // Oom-pah: root on the strong beat, fifth in between.
+          backing.push({ time: (offset + index * song.chordBeats + step) * beatMs, kind: 'bass', midi: step % 2 ? midi + 7 : midi, length: beatMs })
+        }
+      })
     }
+    grooveHits(song.groove, beats, (song.drumsFrom ?? 0) - offset)
+      .forEach((hit) => backing.push({ time: (offset + hit.beat) * beatMs, kind: hit.kind, gain: hit.gain }))
   }
   backing.sort((a, b) => a.time - b.time)
   return { notes: chart, backing, duration: song.repeat * beats * beatMs, beatMs }
@@ -183,7 +190,7 @@ export function judge(delta, mode) {
   return null
 }
 
-export const POINTS = { perfect: 100, good: 60, late: 30 }
+export const POINTS = { perfect: 100, good: 60, late: 30, hold: 80 }
 
 export function scoreFor(grade, combo) {
   return POINTS[grade] + Math.min(combo, 50) * 2

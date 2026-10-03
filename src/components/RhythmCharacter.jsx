@@ -61,6 +61,17 @@ const ART = {
   sonic: <Hedgehog fur="#2563eb" />,
   knuckles: <Hedgehog fur="#dc2626" muzzle="#fde2c8" />,
   tails: <Hedgehog fur="#f59e0b" muzzle="#fff7ed" tails />,
+  bowser: <>
+    <path d="M22 34 L12 8 L34 26 Z M78 34 L88 8 L66 26 Z" fill="#fef3c7" stroke="#a16207" strokeWidth="2" />
+    <path d="M30 22 Q38 4 50 14 Q60 2 70 22 Z" fill="#dc2626" />
+    <ellipse cx="50" cy="54" rx="36" ry="32" fill="#84cc16" />
+    <ellipse cx="50" cy="70" rx="24" ry="16" fill="#fde68a" />
+    <path d="M28 42 L44 48 M72 42 L56 48" stroke="#111" strokeWidth="4" strokeLinecap="round" />
+    <circle cx="38" cy="52" r="5" fill="#dc2626" /><circle cx="62" cy="52" r="5" fill="#dc2626" />
+    <circle cx="38" cy="52" r="2" fill="#111" /><circle cx="62" cy="52" r="2" fill="#111" />
+    <path d="M36 72 Q50 84 64 72" stroke="#111" strokeWidth="3" fill="#fff" />
+    <path d="M42 73 L44 78 L46 74 M54 74 L56 78 L58 73" stroke="#111" strokeWidth="1.5" fill="none" />
+  </>,
   lloyd: <Ninja suit="#16a34a" />,
   kai: <Ninja suit="#dc2626" />,
   jay: <Ninja suit="#2563eb" />,

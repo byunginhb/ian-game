@@ -1,14 +1,15 @@
 import { test } from 'node:test'
+import { GROOVES, grooveHits } from '../src/lib/rhythmGrooves.js'
 import assert from 'node:assert/strict'
-import { SONGS, MODES, parseMelody, buildChart, findHit, judge, starsFor, toMidi, nextOpenNote } from '../src/lib/rhythm.js'
+import { SONGS, MODES, HOLD_BEATS, parseMelody, buildChart, findHit, judge, starsFor, toMidi, nextOpenNote } from '../src/lib/rhythm.js'
 
-test('twelve songs whose melodies line up with their bass chords', () => {
-  assert.equal(SONGS.length, 12)
-  assert.equal(new Set(SONGS.map((song) => song.id)).size, 12)
+test('thirteen songs whose melodies line up with their bass', () => {
+  assert.equal(SONGS.length, 13)
+  assert.equal(new Set(SONGS.map((song) => song.id)).size, 13)
   for (const song of SONGS) {
     const { beats } = parseMelody(song.melody)
-    const bars = song.chords.trim().split(/\s+/).length
-    assert.equal(beats, bars * song.chordBeats, song.id)
+    const bassBeats = song.bass ? parseMelody(song.bass).beats : song.chords.trim().split(/\s+/).length * song.chordBeats
+    assert.equal(beats, bassBeats, song.id)
   }
 })
 
@@ -50,13 +51,39 @@ test('stars and note names', () => {
   assert.equal(starsFor({}, 0), 0)
 })
 
-test('backing has bass plus kick, snare and hi-hat inside the song', () => {
+test('every song picks a drum style that fits its meter, and quiet intros stay drum-free', () => {
+  const used = new Set()
   for (const song of SONGS) {
+    const groove = GROOVES[song.groove]
+    assert.ok(groove, song.id)
+    used.add(song.groove)
+    if (groove.meter) assert.equal(groove.meter, song.meter, song.id)
     const chart = buildChart(song, MODES.adult)
-    const kinds = new Set(chart.backing.map((event) => event.kind))
-    assert.deepEqual([...kinds].sort(), ['bass', 'hat', 'kick', 'snare'], song.id)
-    assert.ok(chart.backing.every((event, i) => event.time < chart.duration && (i === 0 || event.time >= chart.backing[i - 1].time)))
+    const drums = chart.backing.filter((event) => event.kind !== 'bass')
+    assert.ok(chart.backing.every((event, i) => event.time < chart.duration && (i === 0 || event.time >= chart.backing[i - 1].time)), song.id)
+    if (song.drumsFrom) assert.ok(drums.every((event) => event.time >= song.drumsFrom * chart.beatMs - 1e-6), song.id)
   }
+  assert.ok(used.size >= 10)
+})
+
+test('grooves add a crash on entry and a fill at each 4-bar phrase end', () => {
+  const hits = grooveHits('country', 16)
+  assert.ok(hits.some((hit) => hit.kind === 'crash' && hit.beat === 0))
+  const bar4 = hits.filter((hit) => hit.beat >= 12)
+  assert.deepEqual(bar4.filter((hit) => hit.beat >= 15).map((hit) => hit.kind).sort(), ['snare', 'snare', 'snare', 'snare'])
+  assert.ok(grooveHits('castle', 48, 24).every((hit) => hit.beat >= 24))
+  assert.ok(grooveHits('castle', 48, 24).some((hit) => hit.kind === 'crash' && hit.beat === 24))
+  assert.deepEqual(grooveHits('none', 16), [])
+  assert.ok(grooveHits('brush', 8).every((hit) => hit.gain < 1 && hit.kind !== 'crash'))
+})
+
+test('long notes become hold notes', () => {
+  for (const song of SONGS) {
+    const { notes, beatMs } = buildChart(song, MODES.kid)
+    notes.forEach((note) => assert.equal(note.hold, note.length >= HOLD_BEATS * beatMs - 1e-6, song.id))
+  }
+  assert.ok(buildChart(SONGS.find((song) => song.id === 'saints'), MODES.adult).notes.some((note) => note.hold))
+  assert.ok(buildChart(SONGS.find((song) => song.id === 'bowser-castle'), MODES.adult).notes.every((note) => !note.hold))
 })
 
 test('kid mode waits for missed notes, adult mode is faster and stricter', () => {

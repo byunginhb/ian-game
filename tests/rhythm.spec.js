@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 async function startSong(page, mode = '아이') {
   await page.goto('/game/rhythm-party')
   await page.getByRole('button', { name: new RegExp(`^${mode}`) }).click()
-  await expect(page.locator('.rp-song')).toHaveCount(12)
+  await expect(page.locator('.rp-song')).toHaveCount(13)
   await page.getByRole('button', { name: /When the Saints/ }).click()
   await expect(page.locator('.rp-pad')).toHaveCount(5)
 }
@@ -79,4 +79,32 @@ test('menu, play and result screens fill the screen below the toolbar', async ({
   await page.getByRole('button', { name: /When the Saints/ }).click()
   expect(await fits()).toBe(true)
   await expect(page.locator('.rp-pad').first()).toBeInViewport()
+})
+
+async function pressUntilHold(page) {
+  const keys = ['c', 'v', 'b', 'n', 'm']
+  for (let i = 0; i < 8; i++) {
+    const target = page.locator('.rp-pad.is-target')
+    await expect(target).toHaveCount(1, { timeout: 8000 })
+    const key = keys[await target.evaluate((pad) => [...pad.parentNode.children].indexOf(pad))]
+    await page.keyboard.down(key)
+    if (await page.locator('.rp-note.is-holding').count()) return key
+    await page.keyboard.up(key)
+  }
+  throw new Error('홀드 노트를 찾지 못함')
+}
+
+test('hold notes reward keeping the key down and warn when let go early', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'keyboard holds are enough; pads share the same release path')
+  await startSong(page)
+  let key = await pressUntilHold(page)
+  await expect(page.locator('.rp-tail.is-holding')).toHaveCount(1)
+  await expect(page.locator('.rp-feedback')).toHaveText('끝까지!', { timeout: 6000 })
+  await page.keyboard.up(key)
+  await page.getByRole('button', { name: '그만' }).click()
+  await page.getByRole('button', { name: /When the Saints/ }).click()
+  key = await pressUntilHold(page)
+  await page.keyboard.up(key)
+  await expect(page.locator('.rp-feedback')).toHaveText('더 길게!')
+  await expect(page.locator('.rp-tail.is-holding')).toHaveCount(0)
 })

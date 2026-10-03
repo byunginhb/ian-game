@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { gameClock } from '../lib/gameClock'
 import { createRhythmAudio } from '../lib/rhythmAudio'
-import { SONGS, MODES, CHARACTERS, LANE_KEYS, LANE_LABELS, RECORD_KEY, buildChart, findHit, nextOpenNote, judge, scoreFor, starsFor } from '../lib/rhythm'
+import { SONGS, MODES, CHARACTERS, LANE_KEYS, LANE_LABELS, RECORD_KEY, buildChart, findHit, nextOpenNote, HOLD_GRACE, POINTS, judge, scoreFor, starsFor } from '../lib/rhythm'
 import RhythmCharacter from '../components/RhythmCharacter'
 import './RhythmParty.css'
 
 const LANE_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7']
-const GRADE_TEXT = { perfect: '최고!', good: '좋아!', late: '잘했어!', miss: '놓쳤어', stray: '헛손!' }
+const GRADE_TEXT = { perfect: '최고!', good: '좋아!', late: '잘했어!', miss: '놓쳤어', stray: '헛손!', hold: '끝까지!', cut: '더 길게!' }
 const LOOKAHEAD = 90
 const HIT_LINE = .86
 const MODE_KEY = 'ian-rhythm-mode-v1'
@@ -70,7 +70,7 @@ export default function RhythmParty() {
     const chart = buildChart(next, mode)
     playRef.current = {
       chart, time: -mode.travel - 800, lastClock: gameClock.now(), results: {}, score: 0, combo: 0, maxCombo: 0,
-      backingIndex: 0, openIndex: 0, waiting: null,
+      backingIndex: 0, openIndex: 0, waiting: null, holds: {}, held: 0,
     }
     setSong(next)
     setTime(-mode.travel - 800)
@@ -91,10 +91,27 @@ export default function RhythmParty() {
       setRecords(next)
       writeStorage(RECORD_KEY, next)
     }
-    setResult({ score: play.score, stars, isBest, maxCombo: play.maxCombo, perfect: count('perfect'), good: count('good'), late: count('late'), miss: count('miss') })
+    const holdTotal = play.chart.notes.filter((note) => note.hold).length
+    setResult({ score: play.score, stars, isBest, maxCombo: play.maxCombo, perfect: count('perfect'), good: count('good'), late: count('late'), miss: count('miss'), held: play.held, holdTotal })
     if (stars) audio().fanfare()
     setScreen('result')
   }, [modeId, song, records])
+
+  const endHold = useCallback((lane, finished) => {
+    const play = playRef.current
+    const hold = play?.holds[lane]
+    if (!hold) return
+    play.holds = Object.fromEntries(Object.entries(play.holds).filter(([key]) => Number(key) !== lane))
+    if (finished || play.time >= hold.end - HOLD_GRACE) {
+      play.held += 1
+      play.score += POINTS.hold
+      setFeedback({ grade: 'hold', id: `hold-${hold.id}`, lane })
+      return
+    }
+    hold.sound.stop()
+    if (!mode.waits) play.combo = 0
+    setFeedback({ grade: 'cut', id: `cut-${hold.id}`, lane })
+  }, [mode])
 
   useEffect(() => {
     if (screen !== 'play') return
@@ -104,6 +121,7 @@ export default function RhythmParty() {
       const clock = gameClock.now()
       if (!play.waiting) play.time += clock - play.lastClock
       play.lastClock = clock
+      Object.entries(play.holds).forEach(([lane, hold]) => { if (play.time >= hold.end) endHold(Number(lane), true) })
       const { backing, notes, duration } = play.chart
       play.openIndex = nextOpenNote(notes, play.results, play.openIndex)
       const open = notes[play.openIndex]
@@ -130,7 +148,7 @@ export default function RhythmParty() {
     }
     frame = gameClock.requestAnimationFrame(loop)
     return () => gameClock.cancelAnimationFrame(frame)
-  }, [screen, mode, finish])
+  }, [screen, mode, finish, endHold])
 
   const press = useCallback((lane) => {
     const play = playRef.current
@@ -155,9 +173,15 @@ export default function RhythmParty() {
     play.maxCombo = Math.max(play.maxCombo, play.combo)
     play.score += scoreFor(grade, play.combo)
     play.results = { ...play.results, [note.id]: grade }
-    audio().melody(note.midi, note.length)
+    const sound = audio().melody(note.midi, note.length)
+    if (note.hold) play.holds = { ...play.holds, [lane]: { id: note.id, end: note.time + note.length, sound } }
     setFeedback({ grade, id: note.id, lane })
   }, [screen, mode])
+
+  const release = useCallback((lane) => {
+    setPressed((old) => old.map((value, i) => (i === lane ? false : value)))
+    endHold(lane, false)
+  }, [endHold])
 
   const setLane = (lane, down) => setPressed((old) => old.map((value, i) => (i === lane ? down : value)))
 
@@ -167,7 +191,7 @@ export default function RhythmParty() {
       const lane = LANE_KEYS.indexOf(event.code)
       if (lane < 0 || event.ctrlKey || event.metaKey || event.altKey) return
       event.preventDefault()
-      if (event.type === 'keyup') { setLane(lane, false); return }
+      if (event.type === 'keyup') { release(lane); return }
       if (event.repeat) return
       setLane(lane, true)
       press(lane)
@@ -175,7 +199,7 @@ export default function RhythmParty() {
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKey)
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey) }
-  }, [screen, press])
+  }, [screen, press, release])
 
   const chooseMode = (id) => { setModeId(id); writeStorage(MODE_KEY, id) }
   const play = playRef.current
@@ -189,7 +213,7 @@ export default function RhythmParty() {
           <header className="rp-menu-head">
             <div className="rp-parade" aria-hidden="true">{['pikachu', 'mario', 'sonic', 'lloyd'].map((id) => <RhythmCharacter key={id} id={id} />)}</div>
             <h1>리듬 파티</h1>
-            <p>떨어지는 음표가 선에 닿을 때 건반을 눌러요! <b>PC</b> <kbd>C</kbd><kbd>V</kbd><kbd>B</kbd><kbd>N</kbd><kbd>M</kbd> · <b>모바일</b> 아래 건반 터치</p>
+            <p>떨어지는 음표가 선에 닿을 때 건반을 눌러요! <b>PC</b> <kbd>C</kbd><kbd>V</kbd><kbd>B</kbd><kbd>N</kbd><kbd>M</kbd> · <b>모바일</b> 아래 건반 터치 · 꼬리 달린 음표는 끝까지 꾹!</p>
             <div className="rp-modes" role="group" aria-label="난이도">
               {Object.entries(MODES).map(([id, item]) => <button key={id} aria-pressed={modeId === id} onClick={() => chooseMode(id)}>{item.label} · {item.hint}</button>)}
             </div>
@@ -225,10 +249,18 @@ export default function RhythmParty() {
               <div className="rp-hit-line" style={{ top: `${HIT_LINE * 100}%` }} />
               {play.chart.notes.map((note) => {
                 const ahead = note.time - time
-                if (ahead > mode.travel || ahead < -260 || ['perfect', 'good', 'late'].includes(play.results[note.id])) return null
-                const y = (1 - ahead / mode.travel) * HIT_LINE
-                return <div key={note.id} className={`rp-note${play.results[note.id] === 'miss' ? ' is-miss' : ''}`}
-                  style={{ top: `${y * 100}%`, left: `${note.lane * 20}%`, '--lane': LANE_COLORS[note.lane] }} />
+                const holding = play.holds[note.lane]?.id === note.id
+                const result = play.results[note.id]
+                if (ahead > mode.travel || (!holding && (ahead < -260 || (result && result !== 'miss')))) return null
+                const y = holding ? HIT_LINE : (1 - ahead / mode.travel) * HIT_LINE
+                const tail = note.hold && Math.max(0, (1 - (ahead + note.length) / mode.travel) * HIT_LINE)
+                const style = { left: `${note.lane * 20}%`, '--lane': LANE_COLORS[note.lane] }
+                return (
+                  <Fragment key={note.id}>
+                    {note.hold && <div className={`rp-tail${holding ? ' is-holding' : ''}${result === 'miss' ? ' is-miss' : ''}`} style={{ ...style, top: `${tail * 100}%`, height: `${(y - tail) * 100}%` }} />}
+                    <div className={`rp-note${note.hold ? ' is-hold' : ''}${holding ? ' is-holding' : ''}${result === 'miss' ? ' is-miss' : ''}`} style={{ ...style, top: `${y * 100}%` }} />
+                  </Fragment>
+                )
               })}
               {waitLane !== undefined && <div className="rp-wait" style={{ left: `clamp(64px, ${waitLane * 20 + 10}%, calc(100% - 64px))` }}>여기를 눌러요!</div>}
               {time < 0 && <div className="rp-count">{Math.ceil(-time / 1000) > 3 ? '준비!' : Math.ceil(-time / 1000) || '시작!'}</div>}
@@ -238,7 +270,7 @@ export default function RhythmParty() {
               {LANE_LABELS.map((label, lane) => (
                 <button key={label} className={`rp-pad${pressed[lane] ? ' is-down' : ''}${waitLane === lane ? ' is-target' : ''}`} style={{ '--lane': LANE_COLORS[lane] }} aria-label={`${lane + 1}번 건반 (${label})`}
                   onPointerDown={(event) => { event.preventDefault(); setLane(lane, true); press(lane) }}
-                  onPointerUp={() => setLane(lane, false)} onPointerCancel={() => setLane(lane, false)} onPointerLeave={() => setLane(lane, false)}>
+                  onPointerUp={() => release(lane)} onPointerCancel={() => release(lane)} onPointerLeave={() => release(lane)}>
                   {label}
                 </button>
               ))}
@@ -258,6 +290,7 @@ export default function RhythmParty() {
             <div><dt>최고</dt><dd>{result.perfect}</dd></div>
             <div><dt>좋아</dt><dd>{result.good}</dd></div>
             {modeId === 'kid' ? <div><dt>기다림</dt><dd>{result.late}</dd></div> : <div><dt>놓침</dt><dd>{result.miss}</dd></div>}
+            {result.holdTotal > 0 && <div><dt>길게</dt><dd>{result.held}/{result.holdTotal}</dd></div>}
             <div><dt>콤보</dt><dd>{result.maxCombo}</dd></div>
           </dl>
           <div className="rp-result-actions">
