@@ -108,3 +108,34 @@
 .tk-circuit-grid .is-source { border-color: #e2c187; }
 .tk-circuit-grid .is-exit { border-color: #9bbdb4; }
 .tk-circuit-port { position: absolute; top: 3px; left: 4px; padding: 1px 3px; color: #e7d2a1; background: #122129d9; font-size: 8px; pointer-events: none; }
+
+/* Exploration stays quiet; a discovery earns a short, unmistakable ceremony. */
+.tk-minimap[hidden] { display: none; }
+.tk-settings-options { display: grid; gap: 10px; margin: 20px 0; }
+.tk-settings-options button { text-align: left; padding: 13px 16px; min-height: 46px; border: 1px solid #baa47a50; background: #102229; font-size: 13px; }
+.tk-acquisition { position: absolute; z-index: 12; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff2ce; pointer-events: none; text-align: center; padding: 20px; animation: tk-acquisition-life 2.4s both; isolation: isolate; text-shadow: 0 2px 16px #09171f; }
+.tk-acquisition::before { content: ''; position: absolute; z-index: -1; width: min(730px, 100vw); height: 510px; background: radial-gradient(ellipse, #142832eb 4%, #10242bd0 25%, #13232b4d 52%, transparent 71%); }
+.tk-acquisition-rays { position: absolute; z-index: -2; width: min(850px, 120vw); aspect-ratio: 1; background: repeating-conic-gradient(from 0deg, transparent 0deg 14deg, #f4d28422 17deg 18deg, transparent 22deg 40deg); mask-image: radial-gradient(circle, transparent 8%, #000 23%, transparent 68%); animation: tk-acquisition-rays 2.4s ease-out both; }
+.tk-acquisition-emblem { position: relative; display: grid; place-items: center; width: 115px; height: 125px; margin-bottom: 13px; animation: tk-acquisition-impact .55s cubic-bezier(.15,.75,.25,1.2) both; }
+.tk-acquisition-emblem::before, .tk-acquisition-emblem::after { content: ''; position: absolute; width: 88px; height: 88px; border: 1px solid #f2d39980; transform: rotate(45deg); box-shadow: 0 0 38px #eaca7640, inset 0 0 25px #edce7120; }
+.tk-acquisition-emblem::after { width: 111px; height: 111px; border-color: #ebcb8530; transform: rotate(20deg); }
+.tk-acquisition-emblem .tk-star { width: 64px; height: 88px; filter: drop-shadow(0 0 17px #ffe8a8); }
+.tk-acquisition-label { display: flex; gap: 15px; align-items: center; font-size: 12px; letter-spacing: 3px; color: #e1c58e; animation: tk-acquisition-copy .5s .12s both; }
+.tk-acquisition-label::before, .tk-acquisition-label::after { content: ''; width: 65px; height: 1px; background: linear-gradient(90deg, transparent, #e3c68a); }
+.tk-acquisition-label::after { transform: rotate(180deg); }
+.tk-acquisition > strong { font-family: 'Iowan Old Style', 'AppleMyungjo', serif; font-weight: 400; font-size: clamp(24px, 3vw, 40px); line-height: 1.5; margin: 12px 0 7px; letter-spacing: 1px; animation: tk-acquisition-copy .5s .2s both; }
+.tk-acquisition-total { display: flex; gap: 18px; align-items: center; animation: tk-acquisition-copy .45s .27s both; }
+.tk-acquisition-total > b { font-size: 30px; font-weight: 400; color: #ffe5a2; }
+.tk-acquisition-total > span { font-size: 13px; color: #c3cfc8; border-left: 1px solid #e5ce963c; padding-left: 18px; }
+.tk-acquisition-total em { color: #fff0c4; font-style: normal; font-size: 21px; padding: 0 3px; }
+.tk-acquisition > small { font-size: 10px; color: #afc0b5; margin-top: 14px; letter-spacing: .5px; animation: tk-acquisition-copy .5s .35s both; }
+.tk-acquisition-guardian, .tk-acquisition-chapter, .tk-acquisition-kingdom { animation-duration: 3.1s; }
+.tk-acquisition-guardian .tk-acquisition-emblem, .tk-acquisition-kingdom .tk-acquisition-emblem { transform: scale(1.15); }
+.tk-acquisition-guardian::before, .tk-acquisition-kingdom::before { background: radial-gradient(ellipse, #263337f2, #13242be0 27%, #b28b3d23 49%, transparent 72%); }
+@keyframes tk-acquisition-life { 0% { opacity: 0; } 8%, 78% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes tk-acquisition-impact { 0% { opacity: 0; transform: scale(.2) translateY(22px); filter: brightness(3); } 60% { opacity: 1; transform: scale(1.13); filter: brightness(1.5); } 100% { opacity: 1; transform: scale(1); filter: brightness(1); } }
+@keyframes tk-acquisition-copy { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes tk-acquisition-rays { from { opacity: 0; transform: scale(.45) rotate(-20deg); } 20% { opacity: 1; } to { opacity: 0; transform: scale(1.25) rotate(25deg); } }
+@media (max-width: 600px) { .tk-acquisition { padding-bottom: 100px; }.tk-acquisition-emblem { width: 90px; height: 100px; }.tk-acquisition-emblem .tk-star { width: 48px; height: 68px; }.tk-acquisition-emblem::before { width: 68px; height: 68px; }.tk-acquisition-emblem::after { width: 87px; height: 87px; }.tk-acquisition-label { font-size: 10px; letter-spacing: 2px; gap: 10px; }.tk-acquisition-label::before, .tk-acquisition-label::after { width: 35px; }.tk-acquisition > strong { font-size: 26px; margin-top: 13px; }.tk-acquisition-total > b { font-size: 25px; } }
+@media (max-height: 500px) and (min-width: 600px) { .tk-acquisition-emblem { width: 70px; height: 72px; margin-bottom: 10px; }.tk-acquisition-emblem .tk-star { width: 37px; height: 53px; }.tk-acquisition-emblem::before { width: 50px; height: 50px; }.tk-acquisition-emblem::after { width: 68px; height: 68px; }.tk-acquisition > strong { font-size: 26px; margin-block: 8px 0; }.tk-acquisition > small { margin-top: 5px; } }
+@media (prefers-reduced-motion: reduce) { .tk-acquisition { animation: none; }.tk-acquisition-rays { display: none; }.tk-acquisition-emblem, .tk-acquisition-label, .tk-acquisition > strong, .tk-acquisition-total, .tk-acquisition > small { animation: none; }.tk-acquisition-emblem .tk-star { filter: none; } }

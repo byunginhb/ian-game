@@ -25,15 +25,26 @@ export function createTreasureAudio() {
     setWorld(value) { worldId = value; tones.forEach((oscillator, index) => oscillator.frequency.setTargetAtTime([98, 110, 130.81, 146.83][worldId] * (index ? 1.5 : 1), context.currentTime, 1)) },
     setEnabled(value) { enabled = value; updateVolume() },
     setPaused(value) { paused = value; updateVolume() },
-    play(kind = 'collect') {
+    play(kind = 'collect', tier = 'relic') {
       if (!enabled || paused || !context || context.state !== 'running' || !master) return
-      const notes = kind === 'hit' ? [220, 294] : kind === 'deposit' ? [196, 294, 392, 587] : [440, 660]
+      const collectible = kind === 'collect'
+      const notes = kind === 'hit' ? [220, 294] : kind === 'deposit' ? [196, 294, 392, 587] : tier === 'relic' ? [523.25, 659.25, 783.99, 1046.5, 1567.98] : [392, 523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98]
+      if (collectible) {
+        const impact = context.createOscillator(), envelope = context.createGain()
+        impact.frequency.setValueAtTime(105, context.currentTime); impact.frequency.exponentialRampToValueAtTime(45, context.currentTime + .2)
+        envelope.gain.setValueAtTime(.16, context.currentTime); envelope.gain.exponentialRampToValueAtTime(.001, context.currentTime + .24)
+        impact.connect(envelope); envelope.connect(master); impact.start(); impact.stop(context.currentTime + .25)
+        impact.onended = () => { impact.disconnect(); envelope.disconnect() }
+      }
       notes.forEach((frequency, index) => {
-        const oscillator = context.createOscillator(), gain = context.createGain(), start = context.currentTime + index * .11
-        oscillator.type = 'triangle'; oscillator.frequency.value = frequency
-        gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(.07, start + .008); gain.gain.exponentialRampToValueAtTime(.001, start + .48)
-        oscillator.connect(gain); gain.connect(master); oscillator.start(start); oscillator.stop(start + .5)
-        oscillator.onended = () => { oscillator.disconnect(); gain.disconnect() }
+        const oscillator = context.createOscillator(), gain = context.createGain(), start = context.currentTime + index * (collectible ? .065 : .11)
+        oscillator.type = collectible ? 'sine' : 'triangle'; oscillator.frequency.value = frequency
+        gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(collectible ? .11 : .07, start + .008); gain.gain.exponentialRampToValueAtTime(.001, start + (collectible ? .85 : .48))
+        oscillator.connect(gain)
+        const pan = collectible && context.createStereoPanner ? context.createStereoPanner() : null
+        if (pan) { pan.pan.value = (index % 2 ? 1 : -1) * .35; gain.connect(pan); pan.connect(master) } else gain.connect(master)
+        oscillator.start(start); oscillator.stop(start + (collectible ? .9 : .5))
+        oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); pan?.disconnect() }
       })
     },
     destroy() { wind?.stop(); tones.forEach((tone) => tone.stop()); context?.close().catch(() => {}); context = null; master = null; wind = null; tones = [] },

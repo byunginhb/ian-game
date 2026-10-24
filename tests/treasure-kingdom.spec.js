@@ -32,6 +32,9 @@ test('fullscreen exploration, actual input, immediate save, restoration and relo
   } else {
     await page.keyboard.down('ArrowRight'); await expect.poll(async () => (await readSave(page))?.collected).toContain('0-0'); await page.keyboard.up('ArrowRight')
   }
+  await expect(page.locator('.tk-acquisition')).toContainText(treasuresFor(0)[0].name)
+  await expect(page.locator('.tk-acquisition')).toContainText('+1')
+  await page.screenshot({ path: testInfo.outputPath('treasure-acquisition.png'), fullPage: true })
   await page.getByRole('button', { name: '점프', exact: true }).click()
   await expect(page.locator('.game-content')).toBeFocused()
   const position = Number(await page.locator('.tk-player-dot').getAttribute('cx'))
@@ -77,6 +80,7 @@ for (const index of [3, 11, 17, 23]) {
     if (puzzle.mode === 'route') for (const cell of [1, 5, 9, 13, 14, 15]) await page.locator('.tk-route-grid button').nth(cell).click()
     if (puzzle.mode !== 'sequence') await page.getByRole('button', { name: '장치 가동', exact: true }).click()
     await expect.poll(async () => (await readSave(page)).collected).toContain(item.id)
+    await expect(page.locator('.tk-acquisition')).toContainText(item.name)
     await page.reload(); expect((await readSave(page)).collected).toContain(item.id)
   })
 }
@@ -147,6 +151,26 @@ test('guardian telegraphs, exposes its core, escalates and can be defeated', asy
     if (hit < 3) await expect(page.getByRole('progressbar', { name: '수호자 체력' })).toHaveAttribute('aria-valuenow', String(3 - hit))
   }
   await expect.poll(async () => (await readSave(page)).collected).toContain('0-12')
+  await expect(page.locator('.tk-acquisition-guardian')).toContainText(boss.name)
+})
+
+test('acquisition stays readable during pause and settings preserve dialog focus', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await openGame(page); await enter(page)
+  await page.keyboard.down('ArrowRight')
+  await expect(page.locator('.tk-acquisition')).toBeVisible()
+  await page.keyboard.up('ArrowRight')
+  await page.getByRole('button', { name: '게임 일시정지' }).click()
+  await page.waitForTimeout(2500)
+  await expect(page.locator('.tk-acquisition')).toBeAttached()
+  await page.getByRole('button', { name: /계속하기/ }).click()
+  await expect(page.locator('.tk-acquisition')).toHaveCount(0, { timeout: 4000 })
+  await page.getByRole('button', { name: '탐사 설정', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeFocused()
+  await page.getByRole('button', { name: '소리 끄기', exact: true }).click()
+  await expect(page.getByRole('button', { name: '소리 켜기', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '닫기', exact: true }).click()
+  await expect(page.locator('.game-content')).toBeFocused()
 })
 
 test('the last returned record restores the kingdom and preserves the ending', async ({ page }, testInfo) => {

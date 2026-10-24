@@ -1,0 +1,64 @@
+{
+  "verifiedAt": "2026-10-24T16:11:30.108588+00:00",
+  "target": "local production preview at 127.0.0.1:4173",
+  "unitTestsPassed": 64,
+  "browserCasesPassed": 105,
+  "browserRuns": {
+    "initial": {
+      "passed": 100,
+      "failed": 5
+    },
+    "guardianRetest": {
+      "passed": 5,
+      "failed": 0,
+      "workers": 1
+    },
+    "notes": "Four guardian assertions used a mistyped CSS selector, corrected. Desktop guardian timed out under concurrent rendering; isolated rerun passed."
+  },
+  "checks": [
+    "lint",
+    "unit tests",
+    "production build",
+    "git diff --check",
+    "real input and immediate save",
+    "puzzle reward",
+    "guardian reward",
+    "map focus",
+    "settings dialog focus",
+    "pause preserves reward",
+    "reduced motion"
+  ],
+  "productionVisuals": [
+    {
+      "viewport": "390x844 WebKit",
+      "file": "mobile-acquisition.jpg",
+      "pageErrors": []
+    },
+    {
+      "viewport": "320x568 WebKit",
+      "file": "/tmp/ian-reward-compact.png",
+      "pageErrors": []
+    },
+    {
+      "viewport": "1440x1000 Chromium reduced motion",
+      "file": "/tmp/ian-reward-reduced.png",
+      "pageErrors": []
+    }
+  ],
+  "screenshots": [
+    "exploration-subtle.jpg",
+    "treasure-acquisition.jpg",
+    "mobile-acquisition.jpg"
+  ],
+  "limitations": [
+    "Browser device emulation, not physical phone testing",
+    "Existing Phaser chunk size warning remains"
+  ],
+  "finalDiscovery": {
+    "startCount": 99,
+    "savedCount": 100,
+    "tier": "kingdom",
+    "counter": "100 / 100",
+    "automaticallyDismissed": true
+  }
+}

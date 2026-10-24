@@ -43,7 +43,7 @@ export function mountTreasureScene(host, worldId, bridge) {
       scene = this
       if (['terrain', 'props', 'hero', 'actors'].some((key) => !this.textures.exists(key))) { bridge.onError?.(); return }
       this.simulation = createExpedition(worldId, bridge.progress)
-      this.elapsedUI = 0; this.scenery = []; this.treasureViews = new Map(); this.questViews = new Map(); this.particles = []
+      this.elapsedUI = 0; this.scenery = []; this.treasureViews = new Map(); this.questViews = new Map(); this.particles = []; this.rewardFX = []; this.impact = 0; this.hitStop = 0
       for (const key of ['props', 'actors']) atlasFrames(this, key, 4, 3)
       this.heroKey = atlasFrames(this, 'hero', 4, 2, true)
       const terrain = this.textures.get('terrain'), source = terrain.getSourceImage()
@@ -65,6 +65,12 @@ export function mountTreasureScene(host, worldId, bridge) {
       this.cameras.main.setBounds(0, 0, MAP.width, MAP.height).startFollow(this.cameraTarget, true, .13, .13)
       this.warning = this.add.graphics().setDepth(9000)
       this.scanRing = this.add.graphics().setDepth(9001)
+      bridge.setHandlers({ celebrate: ({ tier = 'relic' } = {}) => {
+        this.burst(this.simulation.player.x, this.simulation.player.y - 42, tier)
+        this.impact = reducedMotion ? 0 : 1
+        this.hitStop = reducedMotion ? 0 : .1
+        if (!reducedMotion) this.cameras.main.flash(tier === 'guardian' ? 180 : 100, 242, 221, 167, false)
+      } })
       this.motes = Array.from({ length: 36 }, (_, i) => this.add.circle((i * 193 + 44) % MAP.width, (i * 109 + 80) % MAP.height, i % 3 === 0 ? 1.8 : .9, worldId === 2 ? 0xa8badb : 0xd6c89f, .4).setDepth(8000))
       this.input.on('pointerdown', (pointer) => {
         if (bridge.blocked || gameClock.isPaused()) return
@@ -76,7 +82,10 @@ export function mountTreasureScene(host, worldId, bridge) {
       this.resize(); bridge.ready = true; bridge.onReady()
     }
     makeEffects() {
-      this.textures.addCanvas('relic', createArtCanvas(drawRelic))
+      this.textures.addCanvas('relic', createArtCanvas((ctx) => drawRelic(ctx, worldId), 64, 64))
+      this.textures.addCanvas('glint', createArtCanvas((ctx) => {
+        ctx.strokeStyle = '#eee4c8'; ctx.lineWidth = .9; ctx.beginPath(); ctx.moveTo(-3, -4); ctx.lineTo(3, -4); ctx.moveTo(0, -7); ctx.lineTo(0, -1); ctx.stroke()
+      }, 20, 20))
       this.textures.addCanvas('tablet', createArtCanvas(drawTablet, 64, 70))
       const light = document.createElement('canvas'); light.width = light.height = 200
       const ctx = light.getContext('2d'), gradient = ctx.createRadialGradient(100, 100, 0, 100, 100, 100)
@@ -97,15 +106,20 @@ export function mountTreasureScene(host, worldId, bridge) {
       }
       this.prop(MAP.spawn.x - 75, MAP.spawn.y - 30, 11, 82)
       for (const item of items) {
-        let object, relic
+        let object, relic, glint
         if (item.type === 'puzzle') object = this.prop(item.x, item.y + 3, 4 + worldId, 135)
-        if (item.type === 'hidden') object = this.prop(item.x, item.y + 3, 8, 60)
-        if (item.type === 'jump') object = this.prop(item.x, item.y + 8, 10, 90)
+        if (item.type === 'hidden') object = this.prop(item.x, item.y + 3, 8, 47)
+        if (item.type === 'explore') object = this.prop(item.x + 8, item.y + 3, 8, 33 + item.index % 3 * 3)
+        if (item.type === 'jump') object = this.prop(item.x, item.y + 8, 8, 62)
         if (item.type === 'friend') object = this.prop(item.x, item.y, 8 + item.contactIndex, 90, 'actors')
         if (item.type === 'boss') object = this.prop(item.x, item.y, (item.index === 24 ? 4 : 0) + worldId, item.index === 24 ? 206 : 164, 'actors')
-        if (['explore', 'hidden', 'jump'].includes(item.type)) relic = this.add.image(item.x, item.y - (item.type === 'jump' ? 90 : 20), 'relic').setOrigin(.5, .9).setDepth(item.y + 2).setScale(.7)
-        const marker = this.add.text(item.x, item.y - (item.type === 'boss' ? 220 : 145), '◇', { fontSize: '20px', color: '#e5c88c', stroke: '#142329', strokeThickness: 3 }).setOrigin(.5).setDepth(item.y + 3)
-        this.treasureViews.set(item.id, { item, object, relic, marker })
+        if (['explore', 'hidden', 'jump'].includes(item.type)) {
+          const offsetX = item.type === 'hidden' ? -25 : item.type === 'jump' ? -17 : -10
+          const offsetY = item.type === 'jump' ? -44 : -2
+          relic = this.add.image(item.x + offsetX, item.y + offsetY, 'relic').setOrigin(.5, 52 / 64).setDepth(item.y - 2).setScale(.88).setRotation((item.index % 3 - 1) * .13)
+          glint = this.add.image(item.x + offsetX, item.y + offsetY - 17, 'glint').setOrigin(.5, .4).setDepth(item.y + 4).setVisible(false)
+        }
+        this.treasureViews.set(item.id, { item, object, relic, glint })
         if (item.type === 'friend') for (const target of item.targets) {
           const sprite = this.add.image(target.x, target.y - 5, 'tablet').setOrigin(.5, 1).setScale(.9).setDepth(target.y + 1).setVisible(false)
           const glow = this.add.image(target.x, target.y - 15, 'glow').setScale(.32).setBlendMode(Phaser.BlendModes.ADD).setVisible(false)
@@ -117,16 +131,18 @@ export function mountTreasureScene(host, worldId, bridge) {
       if (!this.cameras?.main) return
       const { width, height } = host.getBoundingClientRect()
       this.scale.resize(Math.max(1, width), Math.max(1, height))
-      this.cameras.main.setZoom(width < 600 ? .96 : Math.max(.94, Math.min(1.2, width / 1250)))
+      this.baseZoom = width < 600 ? .96 : Math.max(.94, Math.min(1.2, width / 1250))
+      this.cameras.main.setZoom(this.baseZoom)
     }
     update(_stamp, delta) {
       if (!this.simulation || destroyed) return
       if (bridge.blocked || gameClock.isPaused()) { bridge.resetInput(); return }
-      const result = stepExpedition(this.simulation, bridge.input, delta / 1000, bridge.progress)
+      const fxDelta = Math.min(delta / 1000, .045)
+      this.hitStop = Math.max(0, this.hitStop - fxDelta)
+      const result = this.hitStop > 0 ? { state: this.simulation, events: [] } : stepExpedition(this.simulation, bridge.input, delta / 1000, bridge.progress)
       this.simulation = result.state
       for (const event of result.events) {
         if (event.type === 'arrived') bridge.input.target = bridge.input.path?.shift() || null
-        if (event.type === 'collect') this.burst(this.simulation.player.x, this.simulation.player.y - 40)
         if (event.type === 'hurt' && !reducedMotion) this.cameras.main.shake(130, .003)
         bridge.onEvent(event)
       }
@@ -139,10 +155,18 @@ export function mountTreasureScene(host, worldId, bridge) {
       this.shadow.setPosition(player.x, player.y + 1).setScale(1 - jumpHeight / 200).setDepth(player.y - 1)
       this.lantern.setPosition(player.x + player.facing * 16, player.y - 38 - jumpHeight).setDepth(player.y + 5)
       this.cameraTarget.setPosition(player.x, player.y - 45)
-      for (const { item, object, relic, marker } of this.treasureViews.values()) {
+      for (const { item, object, relic, glint } of this.treasureViews.values()) {
         const found = bridge.progress.collected.includes(item.id), distance = Math.hypot(item.x - player.x, item.y - player.y)
-        if (relic) { relic.setVisible(!found && (item.type !== 'hidden' || bridge.progress.revealed.includes(item.id))); relic.y = item.y - (item.type === 'jump' ? 90 : 20) + (reducedMotion ? 0 : Math.sin(time * 2 + item.index) * 4) }
-        marker.setVisible(!found && distance < 215 && ['puzzle', 'friend', 'boss'].includes(item.type) && !boss)
+        if (relic) {
+          const proximity = Math.max(0, 1 - distance / 200)
+          const scanned = scan > 0 && distance < 210
+          const known = item.type !== 'hidden' || bridge.progress.revealed.includes(item.id)
+          relic.setVisible(!found).setAlpha(scanned ? .98 : (known ? .61 : .41) + proximity * .23)
+          relic.setTint(scanned ? 0xe5dcc0 : 0xb8c0ad)
+          const phase = (time + item.index * .73) % 4.8
+          const glimmer = scanned ? .65 : !reducedMotion && distance < 185 && phase < .65 ? Math.sin(phase / .65 * Math.PI) * .58 : 0
+          glint.setVisible(!found && glimmer > 0).setAlpha(glimmer)
+        }
         if (object && item.type === 'boss') {
           object.setAlpha(found ? .24 : 1)
           if (boss?.id === item.id) { object.setTint(boss.phase === 'vulnerable' ? 0xa5d5db : 0xffffff); object.rotation = boss.phase === 'attack' && !reducedMotion ? Math.sin(time * 45) * .025 : 0 }
@@ -158,7 +182,9 @@ export function mountTreasureScene(host, worldId, bridge) {
       this.scanRing.clear()
       if (scan > 1.8) { this.scanRing.lineStyle(2, 0xbcd7cc, (scan - 1.8) / .7 * .55).strokeEllipse(player.x, player.y, (2.5 - scan) / .7 * 420, (2.5 - scan) / .7 * 300) }
       if (!reducedMotion) this.motes.forEach((mote, i) => { mote.x = ((i * 193 + time * (i % 2 ? 5 : -3)) % MAP.width + MAP.width) % MAP.width; mote.y = (i * 109 + 80 + Math.sin(time * .35 + i) * 18) % MAP.height; mote.alpha = .15 + Math.sin(time + i) ** 2 * .35 })
-      this.updateParticles(delta / 1000)
+      this.updateParticles(fxDelta)
+      this.impact = Math.max(0, this.impact - fxDelta * 2.7)
+      this.cameras.main.setZoom(this.baseZoom * (1 + Math.sin(this.impact * Math.PI) * .022))
       this.elapsedUI += delta
       if (this.elapsedUI >= 100) { this.elapsedUI = 0; bridge.onContext({ nearest: this.simulation.nearest, boss: boss ? { ...boss } : null, position: { x: player.x, y: player.y }, hp: player.hp, stamina: player.stamina, scan, jumping: player.jump > 0 }) }
     }
@@ -195,15 +221,39 @@ export function mountTreasureScene(host, worldId, bridge) {
         if (hazard.active || hazard.warning) { this.warning.fillStyle(hazard.active ? 0x9bbfc0 : 0xc2a879, hazard.active ? .3 : .1); this.warning.lineStyle(1, 0xd6c19a, .6); this.warning.fillEllipse(hazard.x, hazard.y, hazard.rx * 2, hazard.ry * 2); this.warning.strokeEllipse(hazard.x, hazard.y, hazard.rx * 2, hazard.ry * 2) }
       }
     }
-    burst(x, y) {
+    burst(x, y, tier) {
+      const major = tier !== 'relic'
+      const colors = [0xffedba, 0xe6bf70, 0xc2e9e3, 0xffffff]
+      const glow = this.add.image(x, y, 'glow').setBlendMode(Phaser.BlendModes.ADD).setDepth(10000).setScale(reducedMotion ? .65 : .3)
+      this.rewardFX.push({ object: glow, life: reducedMotion ? .65 : 1.25, total: reducedMotion ? .65 : 1.25, kind: 'glow', x, y, major })
       if (reducedMotion) return
-      for (let i = 0; i < 14; i++) { const dot = this.add.circle(x, y, i % 3 ? 1.2 : 2, 0xf1dab0).setBlendMode(Phaser.BlendModes.ADD).setDepth(10003), angle = i * Math.PI * 2 / 14; this.particles.push({ dot, vx: Math.cos(angle) * 85, vy: Math.sin(angle) * 70, life: .85 }) }
+      for (let i = 0; i < (major ? 100 : 64); i++) {
+        const angle = i * 2.399963, speed = 75 + (i * 47 % 215)
+        const dot = i % 3 === 0 ? this.add.polygon(x, y, [0, -7, 3, 0, 0, 7, -3, 0], colors[i % 4]) : this.add.circle(x, y, i % 5 === 0 ? 2.5 : 1.4, colors[i % 4])
+        dot.setBlendMode(Phaser.BlendModes.ADD).setDepth(10003)
+        this.particles.push({ dot, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed * .7 - 35, life: .8 + i % 7 * .12, total: .8 + i % 7 * .12 })
+      }
+      for (let i = 0; i < 3; i++) {
+        const ring = this.add.ellipse(x, y + 25, 30, 15).setStrokeStyle(i === 0 ? 3 : 1.5, colors[i], .9).setDepth(10001).setBlendMode(Phaser.BlendModes.ADD)
+        this.rewardFX.push({ object: ring, life: 1.05 + i * .14, total: 1.05 + i * .14, kind: 'ring', x, y, major })
+      }
+      const beam = this.add.rectangle(x, y - 75, 5, 230, 0xffedba, .6).setBlendMode(Phaser.BlendModes.ADD).setDepth(10002)
+      this.rewardFX.push({ object: beam, life: .5, total: .5, kind: 'beam', x, y, major })
     }
     updateParticles(delta) {
-      this.particles = this.particles.filter((particle) => { particle.life -= delta; if (particle.life <= 0) { particle.dot.destroy(); return false } particle.dot.x += particle.vx * delta; particle.dot.y += particle.vy * delta; particle.dot.alpha = particle.life / .85; return true })
+      this.particles = this.particles.filter((particle) => { particle.life -= delta; if (particle.life <= 0) { particle.dot.destroy(); return false } particle.dot.x += particle.vx * delta; particle.dot.y += particle.vy * delta; particle.vy += 70 * delta; particle.dot.rotation += delta * 2; particle.dot.alpha = Math.min(1, particle.life / .5); return true })
+      this.rewardFX = this.rewardFX.filter((effect) => {
+        effect.life -= delta
+        if (effect.life <= 0) { effect.object.destroy(); return false }
+        const age = 1 - effect.life / effect.total
+        if (effect.kind === 'ring') effect.object.setScale(1 + age * (effect.major ? 17 : 12)).setAlpha((1 - age) ** 2)
+        if (effect.kind === 'glow') effect.object.setScale(.4 + age * (effect.major ? 2.6 : 1.8)).setAlpha((1 - age) * .85)
+        if (effect.kind === 'beam') effect.object.setScale(1 + age * 5, 1 + age * .4).setAlpha((1 - age) ** 2 * .65)
+        return true
+      })
     }
   }
   const game = new Phaser.Game({ type: Phaser.AUTO, parent: host, width: host.clientWidth, height: host.clientHeight, backgroundColor: '#14232b', scene: ExpeditionScene, antialias: true, banner: false, audio: { noAudio: true }, input: { keyboard: false, touch: { capture: false } }, fps: { target: 60 }, callbacks: { postBoot: () => game.canvas.setAttribute('aria-label', `${world.name} 탐사 지도. 방향키 이동, 스페이스 도약, 시프트 회피, E 조사.`) } })
   const observer = new ResizeObserver(() => scene?.resize()); observer.observe(host)
-  return { checkpoint() { const player = scene?.simulation?.player; if (player) bridge.onEvent({ type: 'position', position: { x: player.x, y: player.y } }) }, destroy() { destroyed = true; observer.disconnect(); bridge.resetInput(); bridge.ready = false; game.destroy(true) } }
+  return { checkpoint() { const player = scene?.simulation?.player; if (player) bridge.onEvent({ type: 'position', position: { x: player.x, y: player.y } }) }, destroy() { destroyed = true; observer.disconnect(); bridge.resetInput(); bridge.setHandlers({ celebrate: null }); bridge.ready = false; game.destroy(true) } }
 }
