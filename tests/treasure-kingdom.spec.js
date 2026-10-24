@@ -98,13 +98,16 @@ test('scan and jump discover hidden and elevated records', async ({ page }) => {
   await expect.poll(async () => (await readSave(page)).collected).toContain(hidden.id)
 })
 
-test('elevated records require a real jump and trackpad-style destination clicks move the explorer', async ({ page }) => {
+test('elevated records require a real jump and trackpad-style destination clicks move the explorer', async ({ page }, testInfo) => {
   const item = treasuresFor(0)[5]
   await openGame(page, { ...emptyProgress(), positions: { 0: { x: item.x, y: item.y } } })
   await enter(page)
   expect((await readSave(page))?.collected || []).not.toContain(item.id)
+  await expect(page.locator('.tk-jump-cue')).toContainText('점프!')
+  await page.screenshot({ path: testInfo.outputPath('jump-instruction.png') })
   await page.getByRole('button', { name: '점프', exact: true }).click()
   await expect.poll(async () => (await readSave(page)).collected).toContain(item.id)
+  await expect(page.locator('.tk-jump-cue')).toHaveCount(0)
   const before = { x: Number(await page.locator('.tk-player-dot').getAttribute('cx')), y: Number(await page.locator('.tk-player-dot').getAttribute('cy')) }
   const canvas = page.locator('.tk-canvas-host canvas'), box = await canvas.boundingBox()
   await canvas.click({ position: { x: box.width * .67, y: box.height * .45 } })
@@ -147,11 +150,15 @@ test('guardian telegraphs, exposes its core, escalates and can be defeated', asy
   await page.getByRole('button', { name: '봉인 해제', exact: true }).click()
   await expect(page.locator('.tk-boss-prompt')).toContainText('경고 영역')
   await page.screenshot({ path: testInfo.outputPath('boss-warning.png') })
-  // The inside of the radial attack is safe; the charge still costs health if not dodged.
-  for (let hit = 0; hit < 4; hit++) {
-    const attack = page.getByRole('button', { name: '코어 공격', exact: true })
-    await expect(attack).toBeEnabled({ timeout: 6000 }); await attack.click()
-    if (hit < 3) await expect(page.getByRole('progressbar', { name: '수호자 체력' })).toHaveAttribute('aria-valuenow', String(3 - hit))
+  await expect(page.getByRole('button', { name: '점프', exact: true })).toHaveCount(0)
+  const missile = page.getByRole('button', { name: '미사일', exact: true })
+  for (let volley = 0; volley < 3; volley++) {
+    if ((await readSave(page)).collected.includes('0-12')) break
+    const before = Number(await page.getByRole('progressbar', { name: '수호자 체력' }).getAttribute('aria-valuenow'))
+    await missile.focus(); await page.keyboard.down('Space')
+    await expect.poll(async () => Number(await page.getByRole('progressbar', { name: '수호자 체력' }).getAttribute('aria-valuenow')), { timeout: 6000 }).toBeLessThan(before)
+    await page.keyboard.up('Space')
+    await page.waitForTimeout(300)
   }
   await expect.poll(async () => (await readSave(page)).collected).toContain('0-12')
   await expect(page.locator('.tk-acquisition-guardian')).toContainText(boss.name)

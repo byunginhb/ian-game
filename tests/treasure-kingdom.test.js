@@ -8,18 +8,15 @@ function applyEvents(progress, events) { return events.reduce((next, event) => [
 function defeatBoss(item, progress) {
   let state = tickAt(item, progress, { interact: true }).state, result
   assert.ok(state.boss)
-  const hp = state.boss.maxHp
-  for (let hits = 0; hits < hp; hits++) {
-    // Simulate a correctly timed jump through each telegraphed attack.
-    state = stepExpedition({ ...state, boss: { ...state.boss, timer: .001 }, player: { ...state.player, jump: .4 } }, {}, .016, progress).state
-    assert.equal(state.boss.phase, 'attack')
-    state = stepExpedition({ ...state, boss: { ...state.boss, timer: .001 } }, {}, .016, progress).state
-    assert.equal(state.boss.phase, 'vulnerable')
-    result = stepExpedition({ ...state, cooldown: 0 }, { interact: true }, .016, progress)
-    state = result.state
+  const events = []
+  for (let frame = 0; state.boss && frame < 1800; frame++) {
+    state = { ...state, player: { ...state.player, invulnerable: 999 } }
+    result = stepExpedition(state, { jump: frame % 82 < 74 }, .02, progress)
+    state = result.state; events.push(...result.events)
   }
   assert.equal(state.boss, null)
-  return result
+  return { state, events }
+
 }
 
 test('four ordered worlds have 100 unique reachable treasures, 48 mission fragments and eight guardians', () => {
@@ -282,4 +279,51 @@ test('zero-time pointer frames never corrupt the player coordinates', () => {
   const next = stepExpedition(state, { target: { x: state.player.x, y: state.player.y } }, 0, emptyProgress()).state
   assert.equal(Number.isFinite(next.player.x) && Number.isFinite(next.player.y), true)
   assert.deepEqual({ x: next.player.x, y: next.player.y }, MAP.spawn)
+})
+
+function combatState() {
+  const item = treasuresFor(0)[12], progress = { ...emptyProgress(), collected: treasuresFor(0).slice(0, 8).map((value) => value.id) }
+  const state = tickAt(item, progress, { interact: true }).state
+  return { state: { ...state, player: { ...state.player, x: item.x + 190, invulnerable: 999 } }, progress }
+}
+
+test('a short Space press launches a real automatically targeted missile without jumping', () => {
+  const { state, progress } = combatState()
+  let result = stepExpedition(state, { jump: true }, .04, progress)
+  assert.equal(result.state.player.jump, 0)
+  assert.equal(result.state.missiles.length, 0)
+  result = stepExpedition(result.state, {}, .04, progress)
+  assert.equal(result.state.missiles.length, 1)
+  assert.equal(result.state.missiles[0].targetId, state.boss.id)
+  assert.equal(result.state.missiles[0].charged, false)
+  const initial = result.state.missiles[0].x
+  result = stepExpedition(result.state, {}, .04, progress)
+  assert.ok(result.state.missiles[0].x < initial)
+  for (let i = 0; i < 30 && !result.events.some((event) => event.type === 'missileImpact'); i++) result = stepExpedition(result.state, {}, .04, progress)
+  assert.equal(result.state.boss.hp, state.boss.hp - 1)
+})
+
+test('holding Space charges one special until release, cancelled input never fires', () => {
+  const { state, progress } = combatState()
+  let current = state, launches = []
+  for (let i = 0; i < 100; i++) { const r = stepExpedition(current, { jump: true }, .04, progress); current = r.state; launches.push(...r.events.filter((event) => event.type === 'missileLaunch')) }
+  assert.equal(launches.length, 1); assert.equal(launches[0].charged, true)
+  assert.ok(current.boss.hp <= state.boss.hp - 5)
+  let charging = stepExpedition(state, { jump: true }, .04, progress).state
+  charging = stepExpedition(charging, { cancelShot: true }, .04, progress).state
+  assert.equal(stepExpedition(charging, {}, .04, progress).state.missiles.length, 0)
+})
+
+test('defeat saves the record immediately and emits exactly one landing impact before removing the guardian', () => {
+  const { state, progress } = combatState()
+  let current = { ...state, boss: { ...state.boss, hp: 1 }, missiles: [{ id: 1, x: state.boss.x, y: state.boss.y - 65, targetId: state.boss.id, charged: false, age: 0 }] }
+  let result = stepExpedition(current, {}, .04, progress)
+  assert.equal(result.state.boss.phase, 'defeated')
+  assert.ok(result.events.some((event) => event.type === 'collect' && event.id === state.boss.id))
+  assert.equal(result.events.some((event) => event.type === 'bossFall'), false)
+  const saved = applyEvents(progress, result.events), impacts = []
+  current = result.state
+  for (let i = 0; i < 60; i++) { result = stepExpedition(current, {}, .04, saved); current = result.state; impacts.push(...result.events.filter((event) => event.type === 'bossFall')) }
+  assert.equal(impacts.length, 1); assert.equal(current.boss, null)
+  assert.ok(saved.collected.includes(state.boss.id))
 })

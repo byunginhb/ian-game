@@ -63,7 +63,7 @@ export const BOSS_PATTERNS = [['ring', 'charge'], ['cone', 'orbs'], ['cross', 'r
 export function createExpedition(worldId, progress) {
   const saved = progress.positions[worldId] || MAP.spawn
   const position = canWalk(saved, worldId) ? saved : nearestWalkPoint(saved, worldId)
-  return { worldId, player: { ...position, jump: 0, facing: 1, hp: 4, stamina: 100, dash: 0, invulnerable: 1.5 }, time: 0, boss: null, cooldown: 0, scan: 0, checkpoint: 0, nearest: null, moving: false, heartTimers: {} }
+  return { worldId, player: { ...position, jump: 0, facing: 1, hp: 4, stamina: 100, dash: 0, invulnerable: 1.5 }, time: 0, boss: null, cooldown: 0, scan: 0, checkpoint: 0, nearest: null, moving: false, heartTimers: {}, missiles: [], weapon: { charge: 0, held: false, latched: false, cooldown: 0 }, shotSequence: 0 }
 }
 export function bossZones(boss) {
   const angle = boss.angle || 0
@@ -136,6 +136,9 @@ export function stepExpedition(state, input, delta, progress) {
   const dt = Math.min(Math.max(delta, 0), .045), time = state.time + dt
   const events = []
   let player = { ...state.player }, boss = state.boss ? { ...state.boss } : null
+  let missiles = (state.missiles || []).map((missile) => ({ ...missile })), shotSequence = state.shotSequence || 0
+  let weapon = { charge: 0, held: false, latched: false, cooldown: 0, ...state.weapon }
+  weapon.cooldown = Math.max(0, weapon.cooldown - dt)
   let cooldown = Math.max(0, state.cooldown - dt), scan = Math.max(0, state.scan - dt)
   player.jump = Math.max(0, player.jump - dt)
   player.dash = Math.max(0, player.dash - dt)
@@ -152,7 +155,7 @@ export function stepExpedition(state, input, delta, progress) {
   const magnitude = Math.hypot(dx, dy)
   if (magnitude) { dx /= magnitude; dy /= magnitude }
   if (input.dash && !player.dash && cooldown === 0 && player.stamina >= 30) { player.dash = .23; player.stamina -= 30; player.invulnerable = .35; cooldown = .45; events.push({ type: 'dash' }) }
-  if (input.jump && player.jump === 0) player.jump = state.worldId === 2 ? 1.05 : .76
+  if (!boss && (input.jump || input.primaryTap) && player.jump === 0) player.jump = state.worldId === 2 ? 1.05 : .76
   const speed = Math.min(player.dash ? 680 : 255, targetDistance / Math.max(dt, .000001))
   const nextX = clampPosition({ x: player.x + dx * speed * dt, y: player.y })
   const nextY = clampPosition({ x: player.x, y: player.y + dy * speed * .82 * dt })
@@ -202,8 +205,9 @@ export function stepExpedition(state, input, delta, progress) {
     } else if (nearest?.type === 'boss') {
       const needed = nearest.index === 12 ? 8 : 18
       if (worldCount(progress, state.worldId) >= needed) {
-        const hp = nearest.index === 24 ? 6 : 4
+        const hp = nearest.index === 24 ? 18 : 12
         boss = { id: nearest.id, x: nearest.x, y: nearest.y, hp, maxHp: hp, phase: 'warning', timer: 1.8, round: 0, pattern: BOSS_PATTERNS[state.worldId][0], angle: Math.atan2(player.y - nearest.y, player.x - nearest.x), targetX: player.x, targetY: player.y }
+        player.jump = 0
         events.push({ type: 'notice', message: '봉인 반응 감지. 경고 영역을 회피하고 노출된 코어를 공격하라.' })
       } else events.push({ type: 'notice', message: `봉인 해제에 이 구역의 기록핵 ${needed}개가 필요하다.` })
     } else if (scan === 0) {
@@ -213,13 +217,29 @@ export function stepExpedition(state, input, delta, progress) {
       events.push({ type: 'scan', message: hidden.length ? '매몰된 기록의 위치를 감지했다.' : '탐지 펄스 발사. 근처에 추가 신호가 없다.' })
     }
   }
-  if (boss) {
+  const launch = (charged) => {
+    if (!boss || boss.phase === 'defeated' || weapon.cooldown > 0) return
+    player.facing = Math.sign(boss.x - player.x) || player.facing
+    missiles.push({ id: ++shotSequence, x: player.x, y: player.y - 45, targetId: boss.id, charged, age: 0 })
+    weapon.cooldown = charged ? .8 : .4
+    events.push({ type: 'missileLaunch', charged })
+  }
+  if (boss && boss.phase !== 'defeated' && !input.cancelShot) {
+    if (input.jump && !weapon.latched) {
+      weapon.held = true; weapon.charge = Math.min(1.35, weapon.charge + dt)
+      if (weapon.charge >= 1.35) { launch(true); weapon.latched = true; weapon.charge = 0 }
+    } else if (!input.jump) {
+      if ((weapon.held || input.primaryTap) && !weapon.latched) launch(false)
+      weapon.held = false; weapon.latched = false; weapon.charge = 0
+    }
+  } else weapon = { ...weapon, charge: 0, held: false, latched: false }
+  if (boss && boss.phase !== 'defeated') {
     boss.timer -= dt
     if (boss.timer <= 0) {
       if (boss.phase === 'warning') {
         const danger = bossZones(boss).some((zone) => inDangerZone(player, zone))
         if (danger) hurt('수호자의 공격에 적중했다. 경고의 형태를 읽고 회피하라.')
-        if (boss) { boss.phase = 'attack'; boss.timer = .32 }
+        if (boss) { boss.phase = 'attack'; boss.timer = .55; events.push({ type: 'bossAttack', boss: { ...boss }, zones: bossZones(boss) }) }
       } else if (boss.phase === 'attack') { boss.phase = 'vulnerable'; boss.timer = boss.hp <= boss.maxHp / 2 ? 2.1 : 2.6 }
       else {
         boss.round++; boss.phase = 'warning'; boss.timer = boss.hp <= boss.maxHp / 2 ? 1.2 : 1.8
@@ -227,14 +247,33 @@ export function stepExpedition(state, input, delta, progress) {
         boss.angle = Math.atan2(player.y - boss.y, player.x - boss.x); boss.targetX = player.x; boss.targetY = player.y
       }
     }
-    if (boss && input.interact && cooldown === 0 && boss.phase === 'vulnerable' && Math.hypot(player.x - boss.x, player.y - boss.y) < 280) {
-      boss.hp--; cooldown = .5; events.push({ type: 'hit' })
-      if (boss.hp === 0) { events.push({ type: 'collect', id: boss.id, message: '봉인 해제. 수호자의 기억이 기록에 추가됐다.' }); boss = null }
-      else { boss.phase = 'warning'; boss.timer = boss.hp <= boss.maxHp / 2 ? 1.2 : 1.8; boss.round++; boss.pattern = BOSS_PATTERNS[state.worldId][boss.round % 2]; boss.angle = Math.atan2(player.y - boss.y, player.x - boss.x); boss.targetX = player.x; boss.targetY = player.y }
-    }
     if (boss && Math.hypot(player.x - boss.x, player.y - boss.y) > 500) { boss = null; events.push({ type: 'notice', message: '전투 구역 이탈. 봉인에 다시 접근하면 재도전할 수 있다.' }) }
   }
+  missiles = missiles.filter((missile) => {
+    if (!boss || boss.phase === 'defeated' || missile.targetId !== boss.id) return false
+    missile.age += dt
+    const target = { x: boss.x, y: boss.y - 65 }, dx = target.x - missile.x, dy = target.y - missile.y, distance = Math.hypot(dx, dy)
+    const travel = (missile.charged ? 760 : 580) * dt
+    if (distance <= travel + 16) {
+      const damage = missile.charged ? (boss.phase === 'vulnerable' ? 7 : 5) : (boss.phase === 'vulnerable' ? 2 : 1)
+      boss.hp = Math.max(0, boss.hp - damage)
+      events.push({ type: 'missileImpact', x: target.x, y: target.y, charged: missile.charged, damage })
+      if (boss.hp === 0) {
+        boss.phase = 'defeated'; boss.timer = 1.9; boss.landed = false
+        events.push({ type: 'bossDefeated', boss: { ...boss } }, { type: 'collect', id: boss.id, message: '수호자 격파. 봉인의 기록을 확보했다.' })
+      }
+      return false
+    }
+    missile.x += dx / distance * travel; missile.y += dy / distance * travel
+    return missile.age < 3
+  })
+  if (boss?.phase === 'defeated') {
+    boss.timer -= dt
+    if (!boss.landed && boss.timer <= .95) { boss.landed = true; events.push({ type: 'bossFall', x: boss.x, y: boss.y }) }
+    if (boss.timer <= 0) boss = null
+  }
+  if (!boss) { missiles = []; weapon = { charge: 0, held: false, latched: false, cooldown: 0 } }
   const checkpoint = state.checkpoint + dt
   if (checkpoint >= 2) events.push({ type: 'position', position: { x: player.x, y: player.y } })
-  return { state: { ...state, player, heartTimers, boss, cooldown, scan, nearest: nearest ? { ...nearest, distance: undefined } : null, time, moving: Math.hypot(player.x - state.player.x, player.y - state.player.y) > .1, checkpoint: checkpoint >= 2 ? 0 : checkpoint }, events }
+  return { state: { ...state, player, heartTimers, boss, missiles, weapon, shotSequence, cooldown, scan, nearest: nearest ? { ...nearest, distance: undefined } : null, time, moving: Math.hypot(player.x - state.player.x, player.y - state.player.y) > .1, checkpoint: checkpoint >= 2 ? 0 : checkpoint }, events }
 }

@@ -1,0 +1,114 @@
+{
+  "verifiedAt": "2026-10-24T22:09:10.739144+00:00",
+  "unitTestsPassed": 71,
+  "distinctBrowserScenariosVerified": 150,
+  "browserRuns": {
+    "coreAndCombat": {
+      "initialPassed": 124,
+      "initialFailed": 6,
+      "retestPassed": 10,
+      "note": "Updated combat assertions to observe lasting health changes instead of the short lived special-fire HUD; allow a third armored special when needed."
+    },
+    "jumpCueAndCombatRegression": {
+      "passed": 10
+    },
+    "homecoming": {
+      "initialPassed": 18,
+      "initialFailed": 2,
+      "serialRetestPassed": 2,
+      "note": "Two completed compact cases had trace-artifact ENOENT during context close because concurrent runners shared an output directory. Serial rerun passed."
+    },
+    "existingRestorationAndEndingRegression": {
+      "passed": 10
+    },
+    "keyboardPrimaryAndMapFocusFinal": {
+      "passed": 5,
+      "note": "Focused Enter activates the primary action; Space on the map button never launches a missile; pause cancels held charge."
+    }
+  },
+  "checks": [
+    "pnpm test",
+    "pnpm lint",
+    "pnpm build",
+    "git diff --check"
+  ],
+  "requirements": [
+    "Natural ground boundaries without black outlines",
+    "Hero correct atlas row split, normalized height and foot-origin contact shadow",
+    "Animated jump cue in world and above jump button; static reduced-motion fallback",
+    "Auto-targeting missiles with short press and 1.35-second held special",
+    "Pause and pointer cancellation reset charge without firing",
+    "Telegraphed attacks with impact geometry, pillars, fragments, sound and shake",
+    "Guardian wobble, collapse, single landing impact and immediate reward save",
+    "All four stages show central 25/25 celebration and return action",
+    "Every return restores district images from previous count to new count with welcoming citizens"
+  ],
+  "productionPreviewHomecoming": [
+    {
+      "label": "pc",
+      "status": 200,
+      "clearVisible": true,
+      "restoredFrom": 0,
+      "restoredTo": "25",
+      "citizens": true,
+      "noHorizontalOverflow": true,
+      "saved": 25,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "label": "mobile",
+      "status": 200,
+      "clearVisible": true,
+      "restoredFrom": 0,
+      "restoredTo": "25",
+      "citizens": true,
+      "noHorizontalOverflow": true,
+      "saved": 25,
+      "errors": [],
+      "failed": []
+    },
+    {
+      "label": "compact",
+      "status": 200,
+      "clearVisible": true,
+      "restoredFrom": 0,
+      "restoredTo": "25",
+      "citizens": true,
+      "noHorizontalOverflow": true,
+      "saved": 25,
+      "errors": [],
+      "failed": []
+    }
+  ],
+  "productionPreviewCombat": [
+    {
+      "browser": "Chromium desktop",
+      "savedDefeat": true,
+      "pageErrors": []
+    },
+    {
+      "browser": "WebKit mobile emulation",
+      "savedDefeat": true,
+      "pageErrors": []
+    }
+  ],
+  "reducedMotionJumpCue": {
+    "visible": true,
+    "animationName": "none"
+  },
+  "citizenArt": {
+    "source": "exec-63e976d8-eadf-4c64-888b-3bf7d6466938.png",
+    "dimensions": "1536x1024",
+    "alphaRange": [
+      0,
+      254
+    ],
+    "cornerAlpha": 0,
+    "conversion": "WebP quality 92, alpha preserved"
+  },
+  "limitations": [
+    "Mobile browser emulation, no physical device testing",
+    "Existing Phaser scene chunk warning remains"
+  ]
+}

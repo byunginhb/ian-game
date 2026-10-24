@@ -10,6 +10,7 @@ export default function TreasureExpedition({ worldId, bridge }) {
   useEffect(() => {
     let disposed = false
     let engine
+    let primaryHeld = false
     const host = hostRef.current
     bridge.setHandlers({ onError: () => { setError('탐사 장면을 불러오지 못했습니다. 연결을 확인한 뒤 다시 시도하세요.'); bridge.onReady() } })
     import('../lib/treasureScene').then(({ mountTreasureScene }) => {
@@ -17,15 +18,20 @@ export default function TreasureExpedition({ worldId, bridge }) {
         try { engine = mountTreasureScene(host, worldId, bridge) } catch { setError('탐험 지도를 불러오지 못했어요. 다시 열어 주세요.') }
       }
     }).catch(() => { if (!disposed) setError('탐험 지도를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 열어 주세요.') })
-    const release = () => { bridge.input = {} }
+    const release = () => { primaryHeld = false; bridge.resetInput() }
     const checkpoint = () => { release(); engine?.checkpoint() }
     const keydown = (event) => {
       const action = KEY_ACTIONS[event.key]
+      if (event.repeat && action === 'jump') return
       if (event.target.closest?.('a, input, select, [role="dialog"]') || bridge.blocked || gameClock.isPaused()) return
       if (event.target.closest?.('button') && !['left', 'right', 'up', 'down'].includes(action)) return
-      if (action) { event.preventDefault(); bridge.setInput(action, true, ['left', 'right', 'up', 'down'].includes(action)) }
+      if (action) { event.preventDefault(); if (action === 'jump') primaryHeld = true; bridge.setInput(action, true, ['left', 'right', 'up', 'down'].includes(action)) }
     }
-    const keyup = (event) => { const action = KEY_ACTIONS[event.key]; if (action) bridge.input[action] = false }
+    const keyup = (event) => {
+      const action = KEY_ACTIONS[event.key]
+      if (action) bridge.input[action] = false
+      if (action === 'jump' && primaryHeld) { primaryHeld = false; if (!bridge.blocked && !gameClock.isPaused()) bridge.setInput('primaryTap', true) }
+    }
     window.addEventListener('keydown', keydown)
     window.addEventListener('keyup', keyup)
     window.addEventListener('blur', checkpoint)

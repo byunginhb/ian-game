@@ -27,8 +27,28 @@ export function createTreasureAudio() {
     setPaused(value) { paused = value; updateVolume() },
     play(kind = 'collect', tier = 'relic') {
       if (!enabled || paused || !context || context.state !== 'running' || !master) return
-      const collectible = kind === 'collect'
-      const notes = kind === 'hit' ? [220, 294] : kind === 'heal' ? [659.25, 880, 1318.5] : kind === 'deposit' ? [196, 294, 392, 587] : tier === 'relic' ? [523.25, 659.25, 783.99, 1046.5, 1567.98] : [392, 523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98]
+      if (['missileLaunch', 'missileImpact', 'bossAttack', 'bossFall'].includes(kind)) {
+        const charged = tier === 'charged', heavy = charged || kind === 'bossFall' || kind === 'bossAttack'
+        const duration = kind === 'missileLaunch' ? .26 : heavy ? .75 : .23, now = context.currentTime
+        const oscillator = context.createOscillator(), gain = context.createGain()
+        oscillator.type = kind === 'missileLaunch' ? 'sawtooth' : 'sine'
+        oscillator.frequency.setValueAtTime(kind === 'missileLaunch' ? (charged ? 500 : 330) : 110, now)
+        oscillator.frequency.exponentialRampToValueAtTime(kind === 'missileLaunch' ? 80 : 27, now + duration)
+        gain.gain.setValueAtTime(heavy ? .17 : .08, now); gain.gain.exponentialRampToValueAtTime(.001, now + duration)
+        oscillator.connect(gain); gain.connect(master); oscillator.start(now); oscillator.stop(now + duration)
+        oscillator.onended = () => { oscillator.disconnect(); gain.disconnect() }
+        if (kind !== 'missileLaunch') {
+          const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate), data = buffer.getChannelData(0)
+          for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length) ** 2
+          const noise = context.createBufferSource(), filter = context.createBiquadFilter(), envelope = context.createGain()
+          noise.buffer = buffer; filter.type = 'lowpass'; filter.frequency.setValueAtTime(heavy ? 2300 : 3500, now); filter.frequency.exponentialRampToValueAtTime(120, now + duration)
+          envelope.gain.value = heavy ? .24 : .08; noise.connect(filter); filter.connect(envelope); envelope.connect(master); noise.start()
+          noise.onended = () => { noise.disconnect(); filter.disconnect(); envelope.disconnect() }
+        }
+        return
+      }
+      const collectible = kind === 'collect' || kind === 'homecoming'
+      const notes = kind === 'homecoming' ? [261.63, 329.63, 392, 523.25, 659.25, 783.99, 1046.5] : kind === 'hit' ? [220, 294] : kind === 'heal' ? [659.25, 880, 1318.5] : kind === 'deposit' ? [196, 294, 392, 587] : tier === 'relic' ? [523.25, 659.25, 783.99, 1046.5, 1567.98] : [392, 523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98]
       if (collectible) {
         const impact = context.createOscillator(), envelope = context.createGain()
         impact.frequency.setValueAtTime(105, context.currentTime); impact.frequency.exponentialRampToValueAtTime(45, context.currentTime + .2)

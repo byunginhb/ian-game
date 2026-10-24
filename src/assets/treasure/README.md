@@ -64,3 +64,10 @@ Transparent output: `exec-68494199-b096-4234-b1f9-fc785bf3b963.png`.
 ## Runtime terrain and recovery effects
 
 The trail mask in `treasureTerrain.js` reuses the original terrain atlas as a surface texture and paints it through the same segment geometry used by navigation and collision. Hearts and hazard pools are original Canvas drawings in `treasureArt.js`; their gradient, bank, algae, grit and bubble layers are generated locally, without additional image generation or third-party assets. Current gameplay captures and reproducible verification are in `docs/treasure-kingdom/`.
+
+
+## Cheering citizens
+
+`citizens-cheering.webp`, 1536×1024 RGBA, converted at quality 92 from built-in image generation output `exec-63e976d8-eadf-4c64-888b-3bf7d6466938.png` in the same generated-images directory. Created for the stage-clear homecoming sequence. The first 490 pixels of the atlas are composited as a complete group in CSS, preserving all hands and feet without cutting individual cells.
+
+Prompt summary: an original 4-column, 2-row transparent atlas of four realistically proportioned kingdom citizens in navy, copper, olive and muted teal, raising their hands and cheering in two poses, with mature painterly cloth/leather details, warm upper-left lighting, no ground or text, matching the existing adventure art. Source alpha was verified and preserved.

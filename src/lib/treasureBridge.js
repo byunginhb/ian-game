@@ -5,7 +5,7 @@ export function createTreasureBridge(progress) {
   bridge.setInput = (action, value, clearTarget = false) => {
     bridge.input = { ...bridge.input, [action]: value, ...(clearTarget ? { target: null, path: [], pointerActive: false } : {}) }
   }
-  bridge.resetInput = () => { bridge.input = {} }
+  bridge.resetInput = () => { bridge.input = { cancelShot: true } }
   bridge.setBlocked = (value) => { bridge.blocked = value; bridge.resetInput() }
   bridge.setWorld = (worldId) => { bridge.worldId = worldId; bridge.setBlocked(false) }
   bridge.setHandlers = (handlers) => Object.assign(bridge, handlers)
