@@ -26,9 +26,12 @@ test('fullscreen exploration, actual input, immediate save, restoration and relo
   if (!isMobile && page.viewportSize().width >= 900) expect(await page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true)
   expect(await page.locator('.tk-canvas-host').boundingBox()).toMatchObject({ x: 0, y: 0 })
   if (isMobile) {
-    const right = page.getByRole('button', { name: '오른쪽으로 이동', exact: true }), box = await right.boundingBox()
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down()
-    await expect.poll(async () => (await readSave(page))?.collected).toContain('0-0'); await page.mouse.up()
+    await page.waitForTimeout(700)
+    const { width, height } = page.viewportSize(), zoom = .96
+    const x = (330 - Math.max(0, 240 - width / zoom / 2)) * zoom
+    const y = (1100 - Math.min(1320 - height / zoom, 1065 - height / zoom / 2)) * zoom
+    await page.touchscreen.tap(x, y)
+    await expect.poll(async () => (await readSave(page))?.collected).toContain('0-0')
   } else {
     await page.keyboard.down('ArrowRight'); await expect.poll(async () => (await readSave(page))?.collected).toContain('0-0'); await page.keyboard.up('ArrowRight')
   }

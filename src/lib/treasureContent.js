@@ -37,17 +37,37 @@ export function sceneryFor(worldId) {
     const x = grove[0] + (random() - .5) * 135, y = grove[1] + (random() - .5) * 100, scale = .72 + random() * .45
     if (items.some((item) => Math.hypot(item.x - x, item.y - y) < 104 || item.targets.some((point) => Math.hypot(point.x - x, point.y - y) < 70))) continue
     if (Math.hypot(x - MAP.spawn.x, y - MAP.spawn.y) < 120) continue
-    objects.push({ x, y, scale, variant: i % 4 === 0 ? 2 : i % 2, radius: 16 * scale })
+    objects.push({ x, y, scale, variant: i % 4 === 0 ? 2 : i % 2, radius: (i % 4 === 0 ? 32 : 38) * scale })
   }
   return objects
+}
+
+// One source for the painted trail, collision, navigation and map.
+export function trailsFor(worldId) {
+  const items = treasuresFor(worldId), trails = [{ a: MAP.spawn, b: items[0], width: 82 }]
+  for (const item of items) {
+    if (item.index % 5 < 4) trails.push({ a: item, b: items[item.index + 1], width: 82 })
+    if (item.index < 20) trails.push({ a: item, b: items[item.index + 5], width: 82 })
+    for (const target of item.targets) trails.push({ a: item, b: target, width: 62 })
+  }
+  return trails
+}
+export function distanceToTrail(point, { a, b }) {
+  const dx = b.x - a.x, dy = b.y - a.y
+  const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy || 1)))
+  return Math.hypot(point.x - a.x - dx * t, point.y - a.y - dy * t)
+}
+export function heartsFor(worldId) {
+  const items = treasuresFor(worldId)
+  return [[0, 1], [6, 7], [12, 13], [15, 16], [23, 24]].map(([a, b], index) => ({ id: `heart-${index}`, x: (items[a].x + items[b].x) / 2, y: (items[a].y + items[b].y) / 2 }))
 }
 
 export function hazardsFor(worldId, time) {
   const phase = time % 8
   const active = phase > 5.4
   const warning = phase > 3.8 && !active
-  const origins = [[790, 1000], [460, 535], [1430, 530]]
-  return origins.map(([x, y], index) => ({ x: x + (worldId === 2 ? Math.sin(time * .65 + index) * 65 : 0), y, rx: worldId === 1 ? 125 : 76, ry: worldId === 1 ? 45 : 42, active, warning, kind: WORLDS[worldId].hazard }))
+  const origins = [[790, 1075], [620, 535], [1430, 650]]
+  return origins.map(([x, y], index) => ({ x: x + (worldId === 2 ? Math.sin(time * .65 + index) * 65 : 0), y, rx: worldId === 1 ? 125 : 76, ry: worldId === 1 ? 45 : 42, active, warning, kind: worldId === 0 ? '독성 늪' : WORLDS[worldId].hazard }))
 }
 
 export const RESTORATIONS = [

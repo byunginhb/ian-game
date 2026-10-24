@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ALL_TREASURES, BACKUP_KEY, MAP, RESTORATIONS, SAVE_KEY, WORLDS, bossZones, circuitConnected, createExpedition, emptyProgress, findWalkPath, hazardsFor, inDangerZone, loadProgress, normalizeProgress, progressAction, puzzleFor, restorationFor, rotateMask, routeValid, saveProgress, sceneryFor, stepExpedition, treasuresFor, worldCount, worldUnlocked } from '../src/lib/treasureKingdom.js'
+import { ALL_TREASURES, BACKUP_KEY, MAP, RESTORATIONS, SAVE_KEY, WORLDS, bossZones, canWalk, circuitConnected, createExpedition, emptyProgress, findWalkPath, hazardsFor, heartsFor, inDangerZone, loadProgress, normalizeProgress, progressAction, puzzleFor, restorationFor, rotateMask, routeValid, saveProgress, sceneryFor, stepExpedition, treasuresFor, worldCount, worldUnlocked } from '../src/lib/treasureKingdom.js'
 
 function memoryStorage() { const values = new Map(); return { getItem: (key) => values.get(key) || null, setItem: (key, value) => values.set(key, value), values } }
 function tickAt(item, progress, input = {}, extra = {}) { return stepExpedition({ ...createExpedition(item.worldId, progress), player: { ...createExpedition(item.worldId, progress).player, x: item.x, y: item.y }, ...extra }, input, .016, progress) }
@@ -226,4 +226,60 @@ test('the complete 100-record expedition is earnable through every rule and surv
   }
   assert.equal(progress.collected.length, 100); assert.equal(progress.banked.length, 100)
   assert.deepEqual([...reached], RESTORATIONS.map((step) => step.at))
+})
+
+test('painted trails connect every record, mission fragment and healing pickup without crossing solid roots', () => {
+  for (const world of WORLDS) {
+    const points = [...treasuresFor(world.id).flatMap((item) => [item, ...item.targets]), ...heartsFor(world.id)]
+    for (const point of points) {
+      const path = findWalkPath(MAP.spawn, point, world.id)
+      assert.ok(path.length, `World ${world.id}: route to ${point.id}`)
+      assert.ok(Math.hypot(path.at(-1).x - point.x, path.at(-1).y - point.y) < 32, `Target ${point.id} is reachable`)
+      let state = createExpedition(world.id, emptyProgress()), target = path.shift()
+      for (let tick = 0; target && tick < 3000; tick++) {
+        state = { ...state, player: { ...state.player, invulnerable: 999 } }
+        const result = stepExpedition(state, { target }, .04, emptyProgress()); state = result.state
+        if (result.events.some((event) => event.type === 'arrived')) target = path.shift()
+      }
+      assert.ok(!target, `Character walks the entire route to ${point.id}`)
+    }
+  }
+})
+
+test('jump and dodge cannot bypass roots, off-trail edges or leave a saved character inside scenery', () => {
+  for (const world of WORLDS) {
+    const tree = sceneryFor(world.id).find((object) => object.variant !== 2)
+    const state = createExpedition(world.id, emptyProgress())
+    state.player = { ...state.player, x: tree.x - tree.radius - 12, y: tree.y }
+    for (const input of [{ right: true }, { right: true, jump: true }, { right: true, dash: true }]) {
+      const next = stepExpedition(state, input, .04, emptyProgress()).state
+      assert.ok(next.player.x <= state.player.x + 1)
+    }
+    const resumed = createExpedition(world.id, { ...emptyProgress(), positions: { [world.id]: { x: tree.x, y: tree.y } } })
+    assert.equal(canWalk(resumed.player, world.id), true)
+  }
+})
+
+test('hearts restore one health, remain at full health, and respawn on the simulation timeline', () => {
+  const progress = emptyProgress(), heart = heartsFor(0)[0]
+  let state = createExpedition(0, progress)
+  state.player = { ...state.player, ...heart }
+  const full = stepExpedition(state, {}, .04, progress)
+  assert.equal(full.events.some((event) => event.type === 'heal'), false)
+  assert.equal(full.state.heartTimers[heart.id], undefined)
+  state = { ...full.state, player: { ...full.state.player, hp: 2 } }
+  const healed = stepExpedition(state, {}, .04, progress)
+  assert.equal(healed.state.player.hp, 3)
+  assert.equal(healed.events.filter((event) => event.type === 'heal').length, 1)
+  assert.equal(stepExpedition(healed.state, {}, .04, progress).state.player.hp, 3)
+  const later = stepExpedition({ ...healed.state, time: healed.state.time + 30 }, {}, .04, progress)
+  assert.equal(later.state.player.hp, 4)
+  assert.deepEqual(progress, emptyProgress())
+})
+
+test('zero-time pointer frames never corrupt the player coordinates', () => {
+  const state = createExpedition(0, emptyProgress())
+  const next = stepExpedition(state, { target: { x: state.player.x, y: state.player.y } }, 0, emptyProgress()).state
+  assert.equal(Number.isFinite(next.player.x) && Number.isFinite(next.player.y), true)
+  assert.deepEqual({ x: next.player.x, y: next.player.y }, MAP.spawn)
 })

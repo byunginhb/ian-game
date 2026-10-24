@@ -28,7 +28,7 @@ export function createTreasureAudio() {
     play(kind = 'collect', tier = 'relic') {
       if (!enabled || paused || !context || context.state !== 'running' || !master) return
       const collectible = kind === 'collect'
-      const notes = kind === 'hit' ? [220, 294] : kind === 'deposit' ? [196, 294, 392, 587] : tier === 'relic' ? [523.25, 659.25, 783.99, 1046.5, 1567.98] : [392, 523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98]
+      const notes = kind === 'hit' ? [220, 294] : kind === 'heal' ? [659.25, 880, 1318.5] : kind === 'deposit' ? [196, 294, 392, 587] : tier === 'relic' ? [523.25, 659.25, 783.99, 1046.5, 1567.98] : [392, 523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98]
       if (collectible) {
         const impact = context.createOscillator(), envelope = context.createGain()
         impact.frequency.setValueAtTime(105, context.currentTime); impact.frequency.exponentialRampToValueAtTime(45, context.currentTime + .2)

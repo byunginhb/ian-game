@@ -1,0 +1,83 @@
+{
+  "verifiedAt": "2026-10-24T19:32:29.807454+00:00",
+  "target": "local production preview at 127.0.0.1:4173",
+  "unitTestsPassed": 68,
+  "browserScenariosPassed": 120,
+  "browserRuns": {
+    "initialCombined": {
+      "passed": 114,
+      "failed": 6,
+      "note": "All 105 existing scenarios passed. New mobile tests initially aimed beyond the narrow viewport."
+    },
+    "directControlsFinal": {
+      "passed": 15,
+      "failed": 0,
+      "note": "Fixed offscreen test coordinates and asserted durable health instead of a transient toast. Real held-direction bug at camera bounds found by a new desktop test and fixed."
+    }
+  },
+  "actualInputCoverage": [
+    "Chromium touchStart/touchMove/touchEnd on Android and landscape",
+    "WebKit touchscreen tap",
+    "Mouse tap, held direction past initial target, drag steering, release, pause",
+    "Journal hint map selection, pulse and dismissal",
+    "Hazard damage and heart recovery",
+    "All 100 treasure and mission targets have routes that the simulation can actually walk"
+  ],
+  "productionPreview": [
+    {
+      "label": "pc",
+      "status": 200,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "fullscreen": true,
+      "healed": "탐사 체력 4/4",
+      "stoppedAfterRelease": true,
+      "selectedHint": "0-2",
+      "saved": [
+        "0-1"
+      ],
+      "errors": [],
+      "failed": []
+    },
+    {
+      "label": "mobile",
+      "status": 200,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "fullscreen": false,
+      "healed": "탐사 체력 4/4",
+      "stoppedAfterRelease": true,
+      "selectedHint": "0-2",
+      "saved": [
+        "0-1"
+      ],
+      "errors": [],
+      "failed": []
+    }
+  ],
+  "screenshots": [
+    "trails-pc.jpg",
+    "trails-mobile.jpg",
+    "hazard-pc.jpg",
+    "hazard-mobile.jpg",
+    "healing-pc.jpg",
+    "healing-mobile.jpg",
+    "hint-pc.jpg",
+    "hint-mobile.jpg",
+    "journal-mobile.jpg"
+  ],
+  "checks": [
+    "pnpm test",
+    "pnpm lint",
+    "pnpm build",
+    "git diff --check"
+  ],
+  "limitations": [
+    "Browser mobile emulation; no physical phone GPU or OS gesture testing",
+    "Existing Phaser chunk warning remains"
+  ]
+}
