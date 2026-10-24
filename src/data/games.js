@@ -1,5 +1,13 @@
 export const games = [
     {
+      id: "treasure-kingdom",
+      title: "이안이의 보물찾기 잘하자",
+      emoji: "◇",
+      description: "잊힌 유적을 탐사하고 수호자의 봉인을 해제하라. 보물 100개로 왕국을 복원하는 2.5D 어드벤처.",
+      color: "#4c8067",
+      tags: ["new", "hot", "action", "edu"],
+    },
+    {
       id: "rhythm-party",
       title: "리듬 파티",
       emoji: "🎹",

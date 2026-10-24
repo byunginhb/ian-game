@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { games } from '../src/data/games.js'
 
 const starts = {
+  'treasure-kingdom': /공룡 정글 탐험 시작/,
   'rhythm-party': /When the Saints/,
   'conquest': /1탄 출정하기/,
   'swimming-race': /경기 시작|출발|게임 시작|입수/,

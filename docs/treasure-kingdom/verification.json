@@ -1,0 +1,85 @@
+{
+  "verifiedAt": "2026-10-24T15:09:24.280Z",
+  "target": "local production preview at 127.0.0.1:4173",
+  "unitTests": 64,
+  "treasureBrowserCases": 80,
+  "focusBrowserCases": 20,
+  "commonRegressionPassed": 131,
+  "commonRegressionSkipped": 2,
+  "errors": [],
+  "failedRequests": [],
+  "productionScenes": [
+    {
+      "world": "공룡 정글",
+      "fullscreen": true,
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "world": "공룡 정글",
+      "fullscreen": false,
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844
+      }
+    },
+    {
+      "world": "바다와 섬",
+      "fullscreen": true,
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "world": "우주 행성",
+      "fullscreen": true,
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "world": "거대한 정원",
+      "fullscreen": true,
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "world": "공룡 정글",
+      "fullscreen": true,
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "world": "공룡 정글",
+      "fullscreen": true,
+      "canvas": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1000
+      }
+    }
+  ],
+  "postReviewVerifiedAt": "2026-10-24T15:14:59.914Z",
+  "circuitPorts": "Explicit source and receiver labels confirmed in production build"
+}

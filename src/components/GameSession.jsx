@@ -61,6 +61,15 @@ export default function GameSession({ game, children }) {
     gameClock.resume()
   }
 
+  const returnPointerFocusToGame = (event) => {
+    // A pointer click should finish the button action and hand keyboard control back
+    // to the playfield. Keyboard activation keeps focus for Tab/Enter navigation.
+    if (event.detail === 0 || paused) return
+    const button = event.target.closest?.('button')
+    if (!button || button.disabled || button.closest('[role="dialog"], [role="alertdialog"], dialog, [data-keep-focus]')) return
+    contentRef.current?.focus({ preventScroll: true })
+  }
+
   return (
     <div className={`game-session${paused ? ' is-paused' : ''}`}>
       <nav className="session-toolbar" aria-label="게임 메뉴" inert={paused} onKeyDown={(event) => event.stopPropagation()}>
@@ -71,7 +80,7 @@ export default function GameSession({ game, children }) {
           window.dispatchEvent(new Event('blur'))
         }} aria-label="게임 일시정지">Ⅱ <span>잠깐 쉬기</span></button>
       </nav>
-      <div ref={contentRef} className="game-content" tabIndex={-1} inert={paused}>{children}</div>
+      <div ref={contentRef} className="game-content" tabIndex={-1} inert={paused} onClickCapture={returnPointerFocusToGame}>{children}</div>
       {paused && (
         <div className="session-pause" role="dialog" aria-modal="true" aria-labelledby="pause-title"
           onKeyDown={(event) => {
