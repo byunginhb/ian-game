@@ -1,5 +1,5 @@
 import { addRunTime, finishRun, normalizeRuns, startRun } from './treasureRuns.js'
-import { MAP, WORLDS, RESTORATIONS, clampPosition, distanceToTrail, hazardsFor, heartsFor, sceneryFor, trailsFor, treasuresFor } from './treasureContent.js'
+import { MAP, WORLDS, RESTORATIONS, clampPosition, hazardsFor, heartsFor, treasuresFor } from './treasureContent.js'
 export { MAP, WORLDS, RESTORATIONS, TYPE_LABELS, PROLOGUE, clampPosition, hazardsFor, heartsFor, sceneryFor, trailsFor, treasuresFor, puzzleFor, missionChallenge, rotateMask, circuitConnected, routeValid } from './treasureContent.js'
 export const SAVE_KEY = 'ian-treasure-kingdom-v1'
 export const BACKUP_KEY = `${SAVE_KEY}-backup`
@@ -8,8 +8,6 @@ const VALID_IDS = new Set(ALL_TREASURES.map((item) => item.id))
 const QUEST_IDS = new Set(ALL_TREASURES.filter((item) => item.type === 'friend').map((item) => item.id))
 const QUEST_ITEMS = new Set(ALL_TREASURES.flatMap((item) => item.targets.map((target) => target.id)))
 const HIDDEN_IDS = new Set(ALL_TREASURES.filter((item) => item.type === 'hidden').map((item) => item.id))
-const SCENERY = WORLDS.map((world) => sceneryFor(world.id))
-const TRAILS = WORLDS.map((world) => trailsFor(world.id))
 const uniqueIds = (value, allowed = VALID_IDS) => Array.isArray(value) ? [...new Set(value.filter((id) => allowed.has(id)))] : []
 export const emptyProgress = () => ({ version: 1, collected: [], banked: [], quests: [], questItems: [], revealed: [], positions: {}, lastWorld: 0, revision: 0, run: null, history: [] })
 
@@ -78,7 +76,7 @@ export const BOSS_PATTERNS = [['ring', 'charge', 'cone', 'orbs', 'cross', 'roots
 export const bossElement = (worldId, rank, round) => ['water', 'fire', 'electric'][(worldId + rank + round) % 3]
 export function createExpedition(worldId, progress) {
   const saved = progress.positions[worldId] || MAP.spawn
-  const position = canWalk(saved, worldId) ? saved : nearestWalkPoint(saved, worldId)
+  const position = clampPosition(saved)
   return { worldId, player: { ...position, jump: 0, facing: 1, hp: 4, stamina: 100, dash: 0, invulnerable: 1.5 }, time: 0, boss: null, cooldown: 0, scan: 0, checkpoint: 0, nearest: null, moving: false, heartTimers: {}, missiles: [], weapon: { charge: 0, held: false, latched: false, cooldown: 0 }, shotSequence: 0, escorts: {}, breadcrumbs: [] }
 }
 export function bossZones(boss) {
@@ -98,54 +96,12 @@ export function inDangerZone(point, zone) {
   if (zone.kind === 'cone') { const angle = Math.atan2(dy, dx) - zone.angle; return Math.abs(Math.atan2(Math.sin(angle), Math.cos(angle))) < zone.spread && Math.hypot(dx, dy) < zone.radius }
   return distance < zone.radius && (zone.kind !== 'ring' || distance > zone.inner)
 }
-export function canWalk(point, worldId, margin = 0) {
-  return point.x >= 160 && point.x <= MAP.width - 160 && point.y >= 175 && point.y <= MAP.height - 160 && TRAILS[worldId].some((trail) => distanceToTrail(point, trail) <= trail.width - 10 - margin) && !SCENERY[worldId].some((object) => Math.hypot(point.x - object.x, (point.y - object.y) * 1.5) < object.radius + 11 + margin)
+// All terrain and scenery inside the map are passable. Hazards only deal damage.
+export function canWalk(point) {
+  return Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 160 && point.x <= MAP.width - 160 && point.y >= 175 && point.y <= MAP.height - 160
 }
-const GRID_SIZE = 24, GRID_COLUMNS = 67, GRID_ROWS = 43
-const GRID_POINTS = Array.from({ length: GRID_COLUMNS * GRID_ROWS }, (_, cell) => clampPosition({ x: 160 + cell % GRID_COLUMNS * GRID_SIZE, y: 175 + Math.floor(cell / GRID_COLUMNS) * GRID_SIZE }))
-const gridPoint = (cell) => GRID_POINTS[cell]
-const WALK_GRIDS = new Map()
-function walkGrid(worldId) {
-  if (!WALK_GRIDS.has(worldId)) WALK_GRIDS.set(worldId, Array.from({ length: GRID_COLUMNS * GRID_ROWS }, (_, cell) => cell).filter((cell) => canWalk(gridPoint(cell), worldId, 6)))
-  return WALK_GRIDS.get(worldId)
-}
-function nearestCell(position, worldId) {
-  return walkGrid(worldId).reduce((best, cell) => Math.hypot(gridPoint(cell).x - position.x, gridPoint(cell).y - position.y) < Math.hypot(gridPoint(best).x - position.x, gridPoint(best).y - position.y) ? cell : best, walkGrid(worldId)[0])
-}
-function nearestWalkPoint(position, worldId) { return gridPoint(nearestCell(position, worldId)) }
-function walkSegment(a, b, worldId, margin = 0) {
-  const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 8)
-  for (let i = 1; i <= steps; i++) if (!canWalk({ x: a.x + (b.x - a.x) * i / steps, y: a.y + (b.y - a.y) * i / steps }, worldId, margin)) return false
-  return true
-}
-
-export function findWalkPath(start, target, worldId) {
-  const size = GRID_SIZE, columns = GRID_COLUMNS, rows = GRID_ROWS, point = gridPoint
-  const nearest = (position) => nearestCell(position, worldId)
-  const first = nearest(start), last = nearest(clampPosition(target)), previous = new Map([[first, null]]), costs = new Map([[first, 0]]), open = [first]
-  while (open.length) {
-    let best = 0
-    for (let i = 1; i < open.length; i++) if (costs.get(open[i]) + Math.hypot(point(open[i]).x - point(last).x, point(open[i]).y - point(last).y) < costs.get(open[best]) + Math.hypot(point(open[best]).x - point(last).x, point(open[best]).y - point(last).y)) best = i
-    const cell = open.splice(best, 1)[0]
-    if (cell === last) {
-      const route = []
-      for (let current = last; current !== null; current = previous.get(current)) route.unshift(point(current))
-      if (canWalk(clampPosition(target), worldId) && walkSegment(route.at(-1), clampPosition(target), worldId)) route.push(clampPosition(target))
-      // Eliminate grid zig-zags, but never cut across a root or off the painted trail.
-      const smooth = []; let anchor = start
-      for (let i = 0; i < route.length; i++) if (i === route.length - 1 || !walkSegment(anchor, route[i + 1], worldId, 6)) { smooth.push(route[i]); anchor = route[i] }
-      return smooth.map((point) => ({ ...point }))
-    }
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
-      const x = cell % columns + dx, y = Math.floor(cell / columns) + dy, next = y * columns + x
-      if (x < 0 || x >= columns || y < 0 || y >= rows || !canWalk(point(next), worldId, 6)) continue
-      const midpoint = { x: (point(cell).x + point(next).x) / 2, y: (point(cell).y + point(next).y) / 2 }
-      if (!canWalk(midpoint, worldId, 6) || !walkSegment(point(cell), point(next), worldId, 6)) continue
-      const cost = costs.get(cell) + Math.hypot(dx, dy) * size
-      if (!costs.has(next) || cost < costs.get(next)) { costs.set(next, cost); previous.set(next, cell); if (!open.includes(next)) open.push(next) }
-    }
-  }
-  return []
+export function findWalkPath(_start, target) {
+  return [clampPosition(target)]
 }
 
 export function stepExpedition(state, input, delta, progress) {
@@ -173,20 +129,10 @@ export function stepExpedition(state, input, delta, progress) {
   if (input.dash && !player.dash && cooldown === 0 && player.stamina >= 30) { player.dash = .23; player.stamina -= 30; player.invulnerable = .35; cooldown = .45; events.push({ type: 'dash' }) }
   if (!boss && (input.jump || input.primaryTap) && player.jump === 0) player.jump = state.worldId === 2 ? 1.05 : .76
   const speed = Math.min(player.dash ? 680 : 255, targetDistance / Math.max(dt, .000001))
-  const nextX = clampPosition({ x: player.x + dx * speed * dt, y: player.y })
-  const nextY = clampPosition({ x: player.x, y: player.y + dy * speed * .82 * dt })
-  const next = { x: nextX.x, y: nextY.y }
-  if (walkSegment(player, next, state.worldId)) { player.x = next.x; player.y = next.y }
-  else {
-    if (walkSegment(player, nextX, state.worldId)) player.x = nextX.x
-    if (walkSegment(player, { x: player.x, y: nextY.y }, state.worldId)) player.y = nextY.y
-  }
+  const next = clampPosition({ x: player.x + dx * speed * dt, y: player.y + dy * speed * .82 * dt })
+  player.x = next.x; player.y = next.y
   if (dx) player.facing = Math.sign(dx)
   if (magnitude > 0) player.movingNorth = dy < -.2
-  if (boss) {
-    const separation = Math.hypot(player.x - boss.x, player.y - boss.y)
-    if (separation < 52) { const angle = separation ? Math.atan2(player.y - boss.y, player.x - boss.x) : 0; player.x = boss.x + Math.cos(angle) * 52; player.y = boss.y + Math.sin(angle) * 52 }
-  }
   const worldItems = treasuresFor(state.worldId)
   const items = worldItems.filter((item) => !progress.collected.includes(item.id) && item.type !== 'bossReward')
   const breadcrumbs = [...(state.breadcrumbs || []).filter((point) => point.time >= time - .8), { x: player.x, y: player.y, time }]

@@ -1,6 +1,6 @@
 import { MAP, trailsFor } from './treasureContent.js'
 
-// The same trail network defines land, shoreline and collision; everything else is water.
+// The trail network paints land and shoreline; the surrounding water is also passable.
 export function paintTerrain(worldId, source) {
   const canvas = document.createElement('canvas'); canvas.width = MAP.width; canvas.height = MAP.height
   const ctx = canvas.getContext('2d'), trails = trailsFor(worldId)

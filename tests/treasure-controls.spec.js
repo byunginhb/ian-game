@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { BACKUP_KEY, SAVE_KEY, MAP, emptyProgress, hazardsFor, heartsFor } from '../src/lib/treasureKingdom.js'
+import { BACKUP_KEY, SAVE_KEY, MAP, emptyProgress, hazardsFor, heartsFor, sceneryFor } from '../src/lib/treasureKingdom.js'
 
 async function enter(page, position = MAP.spawn) {
-  await page.addInitScript(({ key, backup, progress }) => { localStorage.setItem(key, JSON.stringify(progress)); localStorage.setItem(backup, JSON.stringify(progress)) }, { key: SAVE_KEY, backup: BACKUP_KEY, progress: { ...emptyProgress(), positions: { 0: position } } })
+  await page.addInitScript(({ key, backup, progress }) => { if (!localStorage.getItem(key)) { localStorage.setItem(key, JSON.stringify(progress)); localStorage.setItem(backup, JSON.stringify(progress)) } }, { key: SAVE_KEY, backup: BACKUP_KEY, progress: { ...emptyProgress(), positions: { 0: position } } })
   await page.goto('/game/treasure-kingdom')
   await page.getByRole('button', { name: '공룡 정글 탐험 시작', exact: true }).click()
   await expect(page.locator('.tk-scene-loading')).toHaveCount(0)
@@ -86,4 +86,38 @@ test('a visible hazard damages health and a heart restores it while treasure pro
   expect((await position(page)).x).toBeLessThan(heart.x + 45)
   await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key)).collected, SAVE_KEY)).toContain('0-1')
   await page.screenshot({ path: testInfo.outputPath('heart-recovery.png') })
+})
+
+
+test('water accepts saved positions, tap destinations and keyboard movement without detours', async ({ page, isMobile }, testInfo) => {
+  const start = { x: 1000, y: 800 }
+  await enter(page, start)
+  expect(await position(page)).toEqual(start)
+  await page.screenshot({ path: testInfo.outputPath('free-water.png') })
+  const target = await screenPoint(page, { x: 1090, y: 800 })
+  if (isMobile) await page.touchscreen.tap(target.x, target.y); else await page.mouse.click(target.x, target.y)
+  await expect.poll(async () => (await position(page)).x).toBeGreaterThan(1080)
+  await page.waitForTimeout(250)
+  expect(Math.abs((await position(page)).y - start.y)).toBeLessThan(3)
+  await page.keyboard.down('ArrowLeft')
+  try { await expect.poll(async () => (await position(page)).x).toBeLessThan(970) } finally { await page.keyboard.up('ArrowLeft') }
+  await page.waitForTimeout(250)
+  const stopped = await position(page)
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key)).positions[0], SAVE_KEY)).toEqual(stopped)
+  await page.reload()
+  await page.getByRole('button', { name: '공룡 정글 탐험 시작', exact: true }).click()
+  await expect(page.locator('.tk-scene-loading')).toHaveCount(0)
+  await expect.poll(() => position(page)).toEqual(stopped)
+})
+
+test('trees allow resuming inside their roots and walking through in either direction', async ({ page }, testInfo) => {
+  const tree = sceneryFor(0).find((object) => object.variant !== 2)
+  await enter(page, { x: tree.x, y: tree.y })
+  expect((await position(page)).x).toBeCloseTo(tree.x, 1)
+  await page.screenshot({ path: testInfo.outputPath('free-tree.png') })
+  await page.keyboard.down('ArrowRight')
+  try { await expect.poll(async () => (await position(page)).x).toBeGreaterThan(tree.x + 65) } finally { await page.keyboard.up('ArrowRight') }
+  await page.keyboard.down('ArrowLeft')
+  try { await expect.poll(async () => (await position(page)).x).toBeLessThan(tree.x - 65) } finally { await page.keyboard.up('ArrowLeft') }
+  expect(Math.abs((await position(page)).y - tree.y)).toBeLessThan(1)
 })

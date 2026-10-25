@@ -163,7 +163,7 @@ test('guardians reject early challenges, escalate patterns, reward wins and perm
   assert.equal(stepExpedition({ ...state, player: { ...state.player, x: 160, y: 1160 } }, {}, .016, progress).state.boss, null)
 })
 
-test('mouse routing finds a bounded walkable route and physics respects scenery trunks', () => {
+test('mouse destinations remain inside the map and walking is not blocked by scenery', () => {
   for (const world of WORLDS) {
     const path = findWalkPath(MAP.spawn, { x: 1600, y: 240 }, world.id)
     assert.ok(path.length > 0)
@@ -173,7 +173,7 @@ test('mouse routing finds a bounded walkable route and physics respects scenery 
       const state = createExpedition(world.id, emptyProgress())
       state.player = { ...state.player, x: object.x - object.radius - 12, y: object.y }
       const result = stepExpedition(state, { right: true }, .04, emptyProgress())
-      assert.ok(result.state.player.x <= state.player.x + 1)
+      assert.ok(result.state.player.x > state.player.x + 10)
     }
   }
 })
@@ -221,7 +221,7 @@ test('the complete 100-record expedition is earnable through every rule and surv
   assert.deepEqual([...reached], RESTORATIONS.map((step) => step.at))
 })
 
-test('painted trails connect every record, mission fragment and healing pickup without crossing solid roots', () => {
+test('direct movement reaches every record, mission fragment and healing pickup', () => {
   for (const world of WORLDS) {
     const points = [...treasuresFor(world.id).flatMap((item) => [item, ...item.targets]), ...heartsFor(world.id)]
     for (const point of points) {
@@ -239,18 +239,60 @@ test('painted trails connect every record, mission fragment and healing pickup w
   }
 })
 
-test('jump and dodge cannot bypass roots, off-trail edges or leave a saved character inside scenery', () => {
+test('every map interior position is passable and only the outer boundary limits movement', () => {
   for (const world of WORLDS) {
-    const tree = sceneryFor(world.id).find((object) => object.variant !== 2)
-    const state = createExpedition(world.id, emptyProgress())
-    state.player = { ...state.player, x: tree.x - tree.radius - 12, y: tree.y }
-    for (const input of [{ right: true }, { right: true, jump: true }, { right: true, dash: true }]) {
-      const next = stepExpedition(state, input, .04, emptyProgress()).state
-      assert.ok(next.player.x <= state.player.x + 1)
-    }
-    const resumed = createExpedition(world.id, { ...emptyProgress(), positions: { [world.id]: { x: tree.x, y: tree.y } } })
-    assert.equal(canWalk(resumed.player, world.id), true)
+    for (let x = 160; x <= MAP.width - 160; x += 20) for (let y = 175; y <= MAP.height - 160; y += 20) assert.equal(canWalk({ x, y }, world.id), true)
+    const start = MAP.spawn, target = { x: 1000, y: 800 }
+    assert.deepEqual(findWalkPath(start, target, world.id), [target])
+    assert.deepEqual(findWalkPath(start, { x: -999, y: 9999 }, world.id), [{ x: 160, y: 1160 }])
+    let state = createExpedition(world.id, emptyProgress())
+    state.player = { ...state.player, x: 160, y: 175 }
+    const result = stepExpedition(state, { left: true, up: true }, .04, emptyProgress())
+    assert.equal(result.state.player.x, 160); assert.equal(result.state.player.y, 175)
   }
+  assert.equal(canWalk({ x: NaN, y: 500 }), false)
+  assert.equal(canWalk({ x: 159, y: 500 }), false)
+})
+
+test('walking, jumping and dodging cross scenery and water without snapping saved positions', () => {
+  const progress = emptyProgress()
+  for (const world of WORLDS) {
+    const points = [...sceneryFor(world.id), { x: 1000, y: 800 }]
+    for (const point of points) {
+      const saved = { x: point.x, y: point.y }
+      const resumed = createExpedition(world.id, { ...progress, positions: { [world.id]: saved } })
+      assert.equal(resumed.player.x, saved.x); assert.equal(resumed.player.y, saved.y)
+      for (const input of [{ right: true }, { right: true, jump: true }, { right: true, dash: true }, { target: { x: point.x + 80, y: point.y } }]) {
+        let state = { ...resumed, player: { ...resumed.player, x: point.x - 50, invulnerable: 999 } }
+        for (let frame = 0; frame < 12; frame++) state = stepExpedition(state, input, .04, progress).state
+        assert.ok(state.player.x > point.x + 60, `World ${world.id}: crosses object/water at ${point.x},${point.y}`)
+      }
+    }
+  }
+})
+
+test('danger zones remain damaging and traversable in all four worlds', () => {
+  for (const world of WORLDS) {
+    const hazard = hazardsFor(world.id, 6)[0]
+    let state = createExpedition(world.id, emptyProgress())
+    state = { ...state, time: 6, player: { ...state.player, x: hazard.x, y: hazard.y, invulnerable: 0 } }
+    const result = stepExpedition(state, { right: true }, .04, emptyProgress())
+    assert.equal(result.state.player.hp, 3)
+    assert.ok(result.state.player.x > hazard.x)
+    assert.ok(result.events.some((event) => event.type === 'hurt'))
+  }
+})
+
+test('guardian bodies do not push or trap explorers', () => {
+  const progress = { ...emptyProgress(), collected: treasuresFor(0).slice(0, 10).map((item) => item.id) }
+  const guardian = treasuresFor(0).find((item) => item.type === 'boss')
+  let state = tickAt(guardian, progress, { interact: true }).state
+  assert.ok(state.boss)
+  state.player = { ...state.player, x: state.boss.x, y: state.boss.y, invulnerable: 999 }
+  const still = stepExpedition(state, {}, .04, progress).state
+  assert.equal(still.player.x, state.boss.x); assert.equal(still.player.y, state.boss.y)
+  const moved = stepExpedition(still, { right: true }, .04, progress).state
+  assert.ok(moved.player.x > still.player.x && moved.player.x - still.player.x < 11)
 })
 
 test('hearts restore one health, remain at full health, and respawn on the simulation timeline', () => {

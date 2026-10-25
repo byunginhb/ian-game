@@ -57,7 +57,7 @@ export function sceneryFor(worldId) {
   return objects
 }
 
-// One source for the painted trail, collision, navigation and map.
+// Shared visual layout for the painted trails, shoreline and map; all terrain is passable.
 export function trailsFor(worldId) {
   const items = treasuresFor(worldId), trails = [{ a: MAP.spawn, b: items[0], width: 78 }]
   const lanes = [[0, 5, 10, 15, 20, 21, 24], [0, 6, 12, 18, 24], [0, 1, 2, 3, 4, 9, 14, 19, 24], [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [15, 16, 17, 18, 19]]

@@ -288,6 +288,7 @@ export function mountTreasureScene(host, worldId, bridge) {
           const glimmer = scanned ? .65 : !reducedMotion && distance < 185 && phase < .65 ? Math.sin(phase / .65 * Math.PI) * .58 : 0
           glint.setVisible(!found && glimmer > 0).setAlpha(glimmer)
         }
+        if (object) object.setAlpha(1)
         if (object && item.type === 'boss') {
           const scale = object.getData('baseScale')
           if (boss?.id === item.id && boss.phase === 'defeated') {
@@ -302,6 +303,7 @@ export function mountTreasureScene(host, worldId, bridge) {
             else { object.clearTint(); object.rotation = 0 }
           }
         }
+        if (object && player.y < object.y + 12 && object.y - player.y < object.displayHeight && Math.abs(player.x - object.x) < object.displayWidth * .43) object.setAlpha(object.alpha * .42)
       }
       for (const [id, { sprite, glow, label, questId }] of this.questViews) {
         const quest = items.find((item) => item.id === questId), next = quest.targets.find((target) => !bridge.progress.questItems.includes(target.id))
@@ -316,7 +318,7 @@ export function mountTreasureScene(host, worldId, bridge) {
       }
       this.water.clear()
       if (!reducedMotion) for (const [i, point] of this.waterPoints.entries()) { const phase = (time * .22 + i * .13) % 1; this.water.lineStyle(1, 0xb5e5de, Math.sin(phase * Math.PI) * .19).strokeEllipse(point.x + phase * 12, point.y, 15 + phase * 35, 3 + phase * 9) }
-      for (const object of this.scenery) object.sprite.setAlpha(player.y < object.y && object.y - player.y < object.sprite.displayHeight && Math.abs(player.x - object.x) < object.sprite.displayWidth * .43 ? .42 : 1)
+      for (const object of this.scenery) object.sprite.setAlpha(player.y < object.y + 12 && object.y - player.y < object.sprite.displayHeight && Math.abs(player.x - object.x) < object.sprite.displayWidth * .43 ? .42 : 1)
       this.drawWarnings(boss, time)
       this.combat.update(this.simulation, fxDelta)
       this.scanRing.clear()
