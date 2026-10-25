@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { SAVE_KEY, BACKUP_KEY, emptyProgress, treasuresFor } from '../src/lib/treasureKingdom.js'
 
 async function startFight(page) {
-  const boss = treasuresFor(0)[12], progress = { ...emptyProgress(), collected: treasuresFor(0).slice(0, 8).map((item) => item.id), positions: { 0: { x: boss.x + 55, y: boss.y } } }
+  const boss = treasuresFor(0)[12], progress = { ...emptyProgress(), collected: treasuresFor(0).slice(0, 10).map((item) => item.id), positions: { 0: { x: boss.x + 55, y: boss.y } } }
   await page.addInitScript(({ key, backup, value }) => { localStorage.setItem(key, JSON.stringify(value)); localStorage.setItem(backup, JSON.stringify(value)) }, { key: SAVE_KEY, backup: BACKUP_KEY, value: progress })
   await page.goto('/game/treasure-kingdom'); await page.getByRole('button', { name: '공룡 정글 이어서 탐험', exact: true }).click()
   await expect(page.locator('.tk-scene-loading')).toHaveCount(0)

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { SAVE_KEY, BACKUP_KEY, WORLDS, emptyProgress, puzzleFor, treasuresFor } from '../src/lib/treasureKingdom.js'
+import { SAVE_KEY, BACKUP_KEY, WORLDS, emptyProgress, missionChallenge, puzzleFor, treasuresFor } from '../src/lib/treasureKingdom.js'
 
 const route = '/game/treasure-kingdom'
 async function openGame(page, progress) {
@@ -61,7 +61,7 @@ test('fullscreen exploration, actual input, immediate save, restoration and relo
   expect(errors).toEqual([])
 })
 
-for (const index of [3, 11, 17, 23]) {
+for (const index of [3, 11, 17, 20]) {
   const item = treasuresFor(0)[index], puzzle = puzzleFor(item)
   test(`${puzzle.mode}: device requires its real solution and saves completion`, async ({ page }, testInfo) => {
     await openGame(page, { ...emptyProgress(), positions: { 0: { x: item.x, y: item.y } } })
@@ -72,15 +72,15 @@ for (const index of [3, 11, 17, 23]) {
     if (puzzle.mode === 'circuit') {
       await page.getByRole('button', { name: '장치 가동', exact: true }).click()
       await expect(page.getByRole('dialog')).toContainText('전력이 수신부에 도달하지 못했다')
-      for (let cell = 0; cell < 9; cell++) for (let turn = 0; turn < (4 - puzzle.tiles[cell].turns) % 4; turn++) await page.getByRole('button', { name: `회로 ${cell + 1} 회전`, exact: true }).click()
+      for (let cell = 0; cell < puzzle.tiles.length; cell++) for (let turn = 0; turn < (4 - puzzle.tiles[cell].turns) % 4; turn++) await page.getByRole('button', { name: `회로 ${cell + 1} 회전`, exact: true }).click()
     }
     if (puzzle.mode === 'sequence') {
       await page.getByRole('button', { name: '관측 신호 재생', exact: true }).click()
       await expect(page.getByRole('button', { name: '관측 신호 재생', exact: true })).toBeEnabled({ timeout: 8000 })
       for (const symbol of puzzle.sequence) await page.getByRole('button', { name: `문양 ${symbol + 1}`, exact: true }).click()
     }
-    if (puzzle.mode === 'balance') for (const weight of [0, 2, 4]) await page.locator('.tk-weight-buttons button').nth(weight).click()
-    if (puzzle.mode === 'route') for (const cell of [1, 5, 9, 13, 14, 15]) await page.locator('.tk-route-grid button').nth(cell).click()
+    if (puzzle.mode === 'balance') for (const weight of puzzle.solutionIndices) await page.locator('.tk-weight-buttons button').nth(weight).click()
+    if (puzzle.mode === 'route') for (const cell of puzzle.solution.slice(1)) await page.locator('.tk-route-grid button').nth(cell).click()
     if (puzzle.mode !== 'sequence') await page.getByRole('button', { name: '장치 가동', exact: true }).click()
     await expect.poll(async () => (await readSave(page)).collected).toContain(item.id)
     await expect(page.locator('.tk-acquisition')).toContainText(item.name)
@@ -125,26 +125,44 @@ test('a contact explains and saves an accepted mission, with modal keyboard focu
   await expect(page.getByRole('dialog')).toContainText(item.contact)
   await expect(page.getByRole('dialog')).toContainText(item.briefing)
   await expect(page.getByRole('dialog')).toBeFocused()
-  await page.getByRole('button', { name: '임무 수락', exact: true }).click()
+  await page.keyboard.press('Enter')
   await expect.poll(async () => (await readSave(page)).quests).toContain(item.id)
   await expect(page.locator('.game-content')).toBeFocused()
 })
 
-test('mission fragments persist and returning to a contact completes the task', async ({ page }) => {
-  const item = treasuresFor(0)[4], first = item.targets[0]
-  await openGame(page, { ...emptyProgress(), quests: [item.id], questItems: item.targets.slice(1).map((target) => target.id), positions: { 0: { x: first.x, y: first.y } } })
+test('site judgment rejects wrong answers, Enter confirms the record, and ordered mission progress persists', async ({ page }) => {
+  const item = treasuresFor(0)[4], first = item.targets[0], challenge = missionChallenge(item, 0)
+  await openGame(page, { ...emptyProgress(), quests: [item.id], positions: { 0: { x: first.x, y: first.y } } })
   await enter(page)
-  await expect.poll(async () => (await readSave(page)).questItems).toHaveLength(3)
-  await page.keyboard.down('ArrowRight'); await page.keyboard.down('ArrowDown')
-  await expect(page.getByRole('button', { name: '말 걸기', exact: true })).toBeVisible()
-  await page.keyboard.up('ArrowRight'); await page.keyboard.up('ArrowDown')
+  expect((await readSave(page)).questItems).toHaveLength(0)
+  await page.getByRole('button', { name: '현장 조사', exact: true }).click()
+  await page.locator('.tk-mission-choices button').nth((challenge.correct + 1) % challenge.choices.length).click()
+  await page.getByRole('button', { name: '현장 판단 확인', exact: true }).click()
+  await expect(page.getByRole('dialog')).toContainText('현장 기록과 일치하지 않는다')
+  await page.locator('.tk-mission-choices button').nth(challenge.correct).click()
+  await page.getByRole('button', { name: '현장 판단 확인', exact: true }).click()
+  await expect(page.getByRole('button', { name: '기록 저장하고 계속', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect.poll(async () => (await readSave(page)).questItems).toEqual([first.id])
+  await page.reload(); await enter(page)
+  await expect(page.locator('.tk-mission-tracker')).toContainText('관측소 2')
+  expect((await readSave(page)).collected).not.toContain(item.id)
+})
+
+test('returning with all observations requires decoding their order before awarding a treasure', async ({ page }) => {
+  const item = treasuresFor(0)[4], challenge = missionChallenge(item, 3, true)
+  await openGame(page, { ...emptyProgress(), quests: [item.id], questItems: item.targets.map((target) => target.id), positions: { 0: { x: item.x, y: item.y } } })
+  await enter(page)
   await page.getByRole('button', { name: '말 걸기', exact: true }).click()
+  expect((await readSave(page)).collected).not.toContain(item.id)
+  await page.locator('.tk-mission-choices button').nth(challenge.correct).click()
+  await page.getByRole('button', { name: '현장 판단 확인', exact: true }).click()
   await expect.poll(async () => (await readSave(page)).collected).toContain(item.id)
-  await page.reload(); expect((await readSave(page)).questItems).toHaveLength(3)
 })
 
 test('guardian telegraphs, exposes its core, escalates and can be defeated', async ({ page }, testInfo) => {
-  const collected = treasuresFor(0).slice(0, 8).map((item) => item.id), boss = treasuresFor(0)[12]
+  const collected = treasuresFor(0).slice(0, 10).map((item) => item.id), boss = treasuresFor(0)[12]
   await openGame(page, { ...emptyProgress(), collected, positions: { 0: { x: boss.x + 55, y: boss.y } } })
   await enter(page)
   await page.getByRole('button', { name: '봉인 해제', exact: true }).click()

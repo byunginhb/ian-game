@@ -1,7 +1,9 @@
 import Phaser from 'phaser'
+import { createElementalAttacks } from './treasureElements'
 
 export function createCombatVisuals(scene, reducedMotion) {
-  const shots = new Map(), effects = [], particles = []
+  const shots = new Map(), effects = [], particles = [], loot = []
+  const elements = createElementalAttacks(scene, reducedMotion)
   const trails = scene.add.graphics().setDepth(10010), charging = scene.add.graphics().setDepth(10012)
   const missile = document.createElement('canvas'); missile.width = 80; missile.height = 36
   const ctx = missile.getContext('2d'); ctx.translate(40, 18)
@@ -43,36 +45,28 @@ export function createCombatVisuals(scene, reducedMotion) {
       effects.push({ object, kind: 'text', life: .8, total: .8 })
     }
     if (event.type === 'bossAttack') {
-      const object = scene.add.graphics().setDepth(9005)
-      for (const zone of event.zones) scene.drawZone(zone, 0xffc78b, reducedMotion ? .25 : .65, object)
-      effects.push({ object, kind: 'strike', life: .65, total: .65 })
-      for (const zone of event.zones) {
-        const points = []
-        if (zone.kind === 'line') for (let i = 1; i < 7; i++) points.push({ x: zone.x + Math.cos(zone.angle) * zone.length * i / 7, y: zone.y + Math.sin(zone.angle) * zone.length * i / 7 })
-        else if (zone.kind === 'rect') for (let i = 0; i < 6; i++) points.push({ x: zone.x + zone.width * (zone.width > zone.height ? (i + .5) / 6 : .5), y: zone.y + zone.height * (zone.height > zone.width ? (i + .5) / 6 : .5) })
-        else if (zone.kind === 'ring' || zone.kind === 'cone') for (let i = 0; i < 12; i++) {
-          const angle = zone.kind === 'cone' ? zone.angle - zone.spread + 2 * zone.spread * i / 11 : i * Math.PI / 6
-          const radius = zone.radius * (zone.kind === 'ring' ? .82 : .7)
-          points.push({ x: zone.x + Math.cos(angle) * radius, y: zone.y + Math.sin(angle) * radius * (zone.kind === 'ring' ? .74 : 1) })
-        } else points.push({ x: zone.x, y: zone.y })
-        for (const [i, point] of points.entries()) {
-          glow(point.x, point.y, 0xffbc78, .5, .55)
-          sparks(point.x, point.y, reducedMotion ? 0 : 9, 0xecc598, .7)
-          if (!reducedMotion) {
-            const pillar = scene.add.rectangle(point.x, point.y - 45, 5 + i % 3 * 3, 85 + i % 3 * 25, 0xffd5a0, .7).setDepth(9006).setBlendMode(Phaser.BlendModes.ADD)
-            effects.push({ object: pillar, kind: 'pillar', life: .32 + i % 3 * .08, total: .32 + i % 3 * .08 })
-          }
-        }
-      }
-      if (!reducedMotion) scene.cameras.main.shake(240, .0045)
+      elements.start(event)
+      if (!reducedMotion) scene.cameras.main.shake(260, .005)
     }
     if (event.type === 'bossFall') {
+      if (event.rewardCount === 3) for (let i = 0; i < 3; i++) {
+        const sprite = scene.add.image(event.x + 45, event.y - 30, 'boss-loot-gem').setTint([0xffdc8e, 0x9fe1f2, 0xa9e3ab][i]).setDepth(10025).setScale(.8)
+        loot.push({ sprite, x: event.x + 45, y: event.y - 30, vx: (i - 1) * 160, age: 0, i })
+      }
       ring(event.x, event.y + 5, 0xe0be86, true); glow(event.x, event.y, 0xd9b887, 1.7, .9); sparks(event.x, event.y, 80, 0xc6b28e, 1.25)
       if (!reducedMotion) scene.cameras.main.shake(430, .011)
     }
   }
   function update(state, dt) {
-    trails.clear(); charging.clear()
+    trails.clear(); charging.clear(); elements.update(dt, state.time)
+    for (let i = loot.length - 1; i >= 0; i--) {
+      const gem = loot[i]; gem.age += dt
+      if (gem.age >= 1.35) { gem.sprite.destroy(); loot.splice(i, 1); continue }
+      const t = gem.age / 1.35, home = Math.max(0, (t - .42) / .58)
+      const x = gem.x + gem.vx * Math.min(gem.age, .65), y = gem.y - Math.sin(Math.min(1, t / .65) * Math.PI) * (110 + gem.i * 15)
+      gem.sprite.setPosition(x + (state.player.x - x) * home * home, y + (state.player.y - 40 - y) * home * home).setRotation(reducedMotion ? 0 : Math.sin(t * 5) * .3).setAlpha(1 - home * .5)
+      trails.lineStyle(3, [0xffdb91, 0xa2e6f4, 0xa7ebb9][gem.i], .6 * (1 - t)).lineBetween(gem.sprite.x, gem.sprite.y, gem.sprite.x - gem.vx * .08, gem.sprite.y + 12)
+    }
     const activeIds = new Set(state.missiles.map((shot) => shot.id))
     for (const [id, shot] of shots) if (!activeIds.has(id)) { shot.sprite.destroy(); shots.delete(id) }
     for (const shot of state.missiles) {

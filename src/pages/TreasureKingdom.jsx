@@ -3,6 +3,7 @@ import KingdomIllustration from '../components/KingdomIllustration'
 import KingdomReturn from '../components/KingdomReturn'
 import TreasureExpedition from '../components/TreasureExpedition'
 import TreasurePuzzle from '../components/TreasurePuzzle'
+import { MissionSite, MissionBriefing } from '../components/TreasureMission'
 import { ALL_TREASURES, MAP, PROLOGUE, RESTORATIONS, TYPE_LABELS, WORLDS, loadProgress, progressAction, restorationFor, saveProgress, trailsFor, treasuresFor, worldCount, worldUnlocked } from '../lib/treasureKingdom'
 import { createTreasureAudio } from '../lib/treasureAudio'
 import { createTreasureBridge } from '../lib/treasureBridge'
@@ -21,6 +22,10 @@ function GameDialog({ title, children, onClose, className = '' }) {
   }, [])
   return <div className="tk-modal-scrim" onKeyDown={(event) => {
     event.stopPropagation()
+    if (event.key === 'Enter' && !event.target.closest('button, a, input, textarea, select')) {
+      const primary = ref.current.querySelector('[data-dialog-primary]:not(:disabled), button.tk-primary:not(:disabled)')
+      if (primary) { event.preventDefault(); primary.click() }
+    }
     if (event.key === 'Escape') onClose()
     if (event.key === 'Tab') {
       const buttons = ref.current.querySelectorAll('button:not(:disabled), [href]')
@@ -60,8 +65,8 @@ function TreasureJournal({ worldId, progress, onClose, onHint, initialTab = 'rel
   const [tab, setTab] = useState(initialTab)
   const items = treasuresFor(worldId)
   return <GameDialog title="탐사 기록" onClose={onClose} className="tk-journal">
-    <div className="tk-journal-tabs"><button aria-pressed={tab === 'relics'} onClick={() => setTab('relics')}>보물 수첩</button><button aria-pressed={tab === 'archive'} onClick={() => setTab('archive')}>왕국의 기록</button></div>
-    {tab === 'relics' ? <><p>{WORLDS[worldId].chapter} · 확보한 보물 {worldCount(progress, worldId)} / 25</p><div className="tk-journal-grid">{items.map((item) => <div key={item.id} className={progress.collected.includes(item.id) ? 'is-found' : ''}><Relic small /><span>{String(item.index + 1).padStart(2, '0')}</span><strong>{item.name}</strong><small>{progress.collected.includes(item.id) ? '회수 완료' : TYPE_LABELS[item.type]}</small>{!progress.collected.includes(item.id) && <button className="tk-hint-button" aria-label={`${item.name} 힌트`} onClick={() => onHint(item)}>힌트 · 지도</button>}</div>)}</div><p className="tk-dialog-note">매몰된 보물은 탐지 펄스(E)로 위치를 확인한다. 수호자는 구역의 보물 8개·18개를 확보하면 깨어난다.</p></> : <div className="tk-archive">{WORLDS.map((world) => <section key={world.id}><h3>{world.id + 1}. {world.chapter}</h3>{world.records.map((record, index) => <p key={index} className={worldCount(progress, world.id) >= [5, 12, 25][index] ? 'is-decoded' : ''}><span>{[5, 12, 25][index]}개</span>{worldCount(progress, world.id) >= [5, 12, 25][index] ? record : '기록 미해독'}</p>)}</section>)}</div>}
+    <div className="tk-journal-tabs"><button aria-pressed={tab === 'relics'} onClick={() => setTab('relics')}>보물 수첩</button><button aria-pressed={tab === 'missions'} onClick={() => setTab('missions')}>현장 임무</button><button aria-pressed={tab === 'archive'} onClick={() => setTab('archive')}>왕국의 기록</button></div>
+    {tab === 'relics' ? <><p>{WORLDS[worldId].chapter} · 확보한 보물 {worldCount(progress, worldId)} / 25</p><div className="tk-journal-grid">{items.map((item) => <div key={item.id} className={progress.collected.includes(item.id) ? 'is-found' : ''}><Relic small /><span>{String(item.index + 1).padStart(2, '0')}</span><strong>{item.name}</strong><small>{progress.collected.includes(item.id) ? '회수 완료' : TYPE_LABELS[item.type]}</small>{!progress.collected.includes(item.id) && <button className="tk-hint-button" aria-label={`${item.name} 힌트`} onClick={() => onHint(item)}>힌트 · 지도</button>}</div>)}</div><p className="tk-dialog-note">매몰된 보물은 탐지 펄스(E)로 위치를 확인한다. 봉인은 보물 10개·20개·22개에서 열린다. 마지막 3개는 최종 수호자가 지니고 있다.</p></> : tab === 'missions' ? <div className="tk-mission-log">{items.filter((item) => item.type === 'friend').map((item) => { const accepted = progress.quests.includes(item.id), complete = progress.collected.includes(item.id), next = accepted && item.targets.find((target) => !progress.questItems.includes(target.id)); return <section key={item.id}><h3>{item.missionMode === 'survey' ? '관측 기록 해독' : item.missionMode === 'relay' ? '중계망 재가동' : '원정대 구출·호위'}</h3><p>{item.briefing}</p><ol>{item.targets.map((target) => <li key={target.id}>{target.name} · {progress.questItems.includes(target.id) ? `기록 ${target.code}` : '미조사'}</li>)}</ol><button onClick={() => onHint({ ...item, ...(next || {}), name: next?.name || item.contact, clue: next ? '이 현장으로 이동해 E 또는 현장 조사 버튼을 누른다.' : '담당자에게 돌아가 임무를 수락하거나 조사 결과를 보고하라.' })} disabled={complete}>{complete ? '임무 완료' : next ? '다음 현장 추적' : accepted ? '담당자에게 복귀' : '담당자 위치'}</button></section> })}</div> : <div className="tk-archive">{WORLDS.map((world) => <section key={world.id}><h3>{world.id + 1}. {world.chapter}</h3>{world.records.map((record, index) => <p key={index} className={worldCount(progress, world.id) >= [5, 12, 25][index] ? 'is-decoded' : ''}><span>{[5, 12, 25][index]}개</span>{worldCount(progress, world.id) >= [5, 12, 25][index] ? record : '기록 미해독'}</p>)}</section>)}</div>}
   </GameDialog>
 }
 function readInitial() {
@@ -102,11 +107,11 @@ export default function TreasureKingdom() {
     setSaveOK(saved); setProgress(next); return next
   }, [bridge])
   const notify = useCallback((message) => setToast({ message, at: gameClock.now() }), [])
-  const celebrate = useCallback((id, next, decoded = false) => {
+  const celebrate = useCallback((id, next, decoded = false, amount = 1) => {
     const item = ALL_TREASURES.find((entry) => entry.id === id)
     if (!item) return
     const tier = next.collected.length === 100 ? 'kingdom' : item.type === 'boss' ? 'guardian' : worldCount(next, item.worldId) === 25 ? 'chapter' : 'relic'
-    const acquired = { id, name: item.name, count: next.collected.length, worldCount: worldCount(next, item.worldId), tier, decoded, sequence: next.revision }
+    const acquired = { id, amount, name: amount === 3 ? `${WORLDS[item.worldId].bosses[2]}의 보물 3개` : item.name, count: next.collected.length, worldCount: worldCount(next, item.worldId), tier, decoded, sequence: next.revision }
     gameClock.clearTimeout(rewardTimer.current)
     const present = () => {
       setHint((current) => current?.id === id ? null : current); setToast(null); setReward(acquired); bridge.celebrate?.(acquired); sound.play('collect', tier)
@@ -115,7 +120,7 @@ export default function TreasureKingdom() {
         clearTimer.current = gameClock.setTimeout(() => { setReward(null); bridge.setBlocked(true); setModal({ type: 'cleared', worldId: item.worldId }) }, 1400)
       }
     }
-    if (item.type === 'boss') rewardTimer.current = gameClock.setTimeout(present, 1100)
+    if (item.type === 'boss') rewardTimer.current = gameClock.setTimeout(present, amount === 3 ? 2300 : 1100)
     else present()
   }, [bridge, sound])
   const closeModal = useCallback(() => { setModal(null); bridge.setBlocked(false) }, [bridge])
@@ -125,13 +130,13 @@ export default function TreasureKingdom() {
       if (['collect', 'questItem', 'reveal'].includes(event.type)) {
         const before = worldCount(bridge.progress, bridge.worldId)
         const next = commit(event)
-        if (event.type === 'collect') { const count = worldCount(next, bridge.worldId); celebrate(event.id, next, [5, 12, 25].includes(count) && before !== count) }
+        if (event.type === 'collect') { const count = worldCount(next, bridge.worldId); celebrate(event.id, next, [5, 12, 25].includes(count) && before !== count, event.amount || 1) }
         if (event.type === 'questItem') { sound.play('hit'); notify(event.message) }
       }
       if (event.type === 'position') commit({ type: 'position', worldId: bridge.worldId, position: event.position })
-      if (event.type === 'puzzle' || event.type === 'friend') openModal(event)
+      if (event.type === 'puzzle' || event.type === 'friend' || event.type === 'missionSite') openModal(event)
       if (['notice', 'scan', 'hurt', 'heal'].includes(event.type)) notify(event.message)
-      if (['missileLaunch', 'missileImpact', 'bossAttack', 'bossFall'].includes(event.type)) sound.play(event.type, event.charged ? 'charged' : 'normal')
+      if (['missileLaunch', 'missileImpact', 'bossAttack', 'bossFall'].includes(event.type)) sound.play(event.type, event.boss?.element || (event.charged ? 'charged' : 'normal'))
       if (event.type === 'heal') sound.play('heal')
       if (event.type === 'hit' || event.type === 'scan' || event.type === 'hurt') sound.play('hit')
     } })
@@ -172,20 +177,20 @@ export default function TreasureKingdom() {
   const toggleFullscreen = () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else requestGameFullscreen() }
   const nearest = context.nearest
   const world = activeWorld !== null ? WORLDS[activeWorld] : null
-  const actionLabel = nearest?.type === 'friend' ? '말 걸기' : nearest?.type === 'boss' ? '봉인 해제' : nearest?.type === 'puzzle' ? '장치 조사' : '탐지 펄스'
+  const actionLabel = nearest?.type === 'missionSite' ? '현장 조사' : nearest?.type === 'friend' ? '말 걸기' : nearest?.type === 'boss' ? '봉인 해제' : nearest?.type === 'puzzle' ? '장치 조사' : '탐지 펄스'
   const actionable = true
-  const contextual = nearest && ['puzzle', 'friend', 'boss'].includes(nearest.type)
+  const activeMission = world && treasuresFor(world.id).find((item) => item.type === 'friend' && progress.quests.includes(item.id) && !progress.collected.includes(item.id))
+  const missionStep = activeMission?.targets.findIndex((target) => !progress.questItems.includes(target.id))
+  const contextual = nearest && ['puzzle', 'friend', 'boss', 'missionSite'].includes(nearest.type)
   const toolButtons = <><button onClick={() => openModal({ type: 'help' })} aria-label="조작 방법 보기">도움말</button><button onClick={toggleSound} aria-label={muted ? '소리 켜기' : '소리 끄기'}>{muted ? '소리 꺼짐' : '소리 켜짐'}</button><button onClick={toggleFullscreen} aria-label={fullscreen ? '전체화면 종료' : '전체화면 켜기'}>{fullscreen ? '화면 복귀' : '전체화면'}</button></>
   let modalContent = null
   if (modal?.type === 'journal') modalContent = <TreasureJournal worldId={activeWorld ?? progress.lastWorld} progress={progress} onClose={closeModal} onHint={(item) => { closeModal(); if (activeWorld !== item.worldId) startWorld(item.worldId); setHint(item); setMapOpen(true) }} initialTab={modal.tab} />
   if (modal?.type === 'settings') modalContent = <GameDialog title="탐사 설정" onClose={closeModal}><div className="tk-settings-options">{toolButtons}</div><p className="tk-dialog-note">조작 안내와 화면·소리 설정을 여기서 변경한다. 지도의 위치 표시는 지도 버튼으로 열 수 있다.</p></GameDialog>
-  if (modal?.type === 'help') modalContent = <GameDialog title="탐사 매뉴얼" onClose={closeModal}><div className="tk-help-list"><p><b>이동 / 점프 / 회피</b>화면에서 가고 싶은 곳을 터치하면 이동한다. 길게 누르거나 드래그하면 손가락·마우스 방향으로 계속 걸어간다. 길게 누른 뒤 손을 떼면 멈춘다. PC 방향키·WASD도 지원한다. Space로 점프, Shift로 회피. 회피에는 행동력이 소모되고 잠시 공격을 피할 수 있다.</p><p><b>탐지와 현장 조사</b>E로 탐지 펄스를 발사해 매몰된 보물을 찾는다. 보물 수첩의 힌트로 지도에 위치를 표시할 수 있다. 길가의 하트는 체력 1칸을 회복하고 30초 뒤 다시 나타난다. 유적·탐사대원에 가까이 가면 E로 조사·대화한다. 임무의 기록 조각 세 개를 회수한 뒤 담당자에게 돌아가라.</p><p><b>수호자</b>붉은 경고의 형태를 읽고 회피하라. 전투 중 점프 버튼과 Space는 자동 조준 미사일로 바뀐다. 짧게 눌렀다 떼면 일반탄, 1.35초 동안 누르면 필살기가 자동 발사된다. 다음 발사는 손을 뗀 뒤 다시 누른다. 코어가 파랗게 노출될 때 더 큰 피해를 준다. 수호자의 남은 체력이 줄면 공격이 빨라진다. 체력이 소진되어도 보물은 잃지 않는다.</p><p><b>왕국과 기록</b>확보한 보물을 왕국으로 가져가면 복구가 진행된다. 한 세계의 25개를 가져오면 다음 장이 열린다. 각 장에서 5·12·25개를 찾으면 이야기의 기록이 해독된다.</p><p><b>저장 / 전체화면</b>획득과 임무 진행은 즉시, 위치는 2초마다 저장된다. 같은 브라우저에서 이어 할 수 있다. PC는 탐험 시작 시 전체화면으로 진입하며 Esc로 돌아올 수 있다.</p></div><button className="tk-primary" onClick={closeModal}>탐사 계속</button></GameDialog>
+  if (modal?.type === 'help') modalContent = <GameDialog title="탐사 매뉴얼" onClose={closeModal}><div className="tk-help-list"><p><b>이동 / 점프 / 회피</b>화면에서 가고 싶은 곳을 터치하면 이동한다. 길게 누르거나 드래그하면 손가락·마우스 방향으로 계속 걸어간다. 길게 누른 뒤 손을 떼면 멈춘다. PC 방향키·WASD도 지원한다. Space로 점프, Shift로 회피. 회피에는 행동력이 소모되고 잠시 공격을 피할 수 있다.</p><p><b>탐지와 현장 조사</b>E로 탐지 펄스를 발사해 매몰된 보물을 찾는다. 보물 수첩의 힌트로 지도에 위치를 표시할 수 있다. 길가의 하트는 체력 1칸을 회복하고 30초 뒤 다시 나타난다. 유적·탐사대원에 가까이 가면 E로 조사·대화한다. 순차 조사·중계기 동기화·구출과 호위를 해결한 뒤 담당자에게 보고하라. 현장 기록은 Enter로 확인할 수 있다.</p><p><b>수호자</b>보물 10·20·22개에서 세 봉인이 열린다. 최종 수호자는 마지막 보물 3개를 지닌다. 붉은 경고의 형태를 읽고 회피하라. 전투 중 점프 버튼과 Space는 자동 조준 미사일로 바뀐다. 짧게 눌렀다 떼면 일반탄, 1.35초 동안 누르면 필살기가 자동 발사된다. 다음 발사는 손을 뗀 뒤 다시 누른다. 코어가 파랗게 노출될 때 더 큰 피해를 준다. 수호자의 남은 체력이 줄면 공격이 빨라진다. 체력이 소진되어도 보물은 잃지 않는다.</p><p><b>왕국과 기록</b>확보한 보물을 왕국으로 가져가면 복구가 진행된다. 한 세계의 25개를 가져오면 다음 장이 열린다. 각 장에서 5·12·25개를 찾으면 이야기의 기록이 해독된다.</p><p><b>저장 / 전체화면</b>획득과 임무 진행은 즉시, 위치는 2초마다 저장된다. 같은 브라우저에서 이어 할 수 있다. PC는 탐험 시작 시 전체화면으로 진입하며 Esc로 돌아올 수 있다.</p></div><button className="tk-primary" onClick={closeModal}>탐사 계속</button></GameDialog>
   if (modal?.type === 'story') modalContent = <GameDialog title="멈춘 왕국의 마지막 기록" onClose={closeModal}><div className="tk-prologue">{PROLOGUE.map((line, index) => <p key={index}>{line}</p>)}</div><button className="tk-primary" onClick={() => { closeModal(); startWorld(0) }}>첫 번째 균열로</button></GameDialog>
   if (modal?.type === 'puzzle') modalContent = <GameDialog title={modal.item.name} onClose={closeModal} className="tk-puzzle-dialog"><TreasurePuzzle item={modal.item} onSolved={() => { const next = commit({ type: 'collect', id: modal.item.id }); celebrate(modal.item.id, next, [5, 12, 25].includes(worldCount(next, modal.item.worldId))); closeModal() }} /></GameDialog>
-  if (modal?.type === 'friend') {
-    const item = modal.item, done = item.targets.filter((target) => progress.questItems.includes(target.id)).length
-    modalContent = <GameDialog title={item.contact} onClose={closeModal}><div className="tk-quest-portrait" style={{ '--contact': item.contactIndex }} /><p className="tk-quest-quote">“{item.briefing}”</p><div className="tk-quest-progress">기록 회수 <b>{done} / 3</b></div><p className="tk-dialog-note">수락하면 작은 지도에 위치가 표시된다. 세 조각을 찾은 뒤 이곳으로 돌아오면 임무를 완료할 수 있다.</p><button className="tk-primary" onClick={() => { commit({ type: 'quest', id: item.id }); notify('현장 임무 추적 중. 지도에 기록 조각의 위치가 표시됐다.'); closeModal() }}>{progress.quests.includes(item.id) ? '임무 계속' : '임무 수락'}</button></GameDialog>
-  }
+  if (modal?.type === 'missionSite') modalContent = <GameDialog title={modal.item.targets[modal.step].name} onClose={closeModal}><MissionSite item={modal.item} step={modal.step} onSolved={() => { const next = commit({ type: 'questItem', id: modal.item.targets[modal.step].id }); const target = modal.item.targets.find((target) => !next.questItems.includes(target.id)) || modal.item; setHint({ ...modal.item, x: target.x, y: target.y, name: target.name || modal.item.contact, clue: target === modal.item ? '담당자에게 돌아가 임무를 보고하라.' : '다음 지점에 접근해 E 또는 현장 조사 버튼을 누른다.' }); setMapOpen(true); closeModal(); notify(modal.step === 2 ? '현장 조사 완료. 담당자에게 돌아가라.' : '다음 현장으로 이동하라. 지도에 목표가 표시됐다.') }} /></GameDialog>
+  if (modal?.type === 'friend') modalContent = <GameDialog title={modal.item.contact} onClose={closeModal}><MissionBriefing item={modal.item} progress={progress} escortReady={modal.escortReady} onAccept={() => { commit({ type: 'quest', id: modal.item.id }); const target = modal.item.targets.find((target) => !progress.questItems.includes(target.id)) || modal.item; setHint({ ...modal.item, ...target, clue: '이 현장으로 이동해 E 또는 현장 조사 버튼을 누른다.' }); setMapOpen(true); closeModal(); notify('첫 현장으로 이동하라. E 또는 현장 조사 버튼으로 조사한다.') }} onClose={closeModal} onComplete={() => { const next = commit({ type: 'collect', id: modal.item.id }); celebrate(modal.item.id, next); closeModal() }} /></GameDialog>
   if (modal?.type === 'cleared') modalContent = <GameDialog title={`${WORLDS[modal.worldId].chapter} 탐사 완료`} onClose={closeModal} className="tk-clear-dialog"><div className="tk-clear-rays" /><span className="tk-clear-medal"><Relic /></span><p className="tk-clear-eyebrow">STAGE CLEAR</p><strong className="tk-clear-total">25 <span>/ 25</span></strong><p>이 구역에 흩어진 보물을 모두 찾았다.<br />왕국으로 돌아가 복구를 시작하자.</p><button className="tk-primary tk-clear-return" onClick={returnToKingdom}>왕국으로 돌아가기 <span>›</span></button><button className="tk-clear-explore" onClick={closeModal}>계속 둘러보기</button></GameDialog>
   if (modal?.type === 'restored') modalContent = <GameDialog title={progress.banked.length === 100 ? '왕국의 새로운 아침' : '왕국 복구 보고'} onClose={closeModal} className="tk-return-dialog"><KingdomReturn before={modal.before} after={modal.after} steps={modal.steps} stageName={modal.stageName} /><button className="tk-primary tk-return-confirm" onClick={closeModal}>왕국 확인</button></GameDialog>
 
@@ -207,22 +212,23 @@ export default function TreasureKingdom() {
         <div id="tk-field-map" className={`tk-minimap${hint ? ' tk-minimap-tracking' : ''}`} aria-label="작은 지도" hidden={!mapOpen}>
           {hint && <div className="tk-map-target"><span>추적 중 · {hint.name}</span><button aria-label="보물 위치 추적 해제" onClick={() => setHint(null)}>×</button></div>}
           <svg viewBox={`0 0 ${MAP.width} ${MAP.height}`} role="img" aria-label="현재 위치와 현장 임무">
-            <rect width={MAP.width} height={MAP.height} rx="30" fill="#152821" />
+            <rect width={MAP.width} height={MAP.height} rx="30" fill="#164d5b" />
             {trailsFor(world.id).map(({ a, b, width }, i) => <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#727b63" strokeWidth={width * 2} strokeLinecap="round" />)}
             {treasuresFor(world.id).filter((item) => ['puzzle', 'friend', 'boss'].includes(item.type)).map((item) => <circle key={item.id} cx={item.x} cy={item.y} r={item.type === 'boss' ? 32 : 19} fill={progress.collected.includes(item.id) ? '#59605b' : item.type === 'boss' ? '#b56953' : '#e7dbaf'} />)}
             {treasuresFor(world.id).filter((item) => progress.quests.includes(item.id) && !progress.collected.includes(item.id)).flatMap((item) => item.targets.filter((target) => !progress.questItems.includes(target.id)).map((target) => <circle key={target.id} cx={target.x} cy={target.y} r="25" fill="#87c6c4" />))}
             {hint && <g className="tk-map-beacon" aria-label={`${hint.name} 위치`} data-treasure-id={hint.id}><circle className="tk-map-pulse" cx={hint.x} cy={hint.y} r="70" fill="none" stroke="#ffdc80" strokeWidth="13" /><circle cx={hint.x} cy={hint.y} r="36" fill="#ffdf8a" stroke="#2d342b" strokeWidth="9" /><path d={`M${hint.x - 20} ${hint.y}h40m-20 -20v40`} stroke="#302d22" strokeWidth="8" /></g>}
             <circle className="tk-player-dot" cx={context.position.x} cy={context.position.y} r="30" fill="#b5f3ea" stroke="#172b2c" strokeWidth="12" />
           </svg>
-          {hint && <p>{hint.clue || (hint.type === 'jump' ? '표시한 위치에 가까이 가서 점프하라.' : hint.type === 'hidden' ? '위치에 접근한 뒤 탐지 펄스를 사용하라.' : hint.type === 'boss' ? '주변 보물을 모은 뒤 봉인을 해제하라.' : hint.type === 'puzzle' ? '표시한 유적의 장치를 조사하라.' : hint.type === 'friend' ? '현장 담당자의 임무를 완료하라.' : '표시한 위치 주변의 작은 금속 조각을 찾아라.')}</p>}
+          {hint && <p>{hint.clue || (hint.type === 'jump' ? '표시한 위치에 가까이 가서 점프하라.' : hint.type === 'hidden' ? '위치에 접근한 뒤 탐지 펄스를 사용하라.' : hint.type === 'bossReward' ? '보물 22개를 모아 최종 수호자를 격파하면 세 개를 함께 얻는다.' : hint.type === 'boss' ? `보물 ${hint.required}개를 모은 뒤 봉인을 해제하라.` : hint.type === 'puzzle' ? '표시한 유적의 장치를 조사하라.' : hint.type === 'friend' ? '현장 담당자의 임무를 완료하라.' : '표시한 위치 주변의 작은 금속 조각을 찾아라.')}</p>}
           <span className="tk-map-legend">● 내 위치{hint ? '　✦ 추적 보물' : '　● 유적 / 수호자'}</span>
         </div>
+        {activeMission && !context.boss && <div className="tk-mission-tracker"><b>{activeMission.missionMode === 'survey' ? '관측 기록 해독' : activeMission.missionMode === 'relay' ? '중계망 재가동' : '원정대 구출·호위'}</b><span>{missionStep < 0 ? activeMission.missionMode === 'rescue' ? '대원을 호위해 담당자에게 복귀' : '기록을 해독해 담당자에게 보고' : `${activeMission.targets[missionStep].name} · E로 조사`}</span><small>{Math.max(0, activeMission.targets.filter((target) => progress.questItems.includes(target.id)).length)} / 3 현장 완료</small></div>}
         <div className="tk-survival-hud"><div className="tk-health" aria-label={`탐사 체력 ${context.hp}/4`}>{[0, 1, 2, 3].map((hp) => <i key={hp} className={context.hp > hp ? 'is-filled' : ''} aria-hidden="true">♥</i>)}<span>체력</span></div><div className="tk-stamina" role="progressbar" aria-label="행동력" aria-valuenow={Math.round(context.stamina)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${context.stamina}%` }} /></div><small>행동력 · 회피 후 회복</small></div>
-        {context.boss && <div className="tk-boss-hud"><span>봉인 수호자</span><h2>{world.bosses[context.boss.id.endsWith('-24') ? 1 : 0]}</h2><div role="progressbar" aria-label="수호자 체력" aria-valuenow={context.boss.hp} aria-valuemin={0} aria-valuemax={context.boss.maxHp}><span style={{ width: `${context.boss.hp / context.boss.maxHp * 100}%` }} /></div></div>}
-        {!loading && (context.boss || contextual) && <div className={`tk-context-prompt${context.boss ? ' tk-boss-prompt' : ''}`} role="status">{context.boss ? context.boss.phase === 'defeated' ? '수호자 격파 · 봉인 붕괴' : context.boss.phase === 'warning' ? '경고 영역 이탈 · 회피 / 미사일 충전' : context.boss.phase === 'vulnerable' ? '코어 노출 · 미사일 피해 증가' : '공격 진행 중 · 회피' : nearest.type === 'jump' ? '상층 기록 · 점프로 회수' : `${TYPE_LABELS[nearest.type]} · ${nearest.name}`}</div>}
+        {context.boss && <div className="tk-boss-hud"><span className={`tk-element-${context.boss.element}`}>봉인 수호자 · {{ fire: '화염', water: '물결', electric: '번개' }[context.boss.element]}</span><h2>{world.bosses[context.boss.rank || 0]}</h2><div role="progressbar" aria-label="수호자 체력" aria-valuenow={context.boss.hp} aria-valuemin={0} aria-valuemax={context.boss.maxHp}><span style={{ width: `${context.boss.hp / context.boss.maxHp * 100}%` }} /></div></div>}
+        {!loading && (context.boss || contextual) && <div className={`tk-context-prompt${context.boss ? ' tk-boss-prompt' : ''}`} role="status">{context.boss ? context.boss.phase === 'defeated' ? '수호자 격파 · 봉인 붕괴' : context.boss.phase === 'warning' ? '경고 영역 이탈 · 회피 / 미사일 충전' : context.boss.phase === 'vulnerable' ? '코어 노출 · 미사일 피해 증가' : '공격 진행 중 · 회피' : nearest.type === 'jump' ? '상층 기록 · 점프로 회수' : `${TYPE_LABELS[nearest.type]} · ${nearest.name}${nearest.type === 'boss' ? ` · 보물 ${nearest.required}개` : ''}`}</div>}
         {loading && <div className="tk-scene-loading" role="status"><div className="tk-loader-ring" /><p>균열 너머로 진입 중</p><span>{world.name}</span></div>}
         {toast && <div className="tk-toast" role="status"><Relic small />{toast.message}</div>}
-        {reward && <div key={reward.sequence} className={`tk-acquisition tk-acquisition-${reward.tier}`} role="status" aria-live="polite"><div className="tk-acquisition-rays" /><div className="tk-acquisition-emblem"><Relic /></div><span className="tk-acquisition-label">{reward.tier === 'kingdom' ? '백 개의 기억, 완전 회수' : reward.tier === 'guardian' ? '수호자의 봉인 해제' : reward.tier === 'chapter' ? '구역 탐사 완료' : '기록핵 확보'}</span><strong>{reward.name}</strong><div className="tk-acquisition-total"><b>+1</b><span>보물 <em>{reward.count}</em> / 100</span></div><small>{reward.decoded ? '새로운 왕국 기록이 해독됐다' : `이 구역의 기록 ${reward.worldCount} / 25`}</small></div>}
+        {reward && <div key={reward.sequence} className={`tk-acquisition tk-acquisition-${reward.tier}`} role="status" aria-live="polite"><div className="tk-acquisition-rays" /><div className="tk-acquisition-emblem"><Relic /></div><span className="tk-acquisition-label">{reward.tier === 'kingdom' ? '백 개의 기억, 완전 회수' : reward.tier === 'guardian' ? '수호자의 봉인 해제' : reward.tier === 'chapter' ? '구역 탐사 완료' : '기록핵 확보'}</span><strong>{reward.name}</strong><div className="tk-acquisition-total"><b>+{reward.amount || 1}</b><span>보물 <em>{reward.count}</em> / 100</span></div><small>{reward.decoded ? '새로운 왕국 기록이 해독됐다' : `이 구역의 기록 ${reward.worldCount} / 25`}</small></div>}
         {context.boss && context.boss.phase !== 'defeated' && <div className={`tk-weapon-hud${context.weapon?.latched ? ' is-fired' : ''}`}><span>{context.weapon?.latched ? '필살기 발사 · 손을 떼고 다시 충전' : '자동 조준 · 길게 눌러 필살기'}</span><div role="progressbar" aria-label="미사일 충전" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((context.weapon?.charge || 0) / 1.35 * 100)}><i style={{ width: `${(context.weapon?.charge || 0) / 1.35 * 100}%` }} /></div></div>}
         <Controls bridge={bridge} actionLabel={actionLabel} actionable={actionable} boss={context.boss} jumpHint={!context.boss && nearest?.type === 'jump'} />
         <div className="tk-keyboard-note"><span>이동 <kbd>WASD</kbd> / 방향키</span><span>터치로 목적지 지정 · 길게 누르거나 드래그해 연속 이동</span></div>

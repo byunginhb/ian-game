@@ -31,9 +31,9 @@ export function createTreasureAudio() {
         const charged = tier === 'charged', heavy = charged || kind === 'bossFall' || kind === 'bossAttack'
         const duration = kind === 'missileLaunch' ? .26 : heavy ? .75 : .23, now = context.currentTime
         const oscillator = context.createOscillator(), gain = context.createGain()
-        oscillator.type = kind === 'missileLaunch' ? 'sawtooth' : 'sine'
-        oscillator.frequency.setValueAtTime(kind === 'missileLaunch' ? (charged ? 500 : 330) : 110, now)
-        oscillator.frequency.exponentialRampToValueAtTime(kind === 'missileLaunch' ? 80 : 27, now + duration)
+        oscillator.type = kind === 'missileLaunch' || tier === 'electric' ? 'sawtooth' : 'sine'
+        oscillator.frequency.setValueAtTime(kind === 'missileLaunch' ? (charged ? 500 : 330) : tier === 'electric' ? 750 : tier === 'water' ? 180 : 110, now)
+        oscillator.frequency.exponentialRampToValueAtTime(kind === 'missileLaunch' ? 80 : tier === 'electric' ? 160 : tier === 'water' ? 45 : 27, now + duration)
         gain.gain.setValueAtTime(heavy ? .17 : .08, now); gain.gain.exponentialRampToValueAtTime(.001, now + duration)
         oscillator.connect(gain); gain.connect(master); oscillator.start(now); oscillator.stop(now + duration)
         oscillator.onended = () => { oscillator.disconnect(); gain.disconnect() }

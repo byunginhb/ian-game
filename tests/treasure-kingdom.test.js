@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ALL_TREASURES, BACKUP_KEY, MAP, RESTORATIONS, SAVE_KEY, WORLDS, bossZones, canWalk, circuitConnected, createExpedition, emptyProgress, findWalkPath, hazardsFor, heartsFor, inDangerZone, loadProgress, normalizeProgress, progressAction, puzzleFor, restorationFor, rotateMask, routeValid, saveProgress, sceneryFor, stepExpedition, treasuresFor, worldCount, worldUnlocked } from '../src/lib/treasureKingdom.js'
+import { ALL_TREASURES, BACKUP_KEY, MAP, RESTORATIONS, SAVE_KEY, WORLDS, bossZones, canWalk, circuitConnected, createExpedition, emptyProgress, findWalkPath, hazardsFor, heartsFor, inDangerZone, loadProgress, missionChallenge, normalizeProgress, progressAction, puzzleFor, restorationFor, routeValid, saveProgress, sceneryFor, stepExpedition, treasuresFor, worldCount, worldUnlocked } from '../src/lib/treasureKingdom.js'
 
 function memoryStorage() { const values = new Map(); return { getItem: (key) => values.get(key) || null, setItem: (key, value) => values.set(key, value), values } }
 function tickAt(item, progress, input = {}, extra = {}) { return stepExpedition({ ...createExpedition(item.worldId, progress), player: { ...createExpedition(item.worldId, progress).player, x: item.x, y: item.y }, ...extra }, input, .016, progress) }
@@ -19,16 +19,16 @@ function defeatBoss(item, progress) {
 
 }
 
-test('four ordered worlds have 100 unique reachable treasures, 48 mission fragments and eight guardians', () => {
+test('four ordered worlds have 100 unique reachable treasures, 36 mission sites and twelve guardians', () => {
   assert.equal(ALL_TREASURES.length, 100)
   assert.equal(new Set(ALL_TREASURES.map((item) => item.id)).size, 100)
   assert.deepEqual(WORLDS.map((world) => world.theme), ['jungle', 'ocean', 'space', 'garden'])
-  assert.equal(ALL_TREASURES.flatMap((item) => item.targets).length, 48)
+  assert.equal(ALL_TREASURES.flatMap((item) => item.targets).length, 36)
   for (const world of WORLDS) {
     const items = treasuresFor(world.id)
     assert.equal(items.length, 25)
-    assert.equal(items.filter((item) => item.type === 'boss').length, 2)
-    assert.equal(new Set(items.map((item) => item.type)).size, 6)
+    assert.equal(items.filter((item) => item.type === 'boss').length, 3)
+    assert.equal(new Set(items.map((item) => item.type)).size, 7)
     assert.equal(world.records.length, 3)
     for (const point of items.flatMap((item) => [item, ...item.targets])) {
       assert.ok(point.x >= 160 && point.x <= MAP.width - 160)
@@ -111,37 +111,32 @@ test('hidden records require scanning and elevated records require an airborne a
   assert.ok(tickAt(items[5], progress, {}, { player: { ...createExpedition(0, progress).player, x: items[5].x, y: items[5].y, jump: .4 } }).events.some((event) => event.type === 'collect'))
 })
 
-test('missions persist three distinct recoveries and reward returning to the contact', () => {
+test('missions require ordered site interactions and an explicit final report', () => {
   const item = treasuresFor(0)[4]
-  let progress = emptyProgress()
-  assert.ok(tickAt(item, progress, { interact: true }).events.some((event) => event.type === 'friend'))
-  progress = progressAction(progress, { type: 'quest', id: item.id })
-  for (const target of item.targets) {
-    const result = tickAt(item, progress, {}, { player: { ...createExpedition(0, progress).player, ...target } })
-    assert.ok(result.events.some((event) => event.type === 'questItem' && event.id === target.id))
-    progress = applyEvents(progress, result.events)
-    assert.ok(!progress.collected.includes(item.id))
+  let progress = progressAction(emptyProgress(), { type: 'quest', id: item.id })
+  for (const [step, target] of item.targets.entries()) {
+    let result = tickAt(item, progress, {}, { player: { ...createExpedition(0, progress).player, ...target } })
+    assert.equal(result.events.some((event) => event.type === 'questItem'), false)
+    result = tickAt(item, progress, { interact: true }, { player: { ...createExpedition(0, progress).player, ...target } })
+    assert.ok(result.events.some((event) => event.type === 'missionSite' && event.step === step))
+    progress = progressAction(progress, { type: 'questItem', id: target.id })
   }
-  assert.ok(tickAt(item, progress, { interact: true }).events.some((event) => event.type === 'collect' && event.id === item.id))
+  const report = tickAt(item, progress, { interact: true })
+  assert.ok(report.events.some((event) => event.type === 'friend'))
+  assert.equal(report.events.some((event) => event.type === 'collect'), false)
 })
 
-test('all sixteen devices have valid circuit, memory, output and routing solutions', () => {
+test('all sixteen devices have distinct valid solutions and enforce relay order and part counts', () => {
+  const signatures = new Map()
   for (const item of ALL_TREASURES.filter((item) => item.type === 'puzzle')) {
-    const puzzle = puzzleFor(item)
-    assert.ok(tickAt(item, emptyProgress(), { interact: true }).events.some((event) => event.type === 'puzzle'))
-    if (puzzle.mode === 'circuit') {
-      assert.equal(circuitConnected(puzzle.tiles.map((tile) => tile.mask)), true)
-      assert.equal(circuitConnected(puzzle.tiles.map((tile) => rotateMask(tile.mask, tile.turns))), false)
-      assert.equal(rotateMask(3, 4), 3)
-    }
-    if (puzzle.mode === 'sequence') { assert.equal(puzzle.sequence.length, 6); assert.ok(puzzle.sequence.every((value) => value >= 0 && value < 4)) }
-    if (puzzle.mode === 'balance') assert.equal(puzzle.weights[0] + puzzle.weights[2] + puzzle.weights[4], puzzle.target)
-    if (puzzle.mode === 'route') {
-      const route = item.worldId % 2 ? [0, 1, 5, 9, 10, 11, 15] : [0, 1, 5, 9, 13, 14, 15]
-      assert.equal(routeValid(puzzle, route), true)
-      assert.equal(routeValid(puzzle, [0, 15]), false)
-    }
+    const puzzle = puzzleFor(item), list = signatures.get(puzzle.mode) || []
+    list.push(JSON.stringify(puzzle.solution || puzzle.solutionIndices || puzzle.sequence)); signatures.set(puzzle.mode, list)
+    if (puzzle.mode === 'circuit') assert.equal(circuitConnected(puzzle.solution, puzzle), true)
+    if (puzzle.mode === 'sequence') { assert.equal(puzzle.sequence.length, 6 + item.worldId); assert.ok(puzzle.sequence.every((value) => value >= 0 && value < 4)) }
+    if (puzzle.mode === 'balance') { assert.equal(puzzle.solutionIndices.length, puzzle.requiredCount); assert.equal(puzzle.solutionIndices.reduce((sum, i) => sum + puzzle.weights[i], 0), puzzle.target) }
+    if (puzzle.mode === 'route') { assert.equal(routeValid(puzzle, puzzle.solution), true); assert.equal(routeValid(puzzle, [0, puzzle.exit]), false); assert.equal(routeValid({ ...puzzle, relays: [...puzzle.relays].reverse() }, puzzle.solution), false) }
   }
+  for (const list of signatures.values()) assert.equal(new Set(list).size, 4)
 })
 
 test('six guardian patterns share visual danger geometry and enforce invulnerability', () => {
@@ -151,7 +146,7 @@ test('six guardian patterns share visual danger geometry and enforce invulnerabi
   assert.equal(inDangerZone({ x: 1050, y: 700 }, bossZones({ ...boss, pattern: 'charge' })[0]), false)
   assert.equal(inDangerZone({ x: 900, y: 600 }, bossZones({ ...boss, pattern: 'ring' })[0]), false)
   let progress = emptyProgress()
-  for (const item of treasuresFor(0).slice(0, 8)) progress = progressAction(progress, { type: 'collect', id: item.id })
+  for (const item of treasuresFor(0).slice(0, 10)) progress = progressAction(progress, { type: 'collect', id: item.id })
   const item = treasuresFor(0)[12], state = tickAt(item, progress, { interact: true }).state
   const exposed = { ...state, boss: { ...state.boss, pattern: 'cross', timer: .001 }, player: { ...state.player, x: item.x + 100, y: item.y, invulnerable: 0 } }
   assert.equal(stepExpedition(exposed, {}, .016, progress).state.player.hp, 3)
@@ -161,7 +156,7 @@ test('six guardian patterns share visual danger geometry and enforce invulnerabi
 test('guardians reject early challenges, escalate patterns, reward wins and permit retreat', () => {
   const item = treasuresFor(0)[12]
   assert.equal(tickAt(item, emptyProgress(), { interact: true }).state.boss, null)
-  const progress = { ...emptyProgress(), collected: treasuresFor(0).slice(0, 8).map((value) => value.id) }
+  const progress = { ...emptyProgress(), collected: treasuresFor(0).slice(0, 10).map((value) => value.id) }
   const result = defeatBoss(item, progress)
   assert.ok(result.events.some((event) => event.type === 'collect' && event.id === item.id))
   const state = tickAt(item, progress, { interact: true }).state
@@ -202,7 +197,7 @@ test('the complete 100-record expedition is earnable through every rule and surv
   let progress = emptyProgress()
   for (const world of WORLDS) {
     assert.equal(worldUnlocked(progress, world.id), true)
-    const items = treasuresFor(world.id).toSorted((a, b) => Number(a.type === 'boss') - Number(b.type === 'boss'))
+    const items = treasuresFor(world.id).filter((item) => item.type !== 'bossReward').toSorted((a, b) => Number(a.type === 'boss') - Number(b.type === 'boss'))
     for (const item of items) {
       let result
       if (item.type === 'explore') result = tickAt(item, progress)
@@ -210,8 +205,9 @@ test('the complete 100-record expedition is earnable through every rule and surv
       if (item.type === 'jump') result = tickAt(item, progress, {}, { player: { ...createExpedition(world.id, progress).player, x: item.x, y: item.y, jump: .4 } })
       if (item.type === 'friend') {
         progress = progressAction(progress, { type: 'quest', id: item.id })
-        for (const target of item.targets) progress = applyEvents(progress, tickAt(item, progress, {}, { player: { ...createExpedition(world.id, progress).player, ...target } }).events)
-        result = tickAt(item, progress, { interact: true })
+        for (const target of item.targets) progress = progressAction(progress, { type: 'questItem', id: target.id })
+        assert.ok(tickAt(item, progress, { interact: true }).events.some((event) => event.type === 'friend'))
+        result = { events: [{ type: 'collect', id: item.id }] }
       }
       if (item.type === 'puzzle') { assert.ok(puzzleFor(item)); result = { events: [{ type: 'collect', id: item.id }] } }
       if (item.type === 'boss') result = defeatBoss(item, progress)
@@ -282,7 +278,7 @@ test('zero-time pointer frames never corrupt the player coordinates', () => {
 })
 
 function combatState() {
-  const item = treasuresFor(0)[12], progress = { ...emptyProgress(), collected: treasuresFor(0).slice(0, 8).map((value) => value.id) }
+  const item = treasuresFor(0)[12], progress = { ...emptyProgress(), collected: treasuresFor(0).slice(0, 10).map((value) => value.id) }
   const state = tickAt(item, progress, { interact: true }).state
   return { state: { ...state, player: { ...state.player, x: item.x + 190, invulnerable: 999 } }, progress }
 }
@@ -326,4 +322,85 @@ test('defeat saves the record immediately and emits exactly one landing impact b
   for (let i = 0; i < 60; i++) { result = stepExpedition(current, {}, .04, saved); current = result.state; impacts.push(...result.events.filter((event) => event.type === 'bossFall')) }
   assert.equal(impacts.length, 1); assert.equal(current.boss, null)
   assert.ok(saved.collected.includes(state.boss.id))
+})
+
+
+test('three seals enforce 10, 20 and 22 records and the final guardian saves exactly three rewards atomically', () => {
+  for (const world of WORLDS) {
+    const items = treasuresFor(world.id), bosses = items.filter((item) => item.type === 'boss')
+    assert.deepEqual(bosses.map((item) => item.required), [10, 20, 22])
+    assert.equal(items.filter((item) => !['boss', 'bossReward'].includes(item.type)).length, 20)
+    for (const boss of bosses) {
+      const eligible = items.filter((item) => item.id !== boss.id && item.type !== 'bossReward')
+      const locked = { ...emptyProgress(), collected: eligible.slice(0, boss.required - 1).map((item) => item.id) }
+      assert.equal(tickAt(boss, locked, { interact: true }).state.boss, null)
+      const unlocked = { ...locked, collected: eligible.slice(0, boss.required).map((item) => item.id) }
+      assert.ok(tickAt(boss, unlocked, { interact: true }).state.boss)
+    }
+    const ready = { ...emptyProgress(), collected: items.slice(0, 22).map((item) => item.id) }, result = defeatBoss(items[24], ready)
+    const reward = result.events.find((event) => event.type === 'collect')
+    assert.deepEqual(reward.ids, [22, 23, 24].map((i) => `${world.id}-${i}`))
+    assert.equal(reward.amount, 3)
+    assert.equal(result.events.find((event) => event.type === 'bossFall').rewardCount, 3)
+    const final = progressAction(ready, reward)
+    assert.equal(worldCount(final, world.id), 25)
+    assert.equal(final.revision, ready.revision + 1)
+    assert.equal(progressAction(final, reward), final)
+    const legacy = normalizeProgress({ ...emptyProgress(), collected: [items[22].id, items[23].id] })
+    assert.deepEqual(legacy.collected, [items[22].id, items[23].id])
+    const oldVictory = normalizeProgress({ ...emptyProgress(), collected: [items[24].id], banked: [items[24].id] })
+    assert.deepEqual(new Set(oldVictory.collected), new Set([22, 23, 24].map((i) => `${world.id}-${i}`)))
+    assert.deepEqual(oldVictory.banked, [items[24].id])
+    assert.equal(tickAt(items[22], emptyProgress()).events.some((event) => event.type === 'collect'), false)
+  }
+})
+
+test('mission challenges vary their records and solutions and rescue companions follow walked terrain', () => {
+  for (const world of WORLDS) {
+    const missions = treasuresFor(world.id).filter((item) => item.type === 'friend')
+    assert.deepEqual(missions.map((item) => item.missionMode), ['survey', 'relay', 'rescue'])
+    for (const item of missions) for (let step = 0; step < 3; step++) {
+      const challenge = missionChallenge(item, step)
+      assert.ok(challenge.mode === 'timing' ? challenge.width >= 18 && challenge.speed < 1 : challenge.correct >= 0 && new Set(challenge.choices).size === challenge.choices.length)
+    }
+    const rescue = missions[2], progress = { ...emptyProgress(), quests: [rescue.id], questItems: rescue.targets.map((target) => target.id), positions: { [world.id]: rescue.targets[2] } }
+    let state = createExpedition(world.id, progress)
+    for (let frame = 0; frame < 30; frame++) {
+      state = stepExpedition(state, { left: true }, .02, progress).state
+      assert.ok(canWalk(state.escorts[rescue.id], world.id))
+      assert.ok(Math.hypot(state.player.x - state.escorts[rescue.id].x, state.player.y - state.escorts[rescue.id].y) < 75)
+    }
+    const path = findWalkPath(state.player, rescue, world.id)
+    let target = path.shift()
+    for (let frame = 0; target && frame < 3000; frame++) {
+      state = { ...state, player: { ...state.player, invulnerable: 999 } }
+      const result = stepExpedition(state, { target }, .04, progress); state = result.state
+      assert.ok(canWalk(state.escorts[rescue.id], world.id))
+      if (result.events.some((event) => event.type === 'arrived')) target = path.shift()
+    }
+    assert.equal(target, undefined)
+    for (let frame = 0; frame < 10; frame++) state = stepExpedition(state, {}, .04, progress).state
+    assert.ok(stepExpedition(state, { interact: true }, .04, progress).events.some((event) => event.type === 'friend' && event.escortReady))
+    assert.equal(progress.collected.includes(rescue.id), false)
+  }
+  const answers = WORLDS.map((world) => {
+    const item = treasuresFor(world.id)[4], challenge = missionChallenge(item, 3, true)
+    return challenge.question + challenge.choices[challenge.correct]
+  })
+  assert.equal(new Set(answers).size, 4)
+})
+
+test('guardians cycle all six attack patterns with fire, water and lightning', () => {
+  for (const world of WORLDS) {
+    const item = treasuresFor(world.id)[24], progress = { ...emptyProgress(), collected: treasuresFor(world.id).slice(0, 22).map((item) => item.id) }
+    let state = tickAt(item, progress, { interact: true }).state
+    const elements = new Set(), patterns = new Set()
+    for (let frame = 0; frame < 2000; frame++) {
+      state = { ...state, player: { ...state.player, invulnerable: 999 } }
+      const result = stepExpedition(state, {}, .02, progress); state = result.state
+      for (const event of result.events.filter((event) => event.type === 'bossAttack')) { elements.add(event.boss.element); patterns.add(event.boss.pattern) }
+    }
+    assert.deepEqual([...elements].sort(), ['electric', 'fire', 'water'])
+    assert.equal(patterns.size, 6)
+  }
 })

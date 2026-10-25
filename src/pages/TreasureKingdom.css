@@ -247,3 +247,35 @@
 .tk-return-meter > div { min-width: 0; }
 .tk-return-meter > small { white-space: nowrap; }
 @media (max-width: 600px) { .tk-return-meter { grid-template-columns: 1fr auto; gap: 5px 15px; }.tk-return-meter > span { grid-column: 1; }.tk-return-meter > div { grid-row: 2; grid-column: 1 / -1; margin-block: 3px; }.tk-return-meter > small { grid-row: 1; grid-column: 2; } }
+
+.tk-circuit-grid .is-relay { border-color: #f0be63; box-shadow: inset 0 0 12px #e1b46730; }
+.tk-mission-phase { color: #d8c394 !important; letter-spacing: 1px; }
+.tk-mission-objectives { margin: 15px 0 23px; padding-left: 22px; color: #aebeb6; font-size: 12px; line-height: 2.2; }
+.tk-mission-objectives .is-done { color: #d2d9ad; }
+.tk-mission-choices { display: grid; gap: 9px; margin: 20px 0 10px; }
+.tk-mission-choices button { border: 1px solid #9fbaad55; background: #0e242b; color: #dbe6d3; padding: 13px; min-height: 46px; text-align: left; font-size: 13px; }
+.tk-mission-choices button[aria-pressed='true'] { border-color: #e8c684; background: #8d79452e; }
+.tk-site-notes { padding: 12px; border-left: 2px solid #d0b477; background: #9e874019; font-size: 12px !important; }
+.tk-site-report h3 { color: #e1ce9f; font-size: 20px; margin: 15px 0; }
+.tk-site-report b { font-size: 30px; color: #e8d396; }
+.tk-relay-meter { position: relative; height: 55px; margin: 36px 0 48px; background: #0b1c25; border: 1px solid #d9ca9b55; }
+.tk-relay-safe { position: absolute; inset-block: 0; background: #62b9c56b; border-inline: 2px solid #b0ece5; }
+.tk-relay-meter > i { position: absolute; top: -7px; bottom: -7px; width: 4px; background: #ffe6aa; box-shadow: 0 0 14px #ffe6aa9c; }
+.tk-relay-meter > span { position: absolute; top: 66px; width: 100%; text-align: center; font-size: 10px; color: #b9d6cd; }
+.tk-mission-tracker { position: absolute; left: 25px; top: 161px; max-width: 235px; display: grid; gap: 6px; padding: 11px 13px; border-left: 2px solid #8ec7bb99; background: #102b30c9; pointer-events: none; color: #c9ded0; }
+.tk-mission-tracker b { color: #e3d3a3; font-size: 12px; font-weight: 500; }.tk-mission-tracker span { font-size: 10px; line-height: 1.5; }.tk-mission-tracker small { font-size: 9px; color: #9bb6aa; }
+@media (max-width: 600px) { .tk-mission-tracker { left: 12px; top: 161px; max-width: 155px; padding: 8px; }.tk-mission-tracker b { font-size: 10px; }.tk-mission-tracker span { font-size: 9px; }.tk-mission-tracker small { font-size: 8px; } }
+.tk-boss-hud > .tk-element-fire { color: #ffc487; }.tk-boss-hud > .tk-element-water { color: #9ce5e7; }.tk-boss-hud > .tk-element-electric { color: #c6c7ff; }
+.tk-minimap-tracking:not([hidden]) ~ .tk-mission-tracker { visibility: hidden; }
+
+.tk-mission-log { display: grid; gap: 18px; }
+.tk-mission-log section { padding: 18px; background: #ffffff04; border: 1px solid #bdd0c422; }
+.tk-mission-log h3 { margin: 0 0 10px; color: #e4cc95; font-size: 15px; }
+.tk-mission-log ol { padding-left: 22px; color: #9fbab6; font-size: 12px; line-height: 1.9; }
+.tk-mission-log button { min-height: 42px; padding: 8px 18px; border: 1px solid #bca87b66; background: #bca87b14; color: #e6d5ad; }
+@media (max-height: 500px) and (min-width: 600px) {
+  .tk-field-tools { z-index: 20; }
+  .tk-minimap-tracking { top: 145px; max-height: calc(100dvh - 220px); overflow-y: auto; }
+  .tk-minimap-tracking svg { max-height: 80px; }
+  .tk-minimap-tracking:not([hidden]) ~ .tk-save-line { visibility: hidden; }
+}

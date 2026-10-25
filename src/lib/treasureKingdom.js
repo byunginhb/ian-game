@@ -1,5 +1,5 @@
 import { MAP, WORLDS, RESTORATIONS, clampPosition, distanceToTrail, hazardsFor, heartsFor, sceneryFor, trailsFor, treasuresFor } from './treasureContent.js'
-export { MAP, WORLDS, RESTORATIONS, TYPE_LABELS, PROLOGUE, clampPosition, hazardsFor, heartsFor, sceneryFor, trailsFor, treasuresFor, puzzleFor, rotateMask, circuitConnected, routeValid } from './treasureContent.js'
+export { MAP, WORLDS, RESTORATIONS, TYPE_LABELS, PROLOGUE, clampPosition, hazardsFor, heartsFor, sceneryFor, trailsFor, treasuresFor, puzzleFor, missionChallenge, rotateMask, circuitConnected, routeValid } from './treasureContent.js'
 export const SAVE_KEY = 'ian-treasure-kingdom-v1'
 export const BACKUP_KEY = `${SAVE_KEY}-backup`
 export const ALL_TREASURES = WORLDS.flatMap((world) => treasuresFor(world.id))
@@ -15,6 +15,11 @@ export const emptyProgress = () => ({ version: 1, collected: [], banked: [], que
 export function normalizeProgress(value) {
   if (!value || value.version !== 1 || !Array.isArray(value.collected)) return null
   const collected = uniqueIds(value.collected)
+  // A final guardian defeated before the three-reward update also earns its two new relics.
+  for (const world of WORLDS) if (collected.includes(`${world.id}-24`)) for (const index of [22, 23]) {
+    const id = `${world.id}-${index}`
+    if (!collected.includes(id)) collected.push(id)
+  }
   const banked = uniqueIds(value.banked).filter((id) => collected.includes(id))
   const positions = {}
   for (const world of WORLDS) {
@@ -50,7 +55,10 @@ export const worldUnlocked = (progress, worldId) => worldId === 0 || worldCount(
 export const restorationFor = (count) => RESTORATIONS.filter((step) => count >= step.at).at(-1)
 export function progressAction(progress, action) {
   let next = progress
-  if (action.type === 'collect' && VALID_IDS.has(action.id) && !progress.collected.includes(action.id)) next = { ...progress, collected: [...progress.collected, action.id] }
+  if (action.type === 'collect') {
+    const ids = uniqueIds(action.ids || [action.id]).filter((id) => !progress.collected.includes(id))
+    if (ids.length) next = { ...progress, collected: [...progress.collected, ...ids] }
+  }
   if (action.type === 'quest' && QUEST_IDS.has(action.id) && !progress.quests.includes(action.id)) next = { ...progress, quests: [...progress.quests, action.id] }
   if (action.type === 'questItem' && QUEST_ITEMS.has(action.id) && !progress.questItems.includes(action.id)) next = { ...progress, questItems: [...progress.questItems, action.id] }
   if (action.type === 'reveal' && HIDDEN_IDS.has(action.id) && !progress.revealed.includes(action.id)) next = { ...progress, revealed: [...progress.revealed, action.id] }
@@ -59,11 +67,12 @@ export function progressAction(progress, action) {
   return next === progress ? progress : { ...next, revision: progress.revision + 1 }
 }
 
-export const BOSS_PATTERNS = [['ring', 'charge'], ['cone', 'orbs'], ['cross', 'ring'], ['roots', 'cone']]
+export const BOSS_PATTERNS = [['ring', 'charge', 'cone', 'orbs', 'cross', 'roots'], ['cone', 'orbs', 'charge', 'cross', 'ring', 'roots'], ['cross', 'ring', 'roots', 'orbs', 'cone', 'charge'], ['roots', 'cone', 'ring', 'charge', 'cross', 'orbs']]
+export const bossElement = (worldId, rank, round) => ['water', 'fire', 'electric'][(worldId + rank + round) % 3]
 export function createExpedition(worldId, progress) {
   const saved = progress.positions[worldId] || MAP.spawn
   const position = canWalk(saved, worldId) ? saved : nearestWalkPoint(saved, worldId)
-  return { worldId, player: { ...position, jump: 0, facing: 1, hp: 4, stamina: 100, dash: 0, invulnerable: 1.5 }, time: 0, boss: null, cooldown: 0, scan: 0, checkpoint: 0, nearest: null, moving: false, heartTimers: {}, missiles: [], weapon: { charge: 0, held: false, latched: false, cooldown: 0 }, shotSequence: 0 }
+  return { worldId, player: { ...position, jump: 0, facing: 1, hp: 4, stamina: 100, dash: 0, invulnerable: 1.5 }, time: 0, boss: null, cooldown: 0, scan: 0, checkpoint: 0, nearest: null, moving: false, heartTimers: {}, missiles: [], weapon: { charge: 0, held: false, latched: false, cooldown: 0 }, shotSequence: 0, escorts: {}, breadcrumbs: [] }
 }
 export function bossZones(boss) {
   const angle = boss.angle || 0
@@ -171,7 +180,14 @@ export function stepExpedition(state, input, delta, progress) {
     const separation = Math.hypot(player.x - boss.x, player.y - boss.y)
     if (separation < 52) { const angle = separation ? Math.atan2(player.y - boss.y, player.x - boss.x) : 0; player.x = boss.x + Math.cos(angle) * 52; player.y = boss.y + Math.sin(angle) * 52 }
   }
-  const items = treasuresFor(state.worldId).filter((item) => !progress.collected.includes(item.id))
+  const worldItems = treasuresFor(state.worldId)
+  const items = worldItems.filter((item) => !progress.collected.includes(item.id) && item.type !== 'bossReward')
+  const breadcrumbs = [...(state.breadcrumbs || []).filter((point) => point.time >= time - .8), { x: player.x, y: player.y, time }]
+  const escorts = {}
+  for (const item of worldItems.filter((item) => item.missionMode === 'rescue' && progress.quests.includes(item.id) && !progress.collected.includes(item.id) && item.targets.every((target) => progress.questItems.includes(target.id)))) {
+    const point = (state.escorts?.[item.id] && breadcrumbs.find((point) => point.time >= time - .25)) || player
+    escorts[item.id] = { x: point.x, y: point.y }
+  }
   const airborne = player.jump > .1 && player.jump < (state.worldId === 2 ? .96 : .69)
   const hurt = (message) => {
     if (player.invulnerable > 0 || airborne) return
@@ -185,28 +201,32 @@ export function stepExpedition(state, input, delta, progress) {
     player.hp = Math.min(4, player.hp + 1); heartTimers[heart.id] = time + 30
     events.push({ type: 'heal', message: '하트 획득 · 체력 +1' })
   }
-  const nearest = items.reduce((found, item) => {
+  let nearest = items.reduce((found, item) => {
     const distance = Math.hypot(item.x - player.x, item.y - player.y)
     if (item.type === 'hidden' && !progress.revealed.includes(item.id)) return found
     return distance < 105 && (!found || distance < found.distance) ? { ...item, distance } : found
   }, null)
+  for (const quest of worldItems.filter((item) => item.type === 'friend' && progress.quests.includes(item.id) && !progress.collected.includes(item.id))) {
+    const step = quest.targets.findIndex((target) => !progress.questItems.includes(target.id)), target = quest.targets[step]
+    if (target && Math.hypot(target.x - player.x, target.y - player.y) < 85) nearest = { ...target, type: 'missionSite', quest, step }
+  }
   for (const item of items) {
     const distance = Math.hypot(item.x - player.x, item.y - player.y)
     if ((item.type === 'explore' || (item.type === 'hidden' && progress.revealed.includes(item.id))) && distance < 34) events.push({ type: 'collect', id: item.id, message: `기록핵 확보 · ${item.name}` })
     if (item.type === 'jump' && distance < 44 && airborne) events.push({ type: 'collect', id: item.id, message: `상층 기록 회수 · ${item.name}` })
-    if (item.type === 'friend' && progress.quests.includes(item.id)) for (const target of item.targets) if (!progress.questItems.includes(target.id) && Math.hypot(target.x - player.x, target.y - player.y) < 35) events.push({ type: 'questItem', id: target.id, message: `${WORLDS[state.worldId].item} 회수. 임무 담당자에게 돌아가라.` })
   }
   if (input.interact && cooldown === 0 && !boss) {
     cooldown = .5
-    if (nearest?.type === 'puzzle') events.push({ type: 'puzzle', item: nearest })
+    if (nearest?.type === 'missionSite') events.push({ type: 'missionSite', item: nearest.quest, step: nearest.step })
+    else if (nearest?.type === 'puzzle') events.push({ type: 'puzzle', item: nearest })
     else if (nearest?.type === 'friend') {
-      if (nearest.targets.every((target) => progress.questItems.includes(target.id))) events.push({ type: 'collect', id: nearest.id, message: '현장 임무 완료. 새로운 기록핵과 탐사 자료를 확보했다.' })
-      else events.push({ type: 'friend', item: nearest })
+      const escort = escorts[nearest.id]
+      events.push({ type: 'friend', item: nearest, escortReady: Boolean(escort && Math.hypot(escort.x - nearest.x, escort.y - nearest.y) < 180) })
     } else if (nearest?.type === 'boss') {
-      const needed = nearest.index === 12 ? 8 : 18
+      const needed = nearest.required
       if (worldCount(progress, state.worldId) >= needed) {
-        const hp = nearest.index === 24 ? 18 : 12
-        boss = { id: nearest.id, x: nearest.x, y: nearest.y, hp, maxHp: hp, phase: 'warning', timer: 1.8, round: 0, pattern: BOSS_PATTERNS[state.worldId][0], angle: Math.atan2(player.y - nearest.y, player.x - nearest.x), targetX: player.x, targetY: player.y }
+        const hp = [12, 18, 24][nearest.bossRank]
+        boss = { id: nearest.id, rank: nearest.bossRank, element: bossElement(state.worldId, nearest.bossRank, 0), x: nearest.x, y: nearest.y, hp, maxHp: hp, phase: 'warning', timer: 1.8, round: 0, pattern: BOSS_PATTERNS[state.worldId][nearest.bossRank * 2], angle: Math.atan2(player.y - nearest.y, player.x - nearest.x), targetX: player.x, targetY: player.y }
         player.jump = 0
         events.push({ type: 'notice', message: '봉인 반응 감지. 경고 영역을 회피하고 노출된 코어를 공격하라.' })
       } else events.push({ type: 'notice', message: `봉인 해제에 이 구역의 기록핵 ${needed}개가 필요하다.` })
@@ -243,7 +263,8 @@ export function stepExpedition(state, input, delta, progress) {
       } else if (boss.phase === 'attack') { boss.phase = 'vulnerable'; boss.timer = boss.hp <= boss.maxHp / 2 ? 2.1 : 2.6 }
       else {
         boss.round++; boss.phase = 'warning'; boss.timer = boss.hp <= boss.maxHp / 2 ? 1.2 : 1.8
-        boss.pattern = BOSS_PATTERNS[state.worldId][boss.round % 2]
+        boss.pattern = BOSS_PATTERNS[state.worldId][(boss.round + (boss.rank || 0) * 2) % 6]
+        boss.element = bossElement(state.worldId, boss.rank || 0, boss.round)
         boss.angle = Math.atan2(player.y - boss.y, player.x - boss.x); boss.targetX = player.x; boss.targetY = player.y
       }
     }
@@ -260,7 +281,8 @@ export function stepExpedition(state, input, delta, progress) {
       events.push({ type: 'missileImpact', x: target.x, y: target.y, charged: missile.charged, damage })
       if (boss.hp === 0) {
         boss.phase = 'defeated'; boss.timer = 1.9; boss.landed = false
-        events.push({ type: 'bossDefeated', boss: { ...boss } }, { type: 'collect', id: boss.id, message: '수호자 격파. 봉인의 기록을 확보했다.' })
+        const ids = (boss.rank === 2 ? [22, 23, 24].map((index) => `${state.worldId}-${index}`) : [boss.id]).filter((id) => !progress.collected.includes(id))
+        events.push({ type: 'bossDefeated', boss: { ...boss } }, { type: 'collect', id: boss.id, ids, amount: ids.length, message: `수호자 격파. 보물 ${ids.length}개를 확보했다.` })
       }
       return false
     }
@@ -269,11 +291,11 @@ export function stepExpedition(state, input, delta, progress) {
   })
   if (boss?.phase === 'defeated') {
     boss.timer -= dt
-    if (!boss.landed && boss.timer <= .95) { boss.landed = true; events.push({ type: 'bossFall', x: boss.x, y: boss.y }) }
+    if (!boss.landed && boss.timer <= .95) { boss.landed = true; events.push({ type: 'bossFall', x: boss.x, y: boss.y, rewardCount: boss.rank === 2 ? 3 : 1 }) }
     if (boss.timer <= 0) boss = null
   }
   if (!boss) { missiles = []; weapon = { charge: 0, held: false, latched: false, cooldown: 0 } }
   const checkpoint = state.checkpoint + dt
   if (checkpoint >= 2) events.push({ type: 'position', position: { x: player.x, y: player.y } })
-  return { state: { ...state, player, heartTimers, boss, missiles, weapon, shotSequence, cooldown, scan, nearest: nearest ? { ...nearest, distance: undefined } : null, time, moving: Math.hypot(player.x - state.player.x, player.y - state.player.y) > .1, checkpoint: checkpoint >= 2 ? 0 : checkpoint }, events }
+  return { state: { ...state, player, heartTimers, boss, missiles, weapon, shotSequence, escorts, breadcrumbs, cooldown, scan, nearest: nearest ? { ...nearest, distance: undefined } : null, time, moving: Math.hypot(player.x - state.player.x, player.y - state.player.y) > .1, checkpoint: checkpoint >= 2 ? 0 : checkpoint }, events }
 }
