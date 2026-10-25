@@ -1,3 +1,4 @@
+import { nonogramFor, sudokuFor } from './treasureMissionPuzzles.js'
 export const WORLDS = [
   { id: 0, name: '잊힌 수로의 정글', short: '공룡 정글', chapter: '잊힌 수로', subtitle: '멈춰 버린 물길 아래, 첫 번째 기록이 남아 있다.', color: '#96b393', light: '#152e29', ground: '#344b38', edge: '#132a25', sky: '#101f21', friend: '유적 조사관 레온', item: '수로 설계도', bosses: ['수로의 파수꾼', '화염의 수문장', '백악의 수호자'], theme: 'jungle', relic: '수로의 기록핵', hazard: '수로 분출', objective: '유적의 전력 회로를 연결하고 수로의 기록을 회수하라.', report: '수로는 무너진 것이 아니었다. 중앙에서 누군가 물길을 끊었다.', records: ['침수된 석판에는 같은 날짜가 반복된다. 왕국이 멈춘 날이다.', '수로의 설계도에는 물이 아니라 빛을 운반하는 통로가 그려져 있다.', '첫 수호자의 명령 기록: “중앙의 심장을 분리하라. 시민을 먼저 보호하라.”'] },
   { id: 1, name: '해적의 조류 군도', short: '바다와 섬', chapter: '침몰한 나침반', subtitle: '지워진 항로를 따라, 바다가 감춘 신호를 추적한다.', color: '#8dbac2', light: '#142e39', ground: '#927f5c', edge: '#3d5152', sky: '#152b38', friend: '항해사 세라', item: '항로 기록판', bosses: ['철갑 선장', '폭풍의 항해자', '심해의 감시자'], theme: 'ocean', relic: '조류의 기록핵', hazard: '밀려오는 조류', objective: '조류를 피해 항로 장치를 복구하고 침몰선의 신호를 찾아라.', report: '나침반은 북쪽이 아니라 하늘의 균열을 가리켰다.', records: ['모든 배가 같은 날 방향을 잃었다. 나침반의 바늘은 하늘을 향했다.', '마지막 항해 일지: 심장의 파편은 우연히 흩어진 것이 아니다.', '수호자는 침몰선을 공격하지 않았다. 기록핵을 싣고 안전한 곳으로 옮기고 있었다.'] },
@@ -33,7 +34,7 @@ export function treasuresFor(worldId) {
       const rotated = sites.map((index) => (index + worldId * 5) % 20)
       item.targets = rotated.map((index, step) => ({ x: items[index].x + (step % 2 ? 32 : -30), y: items[index].y + 20, id: `${item.id}:${step}`, name: `${['관측소', '중계기', '구조 지점'][item.contactIndex]} ${step + 1}`, code: 3 + (worldId * 11 + item.index * 7 + step * 13) % 29 }))
       item.target = item.targets[0]; item.missionMode = mode
-      item.briefing = mode === 'survey' ? `${WORLDS[worldId].item}를 해독하려면 세 관측소를 순서대로 조사해야 한다. 기록값을 읽고 마지막 암호를 추론해 돌아와라.` : mode === 'relay' ? '끊긴 중계망 세 곳을 차례대로 동기화해야 한다. 움직이는 신호를 안정 구간에 맞춘 뒤 돌아와 출력 순서를 보고하라.' : '실종 대원이 남긴 세 신호를 추적하라. 현장의 위험을 판단해 구출한 뒤, 대원을 데리고 이곳까지 호위하라.'
+      item.briefing = mode === 'survey' ? `${WORLDS[worldId].item}의 단서를 찾으러 세 관측소를 차례대로 찾아주세요. 불빛을 세고 그림 암호를 푼 뒤, 기록값을 가지고 돌아와 주세요.` : mode === 'relay' ? '끊긴 중계망 세 곳을 차례대로 동기화해야 한다. 빛을 푸른 구간에 맞추고, 두 번째 현장의 작은 퍼즐을 풀어주세요. 마지막에는 찾은 수를 함께 확인해요.' : '실종 대원이 남긴 세 신호를 추적하라. 쉬운 계산과 3×3 숫자 퍼즐을 풀어 대원을 찾아주세요. 구출한 대원과 함께 이곳으로 돌아오면 돼요.'
     }
   }
   return items
@@ -141,30 +142,28 @@ export function puzzleFor(item) {
 
 export function missionChallenge(item, step, final = false) {
   const seed = item.worldId * 17 + item.index + step * 7, codes = item.targets.map((target) => target.code)
-  if (final) {
-    const sorted = codes.map((value, i) => ({ value, i })).sort((a, b) => a.value - b.value).map(({ i }) => i + 1)
-    const orders = [sorted, [...sorted].reverse(), [sorted[1], sorted[0], sorted[2]], [sorted[2], sorted[0], sorted[1]]]
-    const ordered = orders[item.worldId].join(' → ')
-    const choices = [[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 1, 2], [3, 2, 1]].map((order) => order.join(' → '))
-    const offset = (seed + 1) % choices.length, shuffled = [...choices.slice(offset), ...choices.slice(0, offset)]
-    return { mode: 'choice', question: ['관측값이 작은 지점부터 큰 지점 순으로 보고하라.', '관측값이 큰 지점부터 작은 지점 순으로 보고하라.', '관측값이 중간인 지점 → 가장 작은 지점 → 가장 큰 지점 순으로 보고하라.', '관측값이 가장 큰 지점 → 가장 작은 지점 → 중간인 지점 순으로 보고하라.'][item.worldId], notes: codes.map((value, i) => `${i + 1}번 지점: ${value}`).join(' · '), choices: shuffled, correct: shuffled.indexOf(ordered) }
+  const choose = (question, answer, notes, hint) => {
+    const values = [answer, answer + 2, Math.max(0, answer - 2)], correct = seed % 3
+    ;[values[0], values[correct]] = [values[correct], values[0]]
+    return { mode: 'choice', question, notes, hint, choices: values.map(String), correct }
   }
-  if (item.missionMode === 'relay') return { mode: 'timing', question: '신호가 푸른 안정 구간 안에 있을 때 동기화하라.', center: 28 + seed % 45, width: 24 - item.worldId * 2, speed: .28 + item.worldId * .04 + step * .025 }
-  const a = 4 + seed % 9, b = 2 + (seed * 3) % 7
+  if (final) {
+    const answer = [Math.min(...codes), Math.max(...codes), codes[0] + codes[1], Math.max(...codes) - Math.min(...codes)][item.worldId]
+    return choose(['찾은 기록값 중 가장 작은 수는 무엇인가요?', '찾은 기록값 중 가장 큰 수는 무엇인가요?', '첫째 수와 둘째 수를 더하면 얼마인가요?', '찾은 기록값 중 가장 큰 수와 가장 작은 수의 차이는 얼마인가요?'][item.worldId], answer, `찾은 기록값: ${codes.join(' · ')}`, ['수를 하나씩 비교해 가장 작은 수를 골라요.', '수를 하나씩 비교해 가장 큰 수를 골라요.', '첫째 값에 둘째 값만큼 더해요. 셋째 값은 쓰지 않아요.', '가장 큰 수에서 가장 작은 수를 빼요.'][item.worldId])
+  }
+  if (step === 1) {
+    if (item.missionMode === 'survey') return nonogramFor(item.worldId)
+    if (item.missionMode === 'relay' && item.worldId % 2 === 0) return nonogramFor(item.worldId === 0 ? 4 : 5)
+    return sudokuFor(seed, item.worldId === 0)
+  }
+  if (item.missionMode === 'relay') return { mode: 'timing', question: '움직이는 빛이 푸른 구간에 들어오면 눌러주세요.', center: 32 + seed % 35, width: 36, speed: .18 + step * .015, hint: '빛은 계속 돌아와요. 푸른 구간의 가운데를 천천히 기다려보세요.' }
+  const a = 6 + seed % 10, b = 2 + seed % 5, groups = 2 + item.worldId % 3
   const rescue = item.missionMode === 'rescue'
-  const answer = rescue ? [Math.max(1, Math.floor((a * 3 - b) / 2)), a + b, Math.ceil((a + b) / 3)][step] : [a * 2 + b, a * 3 - b, a * b][step]
-  const question = rescue ? [
-    `구조 전력 ${a * 3}, 예비 전력 ${b}. 대원 한 명당 전력 2가 필요하다. 안전하게 구조할 수 있는 최대 인원은?`,
-    `침수 구간 통과에 ${a}초, 문을 여는 데 ${b}초가 필요하다. 다음 범람 전에 확보해야 할 최소 안전 시간은?`,
-    `대원 ${a + b}명이 있다. 구조선 한 대에 3명씩 탈 수 있다. 전원을 옮길 최소 운항 횟수는?`,
-  ][step] : [
-    `관측기는 한 주기에 ${a}의 신호를 두 번 보내고 보조 신호 ${b}를 더한다. 이번 관측 총량은?`,
-    `중계기 세 대의 출력이 각각 ${a}다. 손실 ${b}를 제외한 실제 수신 출력은?`,
-    `수문 한 곳당 초당 ${a}의 물을 흘려보낸다. 수문 ${b}곳을 모두 열면 초당 유량은?`,
-  ][step]
-  const choices = [answer, answer + 2 + step, Math.max(0, answer - 2 - item.worldId)], correct = seed % 3
-  ;[choices[0], choices[correct]] = [choices[correct], choices[0]]
-  return { mode: 'choice', question, notes: `${item.targets[step].name} · 현장 기록값 ${codes[step]}`, choices: choices.map(String), correct }
+  if (rescue && step === 0) return choose(`대원 ${a + b}명 중 ${b}명이 먼저 돌아갔어요. 남은 대원은 몇 명인가요?`, a, `${a + b} − ${b} = ?`, `${a + b}에서 ${b}만큼 빼면 돼요.`)
+  if (rescue) return choose(`대원들이 한 줄에 ${groups}명씩 ${b}줄 서 있어요. 모두 몇 명인가요?`, groups * b, Array.from({ length: b }, () => '●'.repeat(groups)).join('  '), `${groups}을 ${b}번 더해 보세요.`)
+  if (step === 0) return choose(`석판에 불빛 ${a}개가 켜져 있어요. ${b}개가 더 켜지면 모두 몇 개인가요?`, a + b, `${a} + ${b} = ?`, `${a}에서 시작해 ${b}만큼 더 세어 보세요.`)
+  const increment = 2 + item.worldId, start = 1 + seed % 5, sequence = [start, start + increment, start + increment * 2]
+  return choose(`암호가 ${sequence.join(', ')}, ? 순서예요. 다음 수는 무엇인가요?`, start + increment * 3, `${sequence.join(' → ')} → ?`, `앞의 수보다 ${increment}씩 커지고 있어요.`)
 }
 
 export const rotateMask = (mask, turns = 1) => { let value = mask; for (let i = 0; i < turns; i++) value = ((value << 1) & 15) | (value >> 3); return value }

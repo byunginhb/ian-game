@@ -310,3 +310,37 @@
   .tk-run-records b { font-size: 17px; }
   .tk-field-count small { font-size: 6px; }
 }
+/* Small mission puzzles: clear clues and generous cells, separate from the original devices. */
+.tk-mission-puzzle-name { display: block; margin: 4px 0 14px; color: #d8c18d; font-size: 12px; letter-spacing: .8px; }
+.tk-grid-rule, .tk-grid-instruction { color: #9fb8b1; font-size: 11px !important; line-height: 1.85; margin: 10px 0 14px !important; }
+.tk-nonogram-board { display: grid; width: min(100%, 320px); margin: 20px auto; gap: 3px; align-items: stretch; }
+.tk-nonogram-corner { display: grid; place-content: center; color: #6e8f88; font-size: 12px; }
+.tk-nonogram-column, .tk-nonogram-row { display: flex; align-items: center; justify-content: center; gap: 5px; color: #dfcc9c; font-size: 14px; background: #ffffff04; border: 1px solid #b8c7b41a; border-radius: 2px; }
+.tk-nonogram-column { flex-direction: column; gap: 1px; padding: 6px 0; min-height: 43px; }
+.tk-nonogram-row { padding: 3px; }
+.tk-nonogram-column.is-complete, .tk-nonogram-row.is-complete { color: #99d9bd; background: #7aca9c0b; }
+.tk-picture-cell { aspect-ratio: 1; width: 100%; min-height: 0; padding: 0; border: 1px solid #a9c0b747; background: #0e1c23; color: #8aaba4 !important; font-size: 22px; display: grid; place-content: center; }
+.tk-picture-cell.is-filled { color: #e8d7a3 !important; background: linear-gradient(145deg, #86ac9a, #4d796d); border-color: #bcd7b4; box-shadow: inset 0 0 0 3px #0b242630; font-size: 16px; }
+.tk-picture-cell:hover { border-color: #e7cc91; }
+.tk-sudoku-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: min(100%, 235px); margin: 20px auto; padding: 7px; border: 1px solid #cfb68075; background: #0d1920; }
+.tk-sudoku-board button { aspect-ratio: 1; border: 1px solid #86aa9c44; background: #183b3d; color: #b7e3d1; font-size: 26px; font-variant-numeric: tabular-nums; padding: 5px; }
+.tk-sudoku-board .is-fixed { color: #c1c8bd; background: #273138; cursor: default; }
+.tk-sudoku-board button[aria-pressed='true'] { border: 2px solid #e5c480; background: #3a5146; }
+.tk-sudoku-board .has-conflict { box-shadow: inset 0 0 0 2px #d89e65; color: #f2c89b; }
+.tk-picture-cell.is-helped, .tk-sudoku-board .is-helped { outline: 2px solid #e9cd88; outline-offset: 1px; }
+.tk-sudoku-keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: min(100%, 270px); margin: 14px auto 8px; }
+.tk-sudoku-keypad button { min-height: 46px; font-size: 21px; border: 1px solid #d2bd8255; background: #b5a47614; color: #e3d4ae; }
+.tk-sudoku-keypad button:last-child { font-size: 12px; }
+.tk-sudoku-keypad button:disabled { opacity: .35; }
+.tk-grid-example { color: #a6bcb2; font-size: 11px; margin: 10px 0 14px; line-height: 1.8; }
+.tk-grid-example summary { cursor: pointer; color: #d2c092; min-height: 32px; }
+.tk-grid-example p { padding: 8px 12px; background: #91a99008; }
+.tk-grid-tools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: space-between; }
+.tk-grid-tools .tk-primary { margin-left: auto; min-height: 46px; }
+.tk-mission-help { color: #d0d6b5; padding: 12px; background: #8eab8b0d; border-left: 2px solid #c4b77b77; margin: 10px 0 16px !important; line-height: 1.8; }
+@media (max-width: 600px) {
+  .tk-grid-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  .tk-grid-tools .tk-primary { grid-column: 1 / -1; width: 100%; margin: 0; }
+  .tk-mission-grid-puzzle > p { font-size: 12px; }
+  .tk-nonogram-column, .tk-nonogram-row { font-size: 12px; }
+}

@@ -361,7 +361,9 @@ test('mission challenges vary their records and solutions and rescue companions 
     assert.deepEqual(missions.map((item) => item.missionMode), ['survey', 'relay', 'rescue'])
     for (const item of missions) for (let step = 0; step < 3; step++) {
       const challenge = missionChallenge(item, step)
-      assert.ok(challenge.mode === 'timing' ? challenge.width >= 18 && challenge.speed < 1 : challenge.correct >= 0 && new Set(challenge.choices).size === challenge.choices.length)
+      assert.ok(['choice', 'timing', 'nonogram', 'sudoku'].includes(challenge.mode))
+      if (challenge.mode === 'choice') assert.ok(challenge.correct >= 0 && new Set(challenge.choices).size === challenge.choices.length)
+      if (challenge.mode === 'timing') assert.ok(challenge.width >= 32 && challenge.speed <= .22)
     }
     const rescue = missions[2], progress = { ...emptyProgress(), quests: [rescue.id], questItems: rescue.targets.map((target) => target.id), positions: { [world.id]: rescue.targets[2] } }
     let state = createExpedition(world.id, progress)

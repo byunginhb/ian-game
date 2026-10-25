@@ -28,7 +28,7 @@ export default function GameSession({ game, children }) {
       }
       // Keep focused buttons operable without also triggering game shortcuts.
       if (!inGame) return
-      if (event.target.closest?.('button, a, input, select') && !event.target.closest?.('[data-game-hold-action]') && [' ', 'Enter'].includes(event.key)) {
+      if (event.target.closest?.('button, a, input, select') && !event.target.closest?.('[data-game-hold-action], [data-game-keyboard-control]') && [' ', 'Enter'].includes(event.key)) {
         event.stopPropagation()
         return
       }

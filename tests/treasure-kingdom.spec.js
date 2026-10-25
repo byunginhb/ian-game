@@ -138,7 +138,7 @@ test('site judgment rejects wrong answers, Enter confirms the record, and ordere
   await page.getByRole('button', { name: '현장 조사', exact: true }).click()
   await page.locator('.tk-mission-choices button').nth((challenge.correct + 1) % challenge.choices.length).click()
   await page.getByRole('button', { name: '현장 판단 확인', exact: true }).click()
-  await expect(page.getByRole('dialog')).toContainText('현장 기록과 일치하지 않는다')
+  await expect(page.getByRole('dialog')).toContainText('한 번 더 생각해 볼까요?')
   await page.locator('.tk-mission-choices button').nth(challenge.correct).click()
   await page.getByRole('button', { name: '현장 판단 확인', exact: true }).click()
   await expect(page.getByRole('button', { name: '기록 저장하고 계속', exact: true })).toBeFocused()
