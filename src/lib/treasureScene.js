@@ -1,13 +1,14 @@
 import Phaser from 'phaser'
 import terrainUrl from '../assets/treasure/terrain.webp'
 import propsUrl from '../assets/treasure/props.webp'
-import heroUrl from '../assets/treasure/hero.webp'
+import heroUrl from '../assets/treasure/hero-walk-v2.webp'
 import actorsUrl from '../assets/treasure/actors.webp'
 import { MAP, WORLDS, bossZones, clampPosition, createExpedition, findWalkPath, hazardsFor, heartsFor, sceneryFor, stepExpedition, treasuresFor } from './treasureKingdom'
 import { createArtCanvas, createHazardCanvas, drawHeart, drawRelic, drawTablet } from './treasureArt'
 import { paintTerrain } from './treasureTerrain'
 import { createCombatVisuals } from './treasureCombat'
 import { gameClock } from './gameClock'
+import { advanceGait } from './treasureGait'
 import { distanceToTrail, trailsFor } from './treasureContent'
 
 function atlasFrames(scene, key, columns, rows, solidify = false) {
@@ -36,10 +37,9 @@ function atlasFrames(scene, key, columns, rows, solidify = false) {
   for (let index = 0; index < columns * rows; index++) {
     const row = Math.floor(index / columns), cellWidth = bounds?.[index][2] || source.width / columns
     const left = bounds?.[index][0] ?? Math.round(index % columns * cellWidth)
-    // This authored hero sheet breaks at y=480, not the arithmetic midpoint (512).
-    // A uniform split includes the next hood below the boots and makes the hero float.
-    const top = solidify ? [0, 480][row] : bounds?.[index][1] ?? Math.round(row * cellHeight)
-    const height = solidify ? [480, source.height - 480][row] : bounds?.[index][3] || cellHeight
+    // The new walk sheet is an equal 4x3 grid: side, back and front gait cycles.
+    const top = solidify ? Math.round(row * cellHeight) : bounds?.[index][1] ?? Math.round(row * cellHeight)
+    const height = solidify ? cellHeight : bounds?.[index][3] || cellHeight
     let minX = cellWidth, minY = height, maxX = 0, maxY = 0
     for (let y = 0; y < height; y++) for (let x = 0; x < cellWidth; x++) {
       if (pixels[((top + y) * source.width + left + x) * 4 + 3] > 85) { minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y) }
@@ -55,9 +55,10 @@ function atlasFrames(scene, key, columns, rows, solidify = false) {
       scene.textures.addCanvas('guardian-jungle', isolated).add(index, 0, minX, minY, Math.max(1, maxX - minX + 1), Math.max(1, maxY - minY + 1))
     }
     if (solidify) {
-      let sum = 0, count = 0
-      for (let y = Math.max(minY, maxY - 22); y <= maxY; y++) for (let x = minX; x <= maxX; x++) if (pixels[((top + y) * source.width + left + x) * 4 + 3] > 160) { sum += x; count++ }
-      texture.get(index).customData.footOrigin = count ? (sum / count - minX) / (maxX - minX + 1) : .5
+      // Anchor under the hips, rather than the forward boot; changing the planted
+      // foot must not make the entire torso jump sideways between frames.
+      const anchorX = cellWidth * .57
+      texture.get(index).customData.footOrigin = (anchorX - minX) / (maxX - minX + 1)
     }
   }
   return solidify ? `${key}-render` : key
@@ -76,9 +77,9 @@ export function mountTreasureScene(host, worldId, bridge) {
       scene = this
       if (['terrain', 'props', 'hero', 'actors'].some((key) => !this.textures.exists(key))) { bridge.onError?.(); return }
       this.simulation = createExpedition(worldId, bridge.progress)
-      this.elapsedUI = 0; this.scenery = []; this.treasureViews = new Map(); this.questViews = new Map(); this.particles = []; this.escortViews = new Map(); this.rewardFX = []; this.impact = 0; this.hitStop = 0
+      this.elapsedUI = 0; this.scenery = []; this.treasureViews = new Map(); this.questViews = new Map(); this.particles = []; this.escortViews = new Map(); this.rewardFX = []; this.impact = 0; this.hitStop = 0; this.gait = { distance: 0, direction: 'east' }; this.footprints = []
       for (const key of ['props', 'actors']) atlasFrames(this, key, 4, 3)
-      this.heroKey = atlasFrames(this, 'hero', 4, 2, true)
+      this.heroKey = atlasFrames(this, 'hero', 4, 3, true)
       this.textures.addCanvas('ground', paintTerrain(worldId, this.textures.get('terrain').getSourceImage()))
       this.add.image(0, 0, 'ground').setOrigin(0).setDepth(-1000)
       this.makeEffects(); this.buildWorld()
@@ -224,7 +225,26 @@ export function mountTreasureScene(host, worldId, bridge) {
       this.hitStop = Math.max(0, this.hitStop - fxDelta)
       const advanced = this.hitStop <= 0
       const result = advanced ? stepExpedition(this.simulation, bridge.input, delta / 1000, bridge.progress) : { state: this.simulation, events: [] }
+      const previousPlayer = this.simulation.player
       this.simulation = result.state
+      this.gait = advanceGait(this.gait, previousPlayer, this.simulation.player)
+      if (this.gait.footstep) {
+        bridge.onEvent({ type: 'footstep', surface: world.theme })
+        if (!reducedMotion) {
+          const { player } = this.simulation, x = player.x + this.gait.side * 6, y = player.y + 1
+          const print = this.add.ellipse(x, y, 7, 3, worldId === 1 ? 0x514632 : 0xb3ad8d, .35).setDepth(player.y - 3)
+          this.footprints.push({ object: print, life: .65, total: .65, dust: false })
+          for (let i = 0; i < 3; i++) {
+            const dust = this.add.circle(x + i * 2 - 2, y - 1, 1 + i % 2, 0xc4b99e, .24).setDepth(player.y + 3)
+            this.footprints.push({ object: dust, life: .3, total: .3, dust: true })
+          }
+        }
+      }
+      for (let i = this.footprints.length - 1; i >= 0; i--) {
+        const mark = this.footprints[i]; mark.life -= fxDelta
+        if (mark.life <= 0) { mark.object.destroy(); this.footprints.splice(i, 1) }
+        else { mark.object.setAlpha(mark.life / mark.total * (mark.dust ? .24 : .35)); if (mark.dust) mark.object.y -= fxDelta * 9 }
+      }
       if (advanced) { bridge.input.cancelShot = false; bridge.input.primaryTap = false }
       if (this.previousBoss && !this.simulation.boss) bridge.setInput('jump', false)
       if (this.previousBoss !== this.simulation.boss?.id) this.game.canvas.setAttribute('aria-label', this.simulation.boss ? `${world.name} 수호자 전투. 스페이스를 짧게 눌러 자동 조준 미사일, 길게 눌러 필살기, 시프트 회피.` : `${world.name} 탐사 지도. 터치·드래그 이동, 스페이스 점프, 시프트 회피, E 조사.`)
@@ -244,12 +264,12 @@ export function mountTreasureScene(host, worldId, bridge) {
       for (const heart of this.heartViews) { heart.sprite.setVisible(time >= (this.simulation.heartTimers[heart.id] || 0)); heart.sprite.y = heart.y - 10 - (reducedMotion ? 0 : Math.sin(time * 2.5) * 3) }
       const jumpDuration = worldId === 2 ? 1.05 : .76
       const jumpHeight = player.jump ? Math.sin((1 - player.jump / jumpDuration) * Math.PI) * (worldId === 2 ? 100 : 68) : 0
-      const movingNorth = player.movingNorth && (!boss || this.simulation.moving)
-      const frame = (movingNorth ? 4 : 0) + (this.simulation.moving && !reducedMotion ? Math.floor(time * (player.dash ? 15 : 7)) % 4 : 0)
+      const frame = reducedMotion ? (this.gait.direction === 'north' ? 4 : this.gait.direction === 'south' ? 8 : 0) : this.gait.frame
       const footOrigin = this.textures.get(this.heroKey).get(frame).customData.footOrigin
-      const flipped = !movingNorth && player.facing < 0
+      const flipped = this.gait.direction === 'west'
       this.hero.setFrame(frame).setOrigin(flipped ? 1 - footOrigin : footOrigin, 1).setPosition(player.x, player.y - jumpHeight).setFlipX(flipped).setDepth(player.y + 4)
-      this.hero.setDisplaySize(this.hero.frame.width / this.hero.frame.height * 96, 96)
+      this.hero.setDisplaySize(this.hero.frame.width / this.hero.frame.height * 96, 96 * (1 + (reducedMotion ? 0 : this.gait.compression)))
+      this.hero.setRotation(reducedMotion || player.jump ? 0 : this.gait.moving ? Math.sin(this.gait.distance / 144 * Math.PI * 2) * .012 : 0)
       this.hero.setAlpha(player.invulnerable > 0 && player.hp < 4 && Math.floor(time * 12) % 2 ? .72 : 1)
       this.shadow.setPosition(player.x, player.y - 2).setDisplaySize(41 - jumpHeight * .12, 14 - jumpHeight * .04).setAlpha(1 - jumpHeight / 180).setDepth(player.y - 1)
       this.lantern.setPosition(player.x + player.facing * 16, player.y - 38 - jumpHeight).setDepth(player.y + 5)

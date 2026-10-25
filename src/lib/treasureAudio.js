@@ -27,6 +27,20 @@ export function createTreasureAudio() {
     setPaused(value) { paused = value; updateVolume() },
     play(kind = 'collect', tier = 'relic') {
       if (!enabled || paused || !context || context.state !== 'running' || !master) return
+      if (kind === 'footstep') {
+        const now = context.currentTime, length = .065, oscillator = context.createOscillator(), gain = context.createGain()
+        oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(tier === 'space' ? 135 : 95, now); oscillator.frequency.exponentialRampToValueAtTime(42, now + length)
+        gain.gain.setValueAtTime(.045, now); gain.gain.exponentialRampToValueAtTime(.001, now + length)
+        oscillator.connect(gain); gain.connect(master); oscillator.start(now); oscillator.stop(now + length)
+        oscillator.onended = () => { oscillator.disconnect(); gain.disconnect() }
+        const noise = context.createBufferSource(), filter = context.createBiquadFilter(), envelope = context.createGain(), buffer = context.createBuffer(1, Math.ceil(context.sampleRate * length), context.sampleRate)
+        const data = buffer.getChannelData(0)
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length) ** 3
+        noise.buffer = buffer; filter.type = 'lowpass'; filter.frequency.value = tier === 'ocean' ? 1500 : tier === 'garden' ? 650 : 950
+        envelope.gain.value = .045; noise.connect(filter); filter.connect(envelope); envelope.connect(master); noise.start(now)
+        noise.onended = () => { noise.disconnect(); filter.disconnect(); envelope.disconnect() }
+        return
+      }
       if (['missileLaunch', 'missileImpact', 'bossAttack', 'bossFall'].includes(kind)) {
         const charged = tier === 'charged', heavy = charged || kind === 'bossFall' || kind === 'bossAttack'
         const duration = kind === 'missileLaunch' ? .26 : heavy ? .75 : .23, now = context.currentTime

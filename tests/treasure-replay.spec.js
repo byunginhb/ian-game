@@ -1,0 +1,107 @@
+import { test, expect } from '@playwright/test'
+import { ALL_TREASURES, BACKUP_KEY, SAVE_KEY, emptyProgress, treasuresFor } from '../src/lib/treasureKingdom.js'
+const route = '/game/treasure-kingdom'
+const read = (page) => page.evaluate((key) => JSON.parse(localStorage.getItem(key)), SAVE_KEY)
+async function open(page, progress) {
+  if (progress) await page.addInitScript(({ key, backup, progress }) => { if (!sessionStorage.getItem('replay-seed')) { localStorage.setItem(key, JSON.stringify(progress)); localStorage.setItem(backup, JSON.stringify(progress)); sessionStorage.setItem('replay-seed', 'yes') } }, { key: SAVE_KEY, backup: BACKUP_KEY, progress })
+  await page.goto(route)
+  await expect(page.locator('.tk-worlds')).toBeVisible()
+}
+async function enter(page) {
+  await page.getByRole('button', { name: /^공룡 정글 (탐험 시작|이어서 탐험)$/ }).click()
+  await expect(page.locator('.tk-scene-loading')).toHaveCount(0, { timeout: 15000 })
+  await page.locator('.tk-canvas-host').focus()
+}
+const all = ALL_TREASURES.map((item) => item.id)
+
+test('active play time includes mission dialogs, excludes pause and persists across leaving and reloading', async ({ page }, testInfo) => {
+  const item = treasuresFor(0)[3]
+  await open(page, { ...emptyProgress(), run: { id: 'timer-active', startedAt: Date.now() - 10000, elapsedMs: 10000, eligible: true, complete: false, finishedAt: null }, positions: { 0: item } })
+  await enter(page)
+  await page.getByRole('button', { name: '장치 조사', exact: true }).click()
+  await expect.poll(async () => (await read(page)).run.elapsedMs).toBeGreaterThan(11200)
+  await page.screenshot({ path: testInfo.outputPath('timed-mission.png') })
+  await page.getByRole('button', { name: '닫기', exact: true }).click()
+  await page.getByRole('button', { name: '게임 일시정지' }).click()
+  const paused = (await read(page)).run.elapsedMs
+  await page.waitForTimeout(1200)
+  expect((await read(page)).run.elapsedMs).toBe(paused)
+  await page.getByRole('button', { name: /계속하기/ }).click()
+  await expect.poll(async () => (await read(page)).run.elapsedMs).toBeGreaterThan(paused + 1000)
+  await page.getByRole('link', { name: /게임 목록/ }).click()
+  await expect(page.locator('.tk-container')).toHaveCount(0)
+  const left = (await read(page)).run.elapsedMs
+  await page.waitForTimeout(900)
+  expect((await read(page)).run.elapsedMs).toBe(left)
+  await page.goto(route); await enter(page)
+  expect((await read(page)).run.elapsedMs).toBeGreaterThanOrEqual(left)
+  expect((await read(page)).run.elapsedMs).toBeLessThan(left + 2500)
+  await expect(page.locator('.tk-run-clock')).toBeVisible()
+})
+
+test('a timed 100-treasure finish records a new best, freezes the result and restarts without losing history', async ({ page }, testInfo) => {
+  const old = { id: 'first-clear', startedAt: 1790000000000, finishedAt: 1790005000000, durationMs: 5000000 }
+  await open(page, { ...emptyProgress(), collected: all, banked: all.slice(0, 99), history: [old], run: { id: 'second-clear', startedAt: Date.now() - 4000000, elapsedMs: 3723456, eligible: true, complete: false, finishedAt: null } })
+  expect((await read(page)).history).toHaveLength(1)
+  await page.getByRole('button', { name: '보물 1개 전달', exact: true }).click()
+  await expect(page.getByRole('dialog')).toContainText('최고 기록 경신')
+  const completed = await read(page), result = completed.history.at(-1)
+  expect(result.id).toBe('second-clear'); expect(result.durationMs).toBeGreaterThanOrEqual(3723456); expect(result.durationMs).toBeLessThan(3740000)
+  expect(completed.history[0]).toEqual(old); expect(completed.run.complete).toBe(true)
+  await page.waitForTimeout(1200); expect((await read(page)).history.at(-1)).toEqual(result)
+  await page.getByRole('button', { name: '완주 기록 · 다시 도전', exact: true }).click()
+  await expect(page.locator('.tk-run-records li')).toHaveCount(2)
+  await expect(page.locator('.tk-run-records li').first()).toContainText('BEST')
+  await page.screenshot({ path: testInfo.outputPath('completion-history.png') })
+  await page.getByRole('dialog').getByRole('button', { name: '처음부터 다시 도전', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeFocused()
+  await page.screenshot({ path: testInfo.outputPath('new-expedition.png') })
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.tk-scene-loading')).toHaveCount(0, { timeout: 15000 })
+  await expect(page.locator('.tk-field-count')).toContainText('0/25')
+  const replay = await read(page)
+  expect(replay.history).toEqual(completed.history); expect(replay.banked).toEqual([]); expect(replay.quests).toEqual([]); expect(replay.collected).toEqual([])
+  expect(replay.run.eligible).toBe(true); expect(replay.run.id).not.toBe('second-clear'); expect(replay.revision).toBeGreaterThan(completed.revision)
+  await page.reload(); expect((await read(page)).history).toEqual(completed.history)
+  await expect(page.getByRole('button', { name: '바다와 섬 잠김', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: '완주 기록 · 2회', exact: true }).click()
+  await expect(page.locator('.tk-run-records li')).toHaveCount(2)
+})
+
+test('old completed saves remain explorable and can start a timed replay with an honest untimed legacy record', async ({ page }, testInfo) => {
+  await open(page, { ...emptyProgress(), collected: all, banked: all })
+  await page.getByRole('button', { name: /^처음부터 다시 도전/ }).click()
+  await expect(page.getByRole('dialog')).toContainText('시간 기록 없음')
+  await page.getByRole('button', { name: '왕국에 머무르기', exact: true }).click()
+  await expect(page.getByRole('progressbar', { name: '왕국 복구', exact: true })).toHaveAttribute('aria-valuenow', '100')
+  await page.getByRole('button', { name: '완주 기록 · 1회', exact: true }).click()
+  await expect(page.locator('.tk-run-records li')).toHaveCount(1)
+  await expect(page.locator('.tk-run-best')).toContainText('새 기록을 기다리는 중')
+  await page.screenshot({ path: testInfo.outputPath('legacy-history.png') })
+  await page.reload()
+  expect((await read(page)).history).toHaveLength(1)
+  await page.getByRole('button', { name: /^처음부터 다시 도전/ }).click()
+  await page.getByRole('button', { name: '새 탐험 시작', exact: true }).click()
+  await expect(page.locator('.tk-scene-loading')).toHaveCount(0, { timeout: 15000 })
+  await expect.poll(async () => (await read(page)).run.elapsedMs).toBeGreaterThan(500)
+  expect((await read(page)).history[0].durationMs).toBe(null)
+})
+
+test('the new walking artwork animates actual travel, changes direction and comes to rest', async ({ page }, testInfo) => {
+  const errors = []; page.on('pageerror', (error) => errors.push(error.message))
+  await open(page); await enter(page)
+  const x = () => page.locator('.tk-player-dot').getAttribute('cx').then(Number)
+  const before = await x()
+  await page.keyboard.down('ArrowRight')
+  await expect.poll(x).toBeGreaterThan(before + 40)
+  for (let phase = 0; phase < 4; phase++) { await page.waitForTimeout(90); await page.screenshot({ path: testInfo.outputPath(`walk-east-${phase}.png`) }) }
+  await page.keyboard.up('ArrowRight')
+  await page.waitForTimeout(150)
+  const stopped = await x(); await page.waitForTimeout(300); expect(await x()).toBe(stopped)
+  await page.keyboard.down('ArrowLeft'); await page.waitForTimeout(250); await page.keyboard.up('ArrowLeft')
+  await page.screenshot({ path: testInfo.outputPath('walk-west.png') })
+  await page.keyboard.down('ArrowUp'); await page.waitForTimeout(220); await page.screenshot({ path: testInfo.outputPath('walk-north.png') }); await page.keyboard.up('ArrowUp')
+  await page.keyboard.down('ArrowDown'); await page.waitForTimeout(220); await page.screenshot({ path: testInfo.outputPath('walk-south.png') }); await page.keyboard.up('ArrowDown')
+  await expect(page.locator('.tk-run-clock')).toBeVisible()
+  expect(errors).toEqual([])
+})

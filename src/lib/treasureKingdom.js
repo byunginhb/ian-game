@@ -1,3 +1,4 @@
+import { addRunTime, finishRun, normalizeRuns, startRun } from './treasureRuns.js'
 import { MAP, WORLDS, RESTORATIONS, clampPosition, distanceToTrail, hazardsFor, heartsFor, sceneryFor, trailsFor, treasuresFor } from './treasureContent.js'
 export { MAP, WORLDS, RESTORATIONS, TYPE_LABELS, PROLOGUE, clampPosition, hazardsFor, heartsFor, sceneryFor, trailsFor, treasuresFor, puzzleFor, missionChallenge, rotateMask, circuitConnected, routeValid } from './treasureContent.js'
 export const SAVE_KEY = 'ian-treasure-kingdom-v1'
@@ -10,7 +11,7 @@ const HIDDEN_IDS = new Set(ALL_TREASURES.filter((item) => item.type === 'hidden'
 const SCENERY = WORLDS.map((world) => sceneryFor(world.id))
 const TRAILS = WORLDS.map((world) => trailsFor(world.id))
 const uniqueIds = (value, allowed = VALID_IDS) => Array.isArray(value) ? [...new Set(value.filter((id) => allowed.has(id)))] : []
-export const emptyProgress = () => ({ version: 1, collected: [], banked: [], quests: [], questItems: [], revealed: [], positions: {}, lastWorld: 0, revision: 0 })
+export const emptyProgress = () => ({ version: 1, collected: [], banked: [], quests: [], questItems: [], revealed: [], positions: {}, lastWorld: 0, revision: 0, run: null, history: [] })
 
 export function normalizeProgress(value) {
   if (!value || value.version !== 1 || !Array.isArray(value.collected)) return null
@@ -26,7 +27,7 @@ export function normalizeProgress(value) {
     const point = value.positions?.[world.id]
     if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) positions[world.id] = clampPosition(point)
   }
-  return { version: 1, collected, banked, quests: uniqueIds(value.quests, QUEST_IDS), questItems: uniqueIds(value.questItems, QUEST_ITEMS), revealed: uniqueIds(value.revealed, HIDDEN_IDS), positions, lastWorld: Number.isInteger(value.lastWorld) && value.lastWorld >= 0 && value.lastWorld < 4 ? value.lastWorld : 0, revision: Number.isSafeInteger(value.revision) && value.revision >= 0 && value.revision < Number.MAX_SAFE_INTEGER ? value.revision : 0 }
+  return { ...normalizeRuns(value, banked.length === 100), version: 1, collected, banked, quests: uniqueIds(value.quests, QUEST_IDS), questItems: uniqueIds(value.questItems, QUEST_ITEMS), revealed: uniqueIds(value.revealed, HIDDEN_IDS), positions, lastWorld: Number.isInteger(value.lastWorld) && value.lastWorld >= 0 && value.lastWorld < 4 ? value.lastWorld : 0, revision: Number.isSafeInteger(value.revision) && value.revision >= 0 && value.revision < Number.MAX_SAFE_INTEGER ? value.revision : 0 }
 }
 
 export function loadProgress(storage) {
@@ -62,7 +63,13 @@ export function progressAction(progress, action) {
   if (action.type === 'quest' && QUEST_IDS.has(action.id) && !progress.quests.includes(action.id)) next = { ...progress, quests: [...progress.quests, action.id] }
   if (action.type === 'questItem' && QUEST_ITEMS.has(action.id) && !progress.questItems.includes(action.id)) next = { ...progress, questItems: [...progress.questItems, action.id] }
   if (action.type === 'reveal' && HIDDEN_IDS.has(action.id) && !progress.revealed.includes(action.id)) next = { ...progress, revealed: [...progress.revealed, action.id] }
-  if (action.type === 'deposit') next = { ...progress, banked: [...progress.collected] }
+  if (action.type === 'startRun') next = startRun(progress, action.now)
+  if (action.type === 'elapsed') next = addRunTime(progress, action.deltaMs)
+  if (action.type === 'deposit') {
+    next = { ...progress, banked: [...progress.collected] }
+    if (next.banked.length === 100) next = { ...next, ...finishRun(next, action.now) }
+  }
+  if (action.type === 'restart' && progress.banked.length === 100) next = { ...emptyProgress(), history: progress.history }
   if (action.type === 'position' && WORLDS[action.worldId] && Number.isFinite(action.position?.x) && Number.isFinite(action.position?.y)) next = { ...progress, positions: { ...progress.positions, [action.worldId]: clampPosition(action.position) }, lastWorld: action.worldId }
   return next === progress ? progress : { ...next, revision: progress.revision + 1 }
 }
