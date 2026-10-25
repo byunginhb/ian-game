@@ -9,6 +9,7 @@ import { paintTerrain } from './treasureTerrain'
 import { createCombatVisuals } from './treasureCombat'
 import { gameClock } from './gameClock'
 import { advanceGait } from './treasureGait'
+import { createFootstepVisuals } from './treasureFootsteps'
 import { distanceToTrail, trailsFor } from './treasureContent'
 
 function atlasFrames(scene, key, columns, rows, solidify = false) {
@@ -77,7 +78,8 @@ export function mountTreasureScene(host, worldId, bridge) {
       scene = this
       if (['terrain', 'props', 'hero', 'actors'].some((key) => !this.textures.exists(key))) { bridge.onError?.(); return }
       this.simulation = createExpedition(worldId, bridge.progress)
-      this.elapsedUI = 0; this.scenery = []; this.treasureViews = new Map(); this.questViews = new Map(); this.particles = []; this.escortViews = new Map(); this.rewardFX = []; this.impact = 0; this.hitStop = 0; this.gait = { distance: 0, direction: 'east' }; this.footprints = []
+      this.elapsedUI = 0; this.scenery = []; this.treasureViews = new Map(); this.questViews = new Map(); this.particles = []; this.escortViews = new Map(); this.rewardFX = []; this.impact = 0; this.hitStop = 0; this.gait = { distance: 0, direction: 'east' }
+      this.footsteps = createFootstepVisuals(this, worldId, reducedMotion)
       for (const key of ['props', 'actors']) atlasFrames(this, key, 4, 3)
       this.heroKey = atlasFrames(this, 'hero', 4, 3, true)
       this.textures.addCanvas('ground', paintTerrain(worldId, this.textures.get('terrain').getSourceImage()))
@@ -229,22 +231,10 @@ export function mountTreasureScene(host, worldId, bridge) {
       this.simulation = result.state
       this.gait = advanceGait(this.gait, previousPlayer, this.simulation.player)
       if (this.gait.footstep) {
-        bridge.onEvent({ type: 'footstep', surface: world.theme })
-        if (!reducedMotion) {
-          const { player } = this.simulation, x = player.x + this.gait.side * 6, y = player.y + 1
-          const print = this.add.ellipse(x, y, 7, 3, worldId === 1 ? 0x514632 : 0xb3ad8d, .35).setDepth(player.y - 3)
-          this.footprints.push({ object: print, life: .65, total: .65, dust: false })
-          for (let i = 0; i < 3; i++) {
-            const dust = this.add.circle(x + i * 2 - 2, y - 1, 1 + i % 2, 0xc4b99e, .24).setDepth(player.y + 3)
-            this.footprints.push({ object: dust, life: .3, total: .3, dust: true })
-          }
-        }
+        const surface = this.footsteps.step(this.simulation.player, this.gait)
+        bridge.onEvent({ type: 'footstep', surface: surface || world.theme })
       }
-      for (let i = this.footprints.length - 1; i >= 0; i--) {
-        const mark = this.footprints[i]; mark.life -= fxDelta
-        if (mark.life <= 0) { mark.object.destroy(); this.footprints.splice(i, 1) }
-        else { mark.object.setAlpha(mark.life / mark.total * (mark.dust ? .24 : .35)); if (mark.dust) mark.object.y -= fxDelta * 9 }
-      }
+      this.footsteps.update(fxDelta)
       if (advanced) { bridge.input.cancelShot = false; bridge.input.primaryTap = false }
       if (this.previousBoss && !this.simulation.boss) bridge.setInput('jump', false)
       if (this.previousBoss !== this.simulation.boss?.id) this.game.canvas.setAttribute('aria-label', this.simulation.boss ? `${world.name} 수호자 전투. 스페이스를 짧게 눌러 자동 조준 미사일, 길게 눌러 필살기, 시프트 회피.` : `${world.name} 탐사 지도. 터치·드래그 이동, 스페이스 점프, 시프트 회피, E 조사.`)

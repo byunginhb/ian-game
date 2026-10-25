@@ -1,4 +1,7 @@
-import { MAP, trailsFor } from './treasureContent.js'
+import { MAP, distanceToTrail, trailsFor } from './treasureContent.js'
+
+// Include the solid shoreline painted five pixels beyond each land segment.
+export const isWater = (point, trails) => !trails.some((trail) => distanceToTrail(point, trail) <= trail.width + 5)
 
 // The trail network paints land and shoreline; the surrounding water is also passable.
 export function paintTerrain(worldId, source) {

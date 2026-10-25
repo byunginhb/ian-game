@@ -28,16 +28,17 @@ export function createTreasureAudio() {
     play(kind = 'collect', tier = 'relic') {
       if (!enabled || paused || !context || context.state !== 'running' || !master) return
       if (kind === 'footstep') {
-        const now = context.currentTime, length = .065, oscillator = context.createOscillator(), gain = context.createGain()
-        oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(tier === 'space' ? 135 : 95, now); oscillator.frequency.exponentialRampToValueAtTime(42, now + length)
-        gain.gain.setValueAtTime(.045, now); gain.gain.exponentialRampToValueAtTime(.001, now + length)
+        const water = tier === 'water', now = context.currentTime, length = water ? .14 : .065, oscillator = context.createOscillator(), gain = context.createGain()
+        oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(water ? 185 : tier === 'space' ? 135 : 95, now); oscillator.frequency.exponentialRampToValueAtTime(water ? 55 : 42, now + length)
+        gain.gain.setValueAtTime(water ? .025 : .045, now); gain.gain.exponentialRampToValueAtTime(.001, now + length)
         oscillator.connect(gain); gain.connect(master); oscillator.start(now); oscillator.stop(now + length)
         oscillator.onended = () => { oscillator.disconnect(); gain.disconnect() }
         const noise = context.createBufferSource(), filter = context.createBiquadFilter(), envelope = context.createGain(), buffer = context.createBuffer(1, Math.ceil(context.sampleRate * length), context.sampleRate)
         const data = buffer.getChannelData(0)
         for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length) ** 3
-        noise.buffer = buffer; filter.type = 'lowpass'; filter.frequency.value = tier === 'ocean' ? 1500 : tier === 'garden' ? 650 : 950
-        envelope.gain.value = .045; noise.connect(filter); filter.connect(envelope); envelope.connect(master); noise.start(now)
+        noise.buffer = buffer; filter.type = 'lowpass'; filter.frequency.setValueAtTime(water ? 2800 : tier === 'ocean' ? 1500 : tier === 'garden' ? 650 : 950, now)
+        if (water) filter.frequency.exponentialRampToValueAtTime(450, now + length)
+        envelope.gain.value = water ? .09 : .045; noise.connect(filter); filter.connect(envelope); envelope.connect(master); noise.start(now)
         noise.onended = () => { noise.disconnect(); filter.disconnect(); envelope.disconnect() }
         return
       }
