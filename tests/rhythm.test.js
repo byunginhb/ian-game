@@ -3,10 +3,10 @@ import { GROOVES, grooveHits } from '../src/lib/rhythmGrooves.js'
 import assert from 'node:assert/strict'
 import { SONGS, MODES, HOLD_BEATS, parseMelody, buildChart, findHit, judge, starsFor, toMidi, nextOpenNote } from '../src/lib/rhythm.js'
 
-test('fourteen songs whose melodies line up with their bass', () => {
+test('song IDs are unique and synthesized melodies line up with their bass', () => {
   assert.equal(SONGS.length, 14)
   assert.equal(new Set(SONGS.map((song) => song.id)).size, 14)
-  for (const song of SONGS) {
+  for (const song of SONGS.filter((song) => !song.videoId)) {
     const { beats } = parseMelody(song.melody)
     const bassBeats = song.bass ? parseMelody(song.bass).beats : song.chords.trim().split(/\s+/).length * song.chordBeats
     assert.equal(beats, bassBeats, song.id)
@@ -17,7 +17,12 @@ test('charts use all five lanes in time order and kid mode is slower', () => {
   for (const song of SONGS) {
     const adult = buildChart(song, MODES.adult)
     const kid = buildChart(song, MODES.kid)
-    assert.ok(kid.duration > adult.duration)
+    if (song.videoId) {
+      assert.equal(kid.beatMs, adult.beatMs)
+      assert.ok(adult.notes.length > kid.notes.length)
+      assert.deepEqual(kid.backing, [])
+      assert.equal(song.videoId, 'npjF032TDDQ')
+    } else assert.ok(kid.duration > adult.duration)
     assert.ok(adult.notes.every((note, i) => note.lane >= 0 && note.lane <= 4 && (i === 0 || note.time >= adult.notes[i - 1].time)))
     assert.ok(new Set(adult.notes.map((note) => note.lane)).size >= 3, song.id)
   }
@@ -53,7 +58,7 @@ test('stars and note names', () => {
 
 test('every song picks a drum style that fits its meter, and quiet intros stay drum-free', () => {
   const used = new Set()
-  for (const song of SONGS) {
+  for (const song of SONGS.filter((song) => !song.videoId)) {
     const groove = GROOVES[song.groove]
     assert.ok(groove, song.id)
     used.add(song.groove)
@@ -78,7 +83,7 @@ test('grooves add a crash on entry and a fill at each 4-bar phrase end', () => {
 })
 
 test('long notes become hold notes', () => {
-  for (const song of SONGS) {
+  for (const song of SONGS.filter((song) => !song.videoId)) {
     const { notes, beatMs } = buildChart(song, MODES.kid)
     notes.forEach((note) => assert.equal(note.hold, note.length >= HOLD_BEATS * beatMs - 1e-6, song.id))
   }

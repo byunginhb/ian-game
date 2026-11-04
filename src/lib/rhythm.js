@@ -38,31 +38,8 @@ export const SONGS = [
     chords: 'C C C C C C C C C C C C C C G G G G C C C C F F F C C C C G C C',
   },
   {
-    // Dance arrangement based on Pachelbel's Canon in D.
-    id: 'raining-tacos', title: "It's Raining Tacos", ko: '타코 비 · 캐논 댄스 편곡', host: 'tails',
-    bpm: 112, repeat: 1, meter: 4, chordBeats: 2, groove: 'pop',
-    continuous: true,
-    lyrics: [
-      '🌮 준비됐나요?',
-      "It's raining tacos!",
-      '손을 높이, 박수 짝짝!',
-      '살사 한 스푼, 발을 쿵쿵!',
-      '빙글빙글, 타코 댄스!',
-      "It's raining tacos!",
-      '마지막 한 입, 다 같이 짠!',
-    ],
-    lyricBeats: 16,
-    melody: [
-      'F#5-2 E5-2 D5-2 C#5-2 B4-2 A4-2 B4-2 C#5-2',
-      'D5 A4 B4 C#5 D5 A4 B4 C#5 D5 E5 F#5 G5 F#5 E5 F#5 D5',
-      'F#5-.5 E5-.5 F#5-.5 F#4-.5 G4-.5 A4-.5 B4-.5 C#5-.5 D5-.5 E5-.5 F#5-.5 E5-.5 D5-.5 C#5-.5 B4-.5 C#5-.5 D5-.5 C#5-.5 B4-.5 A4-.5 G4-.5 F#4-.5 G4-.5 E4-.5 F#4-.5 A4-.5 G4-.5 B4-.5 A4-.5 C#5-.5 D5-.5 E5-.5',
-      'F#5-1.5 A5-.5 E5-1.5 C#5-.5 D5-1.5 F#5-.5 C#5-2 B4-1.5 D5-.5 A4-2 G4 B4 A4 C#5',
-      'D5-.5 C#5-.5 D5-.5 D4-.5 E4-.5 F#4-.5 G4-.5 A4-.5 B4-.5 C#5-.5 D5-.5 F#5-.5 E5-.5 D5-.5 C#5-.5 E5-.5 D5-.5 B4-.5 A4-.5 B4-.5 A4-.5 G4-.5 A4-.5 F#4-.5 G4-.5 B4-.5 A4-.5 G4-.5 F#4-.5 E4-.5 D4-.5 C#4-.5',
-      'D4 F#4 A4 D5 C#5 E5 A5 E5 F#5 D5 B4 D5 C#5 A4 E4 A4',
-      'F#5-2 E5-2 D5-2 C#5-2 B4-2 A4-2 B4 C#5 E5 C#5',
-      'D5-1 F#5-1 A5-1 D6-1 D6-3 R-1',
-    ].join(' '),
-    chords: [...Array(7).fill('D A B F# G D G A'), 'D D D D'].join(' '),
+    id: 'raining-tacos-original', title: "It's Raining Tacos", ko: 'Parry Gripp · 원곡', host: 'tails',
+    videoId: 'npjF032TDDQ', bpm: 138,
   },
   {
     // Pitches: noobnotes.net letter notes; rhythm: Wikipedia score (eighths doubled).
@@ -160,6 +137,17 @@ export function laneForPitch(midi, pitches) {
 }
 
 export function buildChart(song, mode) {
+  if (song.videoId) {
+    // The recording stays at its original speed. Difficulty changes the tap pattern.
+    const beatMs = 60000 / song.bpm
+    const lanes = mode.waits ? [2, 1, 3, 2, 0, 2, 4, 2] : [2, 3, 1, 4, 0, 2, 4, 1, 3, 2, 0, 3, 1, 4, 2, 1]
+    const stepsPerBar = mode.waits ? 2 : 4
+    const notes = Array.from({ length: 51 * stepsPerBar }, (_, id) => ({
+      id, time: (4 + id * 4 / stepsPerBar) * beatMs,
+      lane: lanes[id % lanes.length], length: beatMs, hold: false,
+    }))
+    return { notes, backing: [], beatMs }
+  }
   const { notes, beats } = parseMelody(song.melody)
   const pitches = [...new Set(notes.map((note) => note.midi))].sort((a, b) => a - b)
   const beatMs = 60000 / (song.bpm * mode.tempo)
@@ -182,19 +170,7 @@ export function buildChart(song, mode) {
           // Oom-pah: root on the strong beat, fifth in between.
           backing.push({ time: (offset + index * song.chordBeats + step) * beatMs, kind: 'bass', midi: step % 2 ? midi + 7 : midi, length: beatMs })
         }
-        if (song.continuous) {
-          const chord = root === 'B' || root === 'F#' ? [0, 3, 7] : [0, 4, 7]
-          chord.forEach((interval) => backing.push({
-            time: (offset + index * song.chordBeats + .5) * beatMs,
-            kind: 'chord', midi: midi + 24 + interval, length: 1.5 * beatMs,
-          }))
-        }
       })
-    }
-    if (song.continuous) {
-      notes.forEach((note) => backing.push({
-        time: (offset + note.beat) * beatMs, kind: 'lead', midi: note.midi, length: note.beats * beatMs,
-      }))
     }
     grooveHits(song.groove, beats, (song.drumsFrom ?? 0) - offset)
       .forEach((hit) => backing.push({ time: (offset + hit.beat) * beatMs, kind: hit.kind, gain: hit.gain }))

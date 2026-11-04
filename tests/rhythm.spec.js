@@ -109,18 +109,36 @@ test('hold notes reward keeping the key down and warn when let go early', async 
   await expect(page.locator('.rp-tail.is-holding')).toHaveCount(0)
 })
 
-test('Taco rain shows timed lyrics and finishes without input in kid mode', async ({ page, isMobile }) => {
-  await page.clock.install()
+test('original Taco video controls the chart clock and the result screen', async ({ page, isMobile }) => {
+  await page.addInitScript(() => {
+    window.videoTime = 0
+    window.videoState = -1
+    window.YT = {
+      Player: class {
+        constructor(target, options) {
+          target.dataset.videoId = options.videoId
+          target.dataset.captions = options.playerVars.cc_load_policy
+          queueMicrotask(() => options.events.onReady({ target: this }))
+        }
+        playVideo() { window.videoState = 1 }
+        getPlayerState() { return window.videoState }
+        getCurrentTime() { return window.videoTime }
+        destroy() { window.videoDestroyed = true }
+      },
+    }
+  })
   await page.goto('/game/rhythm-party')
   await page.getByRole('button', { name: /^아이/ }).click()
   await page.getByRole('button', { name: /It's Raining Tacos/ }).click()
-  await expect(page.locator('.rp-lyrics')).toContainText('준비됐나요?')
-  await expect(page.locator('.rp-taco-rain:visible')).toHaveCount(isMobile ? 0 : 2)
-  await page.clock.runFor(16000)
+  await expect(page.locator('[data-video-id="npjF032TDDQ"]')).toHaveAttribute('data-captions', '1')
   await expect(page.locator('.rp-lyrics')).toContainText("It's raining tacos!")
+  await expect(page.locator('.rp-taco-rain:visible')).toHaveCount(isMobile ? 0 : 2)
+  await page.evaluate(() => { window.videoTime = 20 })
+  await expect(page.locator('.rp-feedback')).toHaveText('놓쳤어')
   await expect(page.locator('.rp-pad.is-target')).toHaveCount(0)
-  await page.clock.runFor(50000)
+  await page.evaluate(() => { window.videoTime = 93 })
   await expect(page.getByRole('button', { name: '한 번 더' })).toBeHidden()
-  await page.clock.runFor(15000)
+  await page.evaluate(() => { window.videoState = 0 })
   await expect(page.getByRole('button', { name: '한 번 더' })).toBeVisible()
+  expect(await page.evaluate(() => window.videoDestroyed)).toBe(true)
 })

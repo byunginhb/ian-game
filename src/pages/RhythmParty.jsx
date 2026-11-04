@@ -3,6 +3,7 @@ import { gameClock } from '../lib/gameClock'
 import { createRhythmAudio } from '../lib/rhythmAudio'
 import { SONGS, MODES, CHARACTERS, LANE_KEYS, LANE_LABELS, RECORD_KEY, buildChart, findHit, nextOpenNote, HOLD_GRACE, POINTS, judge, scoreFor, starsFor } from '../lib/rhythm'
 import RhythmCharacter from '../components/RhythmCharacter'
+import RhythmVideo from '../components/RhythmVideo'
 import './RhythmParty.css'
 
 const LANE_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7']
@@ -72,8 +73,9 @@ export default function RhythmParty() {
   const padRef = useRef(null)
   const playRef = useRef(null)
   const audioRef = useRef(null)
+  const videoRef = useRef(null)
   const mode = MODES[modeId]
-  const waits = mode.waits && !song.continuous
+  const waits = mode.waits && !song.videoId
 
   useNoGestures(rootRef, padRef)
   useEffect(() => () => audioRef.current?.close(), [])
@@ -81,7 +83,7 @@ export default function RhythmParty() {
   const audio = () => (audioRef.current ??= createRhythmAudio())
 
   const startSong = (next) => {
-    audio().unlock()
+    if (!next.videoId) audio().unlock()
     const chart = buildChart(next, mode)
     playRef.current = {
       chart, time: -mode.travel - 800, lastClock: gameClock.now(), results: {}, score: 0, combo: 0, maxCombo: 0,
@@ -135,7 +137,10 @@ export default function RhythmParty() {
     const loop = () => {
       const play = playRef.current
       const clock = gameClock.now()
-      if (!play.waiting) play.time += clock - play.lastClock
+      if (song.videoId) {
+        const player = videoRef.current
+        if (player) play.time = player.getCurrentTime() * 1000
+      } else if (!play.waiting) play.time += clock - play.lastClock
       play.lastClock = clock
       Object.entries(play.holds).forEach(([lane, hold]) => { if (play.time >= hold.end) endHold(Number(lane), true) })
       const { backing, notes, duration } = play.chart
@@ -159,16 +164,17 @@ export default function RhythmParty() {
         if (play.time - event.time < 120) audio().backing(event, Math.max(0, event.time - play.time) / 1000)
       }
       setTime(play.time)
-      if (play.time > duration + 1200) finish()
+      const ended = song.videoId ? videoRef.current?.getPlayerState() === 0 : play.time > duration + 1200
+      if (ended) finish()
       else frame = gameClock.requestAnimationFrame(loop)
     }
     frame = gameClock.requestAnimationFrame(loop)
     return () => gameClock.cancelAnimationFrame(frame)
-  }, [screen, mode, waits, finish, endHold])
+  }, [screen, mode, waits, finish, endHold, song.videoId])
 
   const press = useCallback((lane) => {
     const play = playRef.current
-    if (screen !== 'play' || !play) return
+    if (screen !== 'play' || !play || (song.videoId && videoRef.current?.getPlayerState() !== 1)) return
     let note
     let grade
     if (play.waiting) {
@@ -181,7 +187,7 @@ export default function RhythmParty() {
       grade = note && judge(play.time - note.time, mode)
     }
     if (!grade) {
-      audio().tap()
+      if (!song.videoId) audio().tap()
       if (!waits && play.combo) { play.combo = 0; setFeedback({ grade: 'stray', id: `stray-${gameClock.now()}`, lane }) }
       return
     }
@@ -189,10 +195,10 @@ export default function RhythmParty() {
     play.maxCombo = Math.max(play.maxCombo, play.combo)
     play.score += scoreFor(grade, play.combo)
     play.results = { ...play.results, [note.id]: grade }
-    const sound = song.continuous ? null : audio().melody(note.midi, note.length)
+    const sound = song.videoId ? null : audio().melody(note.midi, note.length)
     if (note.hold) play.holds = { ...play.holds, [lane]: { id: note.id, end: note.time + note.length, sound } }
     setFeedback({ grade, id: note.id, lane })
-  }, [screen, mode, waits, song.continuous])
+  }, [screen, mode, waits, song.videoId])
 
   const release = useCallback((lane) => {
     setPressed((old) => old.map((value, i) => (i === lane ? false : value)))
@@ -221,11 +227,7 @@ export default function RhythmParty() {
   const play = playRef.current
   const host = CHARACTERS[song.host]
   const waitLane = play?.waiting?.lane
-  const tacoPlay = screen === 'play' && song.continuous
-  const lyric = tacoPlay && song.lyrics[Math.min(
-    song.lyrics.length - 1,
-    Math.max(0, Math.floor(time / play.chart.beatMs / song.lyricBeats)),
-  )]
+  const tacoPlay = screen === 'play' && song.videoId
 
   return (
     <div ref={rootRef} className={`rp-container is-${screen}${tacoPlay ? ' is-taco' : ''}`} style={{ '--host': host.color }}>
@@ -260,17 +262,15 @@ export default function RhythmParty() {
         <>
           {tacoPlay && <>
             <TacoRain />
-            <div className="rp-lyrics"><span aria-hidden="true">♫</span> {lyric}</div>
+            <div className="rp-lyrics"><span aria-hidden="true">♫</span> It&apos;s raining tacos!</div>
           </>}
           <div className="rp-hud">
             <RhythmCharacter id={song.host} className={play.combo >= 10 ? 'rp-dance is-hype' : 'rp-dance'} />
             <div className="rp-hud-song"><strong>{song.title}</strong><span>{mode.label} 모드{tacoPlay ? ' · 연속 재생' : ''}</span></div>
             <div className="rp-hud-score"><strong>{play.score.toLocaleString()}</strong><span>{play.combo > 1 ? `${play.combo} 콤보` : ' '}</span></div>
-            <button className="rp-quit" onClick={() => {
-              if (song.continuous) audioRef.current?.close()
-              setScreen('menu')
-            }}>그만</button>
+            <button className="rp-quit" onClick={() => setScreen('menu')}>그만</button>
           </div>
+          {tacoPlay && <RhythmVideo videoId={song.videoId} playerRef={videoRef} />}
           <div ref={padRef} className={`rp-stage${waitLane !== undefined ? ' is-waiting' : ''}`} style={{ '--beat': `${play.chart.beatMs}ms` }}>
             <div className="rp-highway">
               {LANE_COLORS.map((color, lane) => <div key={lane} className={`rp-lane${pressed[lane] ? ' is-down' : ''}${waitLane === lane ? ' is-target' : ''}`} style={{ '--lane': color }} />)}

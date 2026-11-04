@@ -89,12 +89,7 @@ export function createRhythmAudio() {
     backing(event, delay) {
       if (!ready()) return
       if (event.kind === 'bass') tone(event.midi, Math.min(1.5, Math.max(.2, event.length / 1000 * .9)), { type: 'sine', volume: .3, delay })
-      else if (event.kind === 'lead') {
-        tone(event.midi, event.length / 1000 * .94, { volume: .34, delay })
-        tone(event.midi - 12, event.length / 1000 * .85, { type: 'sine', volume: .18, delay })
-      } else if (event.kind === 'chord') {
-        tone(event.midi, event.length / 1000, { type: 'triangle', volume: .08, delay })
-      } else KIT[event.kind]?.(context.currentTime + delay, event.gain ?? 1)
+      else KIT[event.kind]?.(context.currentTime + delay, event.gain ?? 1)
     },
     tap: () => tone(84, .06, { type: 'square', volume: .05 }),
     fanfare: () => [72, 76, 79, 84].forEach((midi, i) => tone(midi, .3, { delay: i * .11 })),

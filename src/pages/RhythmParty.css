@@ -168,3 +168,27 @@
 @media (prefers-reduced-motion: reduce) {
   .rp-taco-rain { display: none; }
 }
+
+.rp-video {
+  position: relative;
+  align-self: center;
+  flex: none;
+  width: min(356px, 100%);
+  color: #fff6bc;
+  text-align: center;
+}
+
+.rp-video-player { height: 200px; background: #17113b; }
+.rp-video-player iframe { display: block; width: 100%; height: 100%; border: 0; }
+.rp-video p { margin: 4px; font-size: 13px; }
+.rp-video a { color: #fff; text-decoration: underline; }
+
+@media (max-height: 480px) and (min-width: 560px) {
+  .rp-container.is-taco {
+    display: grid;
+    grid-template-columns: minmax(200px, 34%) 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+  .is-taco :is(.rp-lyrics, .rp-hud) { grid-column: 1 / -1; width: 100%; }
+  .rp-video { width: 100%; align-self: start; }
+}
