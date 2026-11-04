@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 async function startSong(page, mode = '아이') {
   await page.goto('/game/rhythm-party')
   await page.getByRole('button', { name: new RegExp(`^${mode}`) }).click()
-  await expect(page.locator('.rp-song')).toHaveCount(13)
+  await expect(page.locator('.rp-song')).toHaveCount(14)
   await page.getByRole('button', { name: /When the Saints/ }).click()
   await expect(page.locator('.rp-pad')).toHaveCount(5)
 }
@@ -107,4 +107,20 @@ test('hold notes reward keeping the key down and warn when let go early', async 
   await page.keyboard.up(key)
   await expect(page.locator('.rp-feedback')).toHaveText('더 길게!')
   await expect(page.locator('.rp-tail.is-holding')).toHaveCount(0)
+})
+
+test('Taco rain shows timed lyrics and finishes without input in kid mode', async ({ page, isMobile }) => {
+  await page.clock.install()
+  await page.goto('/game/rhythm-party')
+  await page.getByRole('button', { name: /^아이/ }).click()
+  await page.getByRole('button', { name: /It's Raining Tacos/ }).click()
+  await expect(page.locator('.rp-lyrics')).toContainText('준비됐나요?')
+  await expect(page.locator('.rp-taco-rain:visible')).toHaveCount(isMobile ? 0 : 2)
+  await page.clock.runFor(16000)
+  await expect(page.locator('.rp-lyrics')).toContainText("It's raining tacos!")
+  await expect(page.locator('.rp-pad.is-target')).toHaveCount(0)
+  await page.clock.runFor(50000)
+  await expect(page.getByRole('button', { name: '한 번 더' })).toBeHidden()
+  await page.clock.runFor(15000)
+  await expect(page.getByRole('button', { name: '한 번 더' })).toBeVisible()
 })

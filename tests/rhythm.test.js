@@ -3,9 +3,9 @@ import { GROOVES, grooveHits } from '../src/lib/rhythmGrooves.js'
 import assert from 'node:assert/strict'
 import { SONGS, MODES, HOLD_BEATS, parseMelody, buildChart, findHit, judge, starsFor, toMidi, nextOpenNote } from '../src/lib/rhythm.js'
 
-test('thirteen songs whose melodies line up with their bass', () => {
-  assert.equal(SONGS.length, 13)
-  assert.equal(new Set(SONGS.map((song) => song.id)).size, 13)
+test('fourteen songs whose melodies line up with their bass', () => {
+  assert.equal(SONGS.length, 14)
+  assert.equal(new Set(SONGS.map((song) => song.id)).size, 14)
   for (const song of SONGS) {
     const { beats } = parseMelody(song.melody)
     const bassBeats = song.bass ? parseMelody(song.bass).beats : song.chords.trim().split(/\s+/).length * song.chordBeats

@@ -11,6 +11,20 @@ const LOOKAHEAD = 90
 const HIT_LINE = .86
 const MODE_KEY = 'ian-rhythm-mode-v1'
 
+const TACO_DROPS = Array.from({ length: 10 }, (_, index) => ({
+  '--x': `${7 + (index * 31) % 85}%`,
+  '--speed': `${3.6 + (index % 4) * .65}s`,
+  '--delay': `${-index * .62}s`,
+}))
+
+function TacoRain() {
+  return ['left', 'right'].map((side) => (
+    <div key={side} className={`rp-taco-rain is-${side}`} aria-hidden="true">
+      {TACO_DROPS.map((style) => <span key={style['--delay']} style={style}>🌮</span>)}
+    </div>
+  ))
+}
+
 function readStorage(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
 }
@@ -59,6 +73,7 @@ export default function RhythmParty() {
   const playRef = useRef(null)
   const audioRef = useRef(null)
   const mode = MODES[modeId]
+  const waits = mode.waits && !song.continuous
 
   useNoGestures(rootRef, padRef)
   useEffect(() => () => audioRef.current?.close(), [])
@@ -74,6 +89,7 @@ export default function RhythmParty() {
     }
     setSong(next)
     setTime(-mode.travel - 800)
+    setPressed([false, false, false, false, false])
     setFeedback(null)
     setScreen('play')
   }
@@ -108,10 +124,10 @@ export default function RhythmParty() {
       setFeedback({ grade: 'hold', id: `hold-${hold.id}`, lane })
       return
     }
-    hold.sound.stop()
-    if (!mode.waits) play.combo = 0
+    hold.sound?.stop()
+    if (!waits) play.combo = 0
     setFeedback({ grade: 'cut', id: `cut-${hold.id}`, lane })
-  }, [mode])
+  }, [waits])
 
   useEffect(() => {
     if (screen !== 'play') return
@@ -125,12 +141,12 @@ export default function RhythmParty() {
       const { backing, notes, duration } = play.chart
       play.openIndex = nextOpenNote(notes, play.results, play.openIndex)
       const open = notes[play.openIndex]
-      if (mode.waits && open && !play.waiting && play.time >= open.time) {
+      if (waits && open && !play.waiting && play.time >= open.time) {
         // Hold the song with the note sitting on the line until its pad is pressed.
         play.time = open.time
         play.waiting = { id: open.id, lane: open.lane, since: clock }
       }
-      while (!mode.waits && play.openIndex < notes.length && notes[play.openIndex].time < play.time - mode.good) {
+      while (!waits && play.openIndex < notes.length && notes[play.openIndex].time < play.time - mode.good) {
         const note = notes[play.openIndex]
         play.results = { ...play.results, [note.id]: 'miss' }
         play.combo = 0
@@ -148,7 +164,7 @@ export default function RhythmParty() {
     }
     frame = gameClock.requestAnimationFrame(loop)
     return () => gameClock.cancelAnimationFrame(frame)
-  }, [screen, mode, finish, endHold])
+  }, [screen, mode, waits, finish, endHold])
 
   const press = useCallback((lane) => {
     const play = playRef.current
@@ -166,17 +182,17 @@ export default function RhythmParty() {
     }
     if (!grade) {
       audio().tap()
-      if (!mode.waits && play.combo) { play.combo = 0; setFeedback({ grade: 'stray', id: `stray-${gameClock.now()}`, lane }) }
+      if (!waits && play.combo) { play.combo = 0; setFeedback({ grade: 'stray', id: `stray-${gameClock.now()}`, lane }) }
       return
     }
     play.combo = grade === 'late' ? 0 : play.combo + 1
     play.maxCombo = Math.max(play.maxCombo, play.combo)
     play.score += scoreFor(grade, play.combo)
     play.results = { ...play.results, [note.id]: grade }
-    const sound = audio().melody(note.midi, note.length)
+    const sound = song.continuous ? null : audio().melody(note.midi, note.length)
     if (note.hold) play.holds = { ...play.holds, [lane]: { id: note.id, end: note.time + note.length, sound } }
     setFeedback({ grade, id: note.id, lane })
-  }, [screen, mode])
+  }, [screen, mode, waits, song.continuous])
 
   const release = useCallback((lane) => {
     setPressed((old) => old.map((value, i) => (i === lane ? false : value)))
@@ -205,9 +221,14 @@ export default function RhythmParty() {
   const play = playRef.current
   const host = CHARACTERS[song.host]
   const waitLane = play?.waiting?.lane
+  const tacoPlay = screen === 'play' && song.continuous
+  const lyric = tacoPlay && song.lyrics[Math.min(
+    song.lyrics.length - 1,
+    Math.max(0, Math.floor(time / play.chart.beatMs / song.lyricBeats)),
+  )]
 
   return (
-    <div ref={rootRef} className={`rp-container is-${screen}`} style={{ '--host': host.color }}>
+    <div ref={rootRef} className={`rp-container is-${screen}${tacoPlay ? ' is-taco' : ''}`} style={{ '--host': host.color }}>
       {screen === 'menu' && (
         <div className="rp-menu">
           <header className="rp-menu-head">
@@ -237,11 +258,18 @@ export default function RhythmParty() {
 
       {screen === 'play' && play && (
         <>
+          {tacoPlay && <>
+            <TacoRain />
+            <div className="rp-lyrics"><span aria-hidden="true">♫</span> {lyric}</div>
+          </>}
           <div className="rp-hud">
             <RhythmCharacter id={song.host} className={play.combo >= 10 ? 'rp-dance is-hype' : 'rp-dance'} />
-            <div className="rp-hud-song"><strong>{song.title}</strong><span>{mode.label} 모드</span></div>
+            <div className="rp-hud-song"><strong>{song.title}</strong><span>{mode.label} 모드{tacoPlay ? ' · 연속 재생' : ''}</span></div>
             <div className="rp-hud-score"><strong>{play.score.toLocaleString()}</strong><span>{play.combo > 1 ? `${play.combo} 콤보` : ' '}</span></div>
-            <button className="rp-quit" onClick={() => setScreen('menu')}>그만</button>
+            <button className="rp-quit" onClick={() => {
+              if (song.continuous) audioRef.current?.close()
+              setScreen('menu')
+            }}>그만</button>
           </div>
           <div ref={padRef} className={`rp-stage${waitLane !== undefined ? ' is-waiting' : ''}`} style={{ '--beat': `${play.chart.beatMs}ms` }}>
             <div className="rp-highway">
