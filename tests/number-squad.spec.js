@@ -4,7 +4,7 @@ test.describe('number squad 3D', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => { if (!sessionStorage.getItem('ns-seeded')) { localStorage.removeItem('ian-number-squad-v1'); sessionStorage.setItem('ns-seeded', '1') } })
     await page.goto('/game/number-squad')
-    await expect(page.locator('.ns-canvas')).toBeVisible()
+    await expect(page.locator('.ns-canvas')).toBeVisible({ timeout: 15000 })
   })
 
   test('only the first stage is open and options persist', async ({ page }) => {

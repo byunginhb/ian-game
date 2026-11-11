@@ -1,5 +1,13 @@
 export const games = [
     {
+      id: "light-lab",
+      title: "빛 꺾기 실험실",
+      emoji: "◢",
+      description: "나무 실험판에 거울을 놓아 빛의 길을 꺾어라. 반사·빛의 삼원색·프리즘을 손으로 익히는 3D 광학 퍼즐 24판.",
+      color: "#17306b",
+      tags: ["new", "hot", "puzzle", "edu"],
+    },
+    {
       id: "number-squad",
       title: "숫자 특공대 3D",
       emoji: "±",

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { games } from '../src/data/games.js'
 
 const starts = {
+  'light-lab': /^실험 1 시작$/,
   'number-squad': /^1탄 출동$/,
   'treasure-kingdom': /공룡 정글 탐험 시작/,
   'rhythm-party': /When the Saints/,
@@ -71,7 +72,7 @@ test('home categories and mobile scrolling remain available after playing', asyn
   await page.goto('/')
   await expect(page.locator('.game-card')).toHaveCount(games.length)
   await page.getByRole('button', { name: /생각하는 퍼즐/ }).click()
-  await expect(page.locator('.game-card')).toHaveCount(4)
+  await expect(page.locator('.game-card')).toHaveCount(5)
   await page.getByRole('button', { name: /모든 게임/ }).click()
   await page.locator('.game-card').last().scrollIntoViewIfNeeded()
   await expect(page.locator('.game-card').last()).toBeInViewport()
