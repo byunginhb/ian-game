@@ -29,6 +29,8 @@ const starts = {
 
 for (const game of games) {
   test(`${game.id}: start, input, pause, resume and return home`, async ({ page, isMobile }) => {
+    // 3D 게임은 GPU 없는 테스트 환경에서 CPU로 그려져 느리다.
+    if (['number-squad', 'light-lab'].includes(game.id)) test.setTimeout(90000)
     const errors = []
     page.on('pageerror', (error) => errors.push(error.message))
     page.on('console', (message) => { if (message.type() === 'error' && !message.text().includes('Failed to load resource')) errors.push(message.text()) })

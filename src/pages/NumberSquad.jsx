@@ -42,7 +42,9 @@ export default function NumberSquad() {
   const hostRef = useRef(null), sceneRef = useRef(null), audioRef = useRef(null), runRef = useRef(null)
   const barRef = useRef(null), bossHpRef = useRef(null), bossBarRef = useRef(null)
   const screenRef = useRef('menu'), progressRef = useRef(progress)
-  const inputRef = useRef({ target: 0, left: false, right: false, drag: null })
+  const inputRef = useRef({ target: 0, left: false, right: false, brake: false, drag: null })
+  const [braking, setBraking] = useState(false)
+  const setBrake = (value) => { inputRef.current.brake = value; setBraking(value) }
 
   const skin = SKINS.find((item) => item.id === progress.skin) || SKINS[0]
   const unlocked = unlockedStage(progress)
@@ -70,7 +72,10 @@ export default function NumberSquad() {
     audio.setEnabled(progressRef.current.sound)
     const observer = new ResizeObserver(() => scene.resize())
     observer.observe(host)
-    const unsubscribe = gameClock.subscribe(() => audio.setPaused(gameClock.isPaused()))
+    const unsubscribe = gameClock.subscribe(() => {
+      audio.setPaused(gameClock.isPaused())
+      if (gameClock.isPaused()) setBrake(false) // 쉬는 동안 뗀 손가락을 놓치지 않도록 브레이크를 푼다
+    })
     let popId = 0, lastShot = 0
 
     const onEvents = (run) => {
@@ -84,7 +89,7 @@ export default function NumberSquad() {
         }
         changed = true
         if (event.type === 'coin') audio.play('coin', run.combo)
-        else if (event.type === 'boss') { setBoss({ hp: event.hp }); setQuiz(null); audio.play('boss') } else if (event.type === 'end') {
+        else if (event.type === 'boss') { setBoss({ hp: event.hp }); setQuiz(null); setBrake(false); audio.play('boss') } else if (event.type === 'end') {
           commit(recordResult(progressRef.current, run.stage.cfg.stage, event))
           audio.music(-1)
           audio.play(event.win ? 'win' : 'lose')
@@ -111,7 +116,7 @@ export default function NumberSquad() {
         if (screenRef.current === 'menu') run.time += dt // 메뉴 배경: 진행 없이 제자리 애니메이션만
         else {
           input.target = Math.max(-TRACK_HALF, Math.min(TRACK_HALF, input.target + (Number(input.right) - Number(input.left)) * 14 * dt))
-          stepRun(run, dt, input.target)
+          stepRun(run, dt, input.target, input.brake)
           if (run.events.length) onEvents(run)
         }
         scene.update(run, dt)
@@ -126,6 +131,7 @@ export default function NumberSquad() {
       const down = event.type === 'keydown'
       if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') inputRef.current.left = down
       else if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') inputRef.current.right = down
+      else if (event.key === ' ' || event.key === 'ArrowDown' || event.key === 's' || event.key === 'S') { if (screenRef.current === 'play' && !event.repeat) setBrake(down) }
       else return
       if (screenRef.current === 'play') event.preventDefault()
     }
@@ -158,7 +164,8 @@ export default function NumberSquad() {
     audio?.play('tap')
     const stage = createStage(number, { easy: progress.easy, seed: 1 + Math.floor(Math.random() * 999983) })
     runRef.current = createRun(stage)
-    inputRef.current = { target: 0, left: false, right: false, drag: null }
+    inputRef.current = { target: 0, left: false, right: false, brake: false, drag: null }
+    setBraking(false)
     sceneRef.current?.load(stage, skin)
     audio?.music(stage.cfg.world)
     setStageNum(number); setHud(START_HUD); setQuiz(null); setBoss(null); setResult(null); setPop(null)
@@ -209,6 +216,7 @@ export default function NumberSquad() {
                 <li><b>+</b> <b>×</b> 파란 문은 늘어나고 <i>−</i> <i>÷</i> 빨간 문은 줄어요</li>
                 <li>보라색 퀴즈 문은 정답을 통과하면 보너스!</li>
                 <li>좌우 드래그 또는 방향키로 움직여요</li>
+                <li>브레이크를 꾹 누르면 천천히 달리며 계산할 수 있어요</li>
               </ol>
             </header>
 
@@ -267,9 +275,21 @@ export default function NumberSquad() {
               </div>
             )}
             {quiz && !boss && <div key={quiz.prompt + quiz.answer} className="ns-quiz" role="status"><small>{quiz.kind === 'math' ? '정답 문으로!' : quiz.kind === 'english' ? '영어 숫자는?' : '한자 숫자는?'}</small><strong>{quiz.prompt}{quiz.kind === 'math' ? ' = ?' : ''}</strong></div>}
-            {stageNum === 1 && screen === 'play' && !boss && <p className="ns-tip">좌우로 움직여 <b>더 큰 숫자 문</b>을 골라요</p>}
+            {stageNum === 1 && screen === 'play' && !boss && <p className="ns-tip">좌우로 움직여 <b>더 큰 숫자 문</b>을 골라요. 헷갈리면 <b>브레이크</b>!</p>}
             {pop && screen === 'play' && <div key={pop.id} className={`ns-pop is-${pop.tone}`}>{pop.text}</div>}
           </div>
+          {screen === 'play' && !boss && (
+            <button className={`ns-brake${braking ? ' is-on' : ''}`} data-game-hold-action aria-label="브레이크: 누르고 있으면 천천히 달려요" aria-pressed={braking}
+              onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.setPointerCapture?.(event.pointerId); setBrake(true) }}
+              onPointerMove={(event) => event.stopPropagation()}
+              onPointerUp={() => setBrake(false)} onPointerCancel={() => setBrake(false)} onLostPointerCapture={() => setBrake(false)}
+              onKeyDown={(event) => { if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) setBrake(true) }}
+              onKeyUp={(event) => { if (event.key === ' ' || event.key === 'Enter') setBrake(false) }}
+              onContextMenu={(event) => event.preventDefault()}>
+              <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="12" y="6" width="24" height="34" rx="8" /><path d="M18 15h12M18 23h12M18 31h12" /></svg>
+              <span>브레이크</span>
+            </button>
+          )}
           {screen === 'play' && <button className="ns-exit" onPointerDown={(event) => event.stopPropagation()} onClick={toMenu}>탄 고르기</button>}
         </div>
       )}

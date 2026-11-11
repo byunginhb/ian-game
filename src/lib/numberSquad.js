@@ -192,7 +192,7 @@ export const starsFor = (count, best) => (count >= best * 0.85 ? 3 : count >= be
 // 60fps 루프에서 매 프레임 호출되므로 run 객체는 이 모듈 안에서만 직접 갱신한다.
 export function createRun(stage) {
   return {
-    stage, time: 0, z: 0, x: 0, speedK: 0, count: 1, coins: 0, combo: 0, fever: false, picks: 0, goodPicks: 0,
+    stage, time: 0, z: 0, x: 0, speedK: 0, braking: false, count: 1, coins: 0, combo: 0, fever: false, picks: 0, goodPicks: 0,
     rowIndex: 0, coinIndex: 0, taken: new Uint8Array(stage.coins.length), phase: 'run',
     bossTime: 0, fired: 0, fireAcc: 0, toFire: 0, win: false, endWait: 0, result: null, events: [],
   }
@@ -239,14 +239,18 @@ function finish(run) {
   run.events.push({ type: 'end', ...run.result })
 }
 
-export function stepRun(run, dt, targetX) {
+export const BRAKE_SPEED = 0.35
+
+/** brake를 누르고 있는 동안에는 천천히 달려 문 앞에서 계산할 시간을 번다. */
+export function stepRun(run, dt, targetX, brake = false) {
   const { stage } = run
   run.time += dt
   if (run.phase === 'run') {
     run.x += (clamp(targetX, -LEADER_LIMIT, LEADER_LIMIT) - run.x) * Math.min(1, dt * 14)
     const next = stage.rows[run.rowIndex]
     const thinking = stage.cfg.easy && next && next.type !== 'enemy' && next.z - run.z < 11
-    run.speedK += ((thinking ? 0.6 : 1) - run.speedK) * Math.min(1, dt * 4)
+    run.braking = brake
+    run.speedK += ((brake ? BRAKE_SPEED : thinking ? 0.6 : 1) - run.speedK) * Math.min(1, dt * (brake ? 7 : 4))
     run.z += stage.cfg.speed * run.speedK * dt
     while (run.coinIndex < stage.coins.length && stage.coins[run.coinIndex].z <= run.z + 0.4) {
       const index = run.coinIndex++

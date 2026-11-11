@@ -1,9 +1,11 @@
 /** 숫자 특공대 3D 렌더러. 게임 규칙(run)은 numberSquad.js가 소유하고 여기서는 그리기만 한다. */
 import {
   WebGLRenderer, Scene, PerspectiveCamera, Fog, Color, HemisphereLight, DirectionalLight, Group, Mesh, InstancedMesh,
-  MeshLambertMaterial, MeshBasicMaterial, PlaneGeometry, BoxGeometry, SphereGeometry, CylinderGeometry, BufferAttribute,
+  MeshLambertMaterial, MeshStandardMaterial, MeshBasicMaterial, PlaneGeometry, BoxGeometry, SphereGeometry, CylinderGeometry, TorusGeometry, BufferAttribute,
   BufferGeometry, Points, PointsMaterial, Sprite, SpriteMaterial, Object3D, Vector3, BackSide, DoubleSide, DynamicDrawUsage, PCFSoftShadowMap,
+  NeutralToneMapping, PMREMGenerator,
 } from 'three'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { hazardX, mulberry32, opIsGain, opLabel, TRACK_HALF } from './numberSquad.js'
 import {
   WORLD_LOOKS, bossGeometry, checkerTexture, coinGeometry, createBadge, enemyGeometry, glowTexture, hazardGeometry,
@@ -21,21 +23,36 @@ export function createSquadScene(canvas) {
   const deviceRatio = window.devicePixelRatio || 1
   // 고해상도 화면은 픽셀 밀도가 계단 현상을 가려 주므로 MSAA 비용을 아낀다.
   const renderer = new WebGLRenderer({ canvas, antialias: deviceRatio < 2, powerPreference: 'high-performance' })
-  let pixelRatio = Math.min(deviceRatio, coarse ? 1.75 : 2)
+  // GPU 없이 CPU로 그리는 환경은 반사 재질과 그림자를 빼고 가볍게 시작한다.
+  const debug = renderer.getContext().getExtension('WEBGL_debug_renderer_info')
+  const software = /swiftshader|llvmpipe|software/i.test(debug ? renderer.getContext().getParameter(debug.UNMASKED_RENDERER_WEBGL) : '')
+  let pixelRatio = software ? 0.6 : Math.min(deviceRatio, coarse ? 1.75 : 2), restUntil = 0
   renderer.setPixelRatio(pixelRatio)
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = PCFSoftShadowMap
+  renderer.toneMapping = NeutralToneMapping
+  renderer.toneMappingExposure = 0.96
 
   const scene = new Scene()
   const camera = new PerspectiveCamera(58, 1, 0.5, 800)
-  const hemi = new HemisphereLight('#ffffff', '#888888', 1.35)
-  const sun = new DirectionalLight('#ffffff', 1.9)
-  sun.castShadow = !coarse
+  // 장난감 같은 부드러운 조명: 하늘빛 확산광 + 따뜻한 주광 + 윤곽을 살리는 림 라이트 + 실내 반사
+  const hemi = new HemisphereLight('#ffffff', '#888888', software ? 1.5 : 0.45)
+  const sun = new DirectionalLight('#fff4e0', software ? 2 : 1.75)
+  const rim = new DirectionalLight('#ffffff', software ? 0 : 0.9)
+  if (!software) {
+    const pmrem = new PMREMGenerator(renderer), room = new RoomEnvironment()
+    scene.environment = pmrem.fromScene(room, 0.04).texture
+    scene.environmentIntensity = 0.32
+    pmrem.dispose(); room.dispose?.()
+  }
+  sun.castShadow = !coarse && !software
   sun.shadow.mapSize.set(1024, 1024)
   Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 1, far: 60 })
   sun.shadow.bias = -0.0006
-  scene.add(hemi, sun, sun.target)
-  const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true })
+  scene.add(hemi, sun, sun.target, rim, rim.target)
+  // 살짝 윤이 나는 플라스틱. 정점 색을 쓰므로 모델마다 재질을 새로 만들지 않는다.
+  const toy = (options) => (software ? new MeshLambertMaterial(options) : new MeshStandardMaterial({ roughness: 0.48, metalness: 0, ...options }))
+  const material = toy({ vertexColors: true })
   const particles = createParticles()
   scene.add(particles.points)
   const dummy = new Object3D(), camPos = new Vector3(), camLook = new Vector3(), goal = new Vector3(), look = new Vector3(), white = new Color('#ffffff')
@@ -66,7 +83,7 @@ export function createSquadScene(canvas) {
     const own = (item) => { disposables.push(item); return item }
     const lookConfig = WORLD_LOOKS[stage.cfg.world]
     const length = stage.length, group = new Group(), rng = mulberry32(stage.seed + 77)
-    const lambert = (color, extra) => own(new MeshLambertMaterial({ color, ...extra }))
+    const lambert = (color, extra) => own(toy({ color, ...extra }))
     const instanced = (geometry, count, dynamic) => {
       const mesh = new InstancedMesh(own(geometry), material, Math.max(1, count))
       mesh.count = count // 0개일 때 원점에 기본 인스턴스가 그려지지 않게 한다.
@@ -91,7 +108,7 @@ export function createSquadScene(canvas) {
     const domeColors = new Float32Array(dome.attributes.position.count * 3)
     for (let i = 0; i < dome.attributes.position.count; i++) mixed.copy(bottom).lerp(top, clamp(dome.attributes.position.getY(i) / 330, 0, 1)).toArray(domeColors, i * 3)
     dome.setAttribute('color', new BufferAttribute(domeColors, 3))
-    sky.add(new Mesh(dome, own(new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false }))))
+    sky.add(new Mesh(dome, own(new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false, toneMapped: false }))))
     const glow = new Sprite(own(new SpriteMaterial({ map: own(glowTexture(stage.cfg.world === 3 ? '#b28dff' : '#ffe9a8')), fog: false, depthWrite: false })))
     glow.position.set(-170, 190, -470); glow.scale.setScalar(190)
     sky.add(glow)
@@ -117,23 +134,25 @@ export function createSquadScene(canvas) {
     road.rotation.x = -Math.PI / 2; road.position.z = trackZ; road.receiveShadow = true
     const slab = new Mesh(own(new BoxGeometry(TRACK_HALF * 2 + 0.7, 0.7, trackLength)), lambert(lookConfig.line))
     slab.position.set(0, -0.37, trackZ)
-    const edgeMaterial = own(new MeshBasicMaterial({ color: lookConfig.edge }))
-    const railGeometry = own(new BoxGeometry(0.26, 0.4, trackLength))
-    const rails = [-1, 1].map((side) => { const rail = new Mesh(railGeometry, edgeMaterial); rail.position.set(side * (TRACK_HALF + 0.13), 0.12, trackZ); return rail })
+    // 트랙 가장자리는 각진 턱 대신 둥근 튜브 난간
+    const railGeometry = own(new CylinderGeometry(0.3, 0.3, trackLength, 14))
+    const railMaterial = lambert(lookConfig.edge, { emissive: lookConfig.edge, emissiveIntensity: lookConfig.glow ? 0.7 : 0.18 })
+    const rails = [-1, 1].map((side) => { const rail = new Mesh(railGeometry, railMaterial); rail.rotation.x = Math.PI / 2; rail.position.set(side * (TRACK_HALF + 0.2), 0.08, trackZ); rail.receiveShadow = true; return rail })
     const finishLine = new Mesh(own(new PlaneGeometry(TRACK_HALF * 2, 1.8)), own(new MeshBasicMaterial({ map: own(checkerTexture()) })))
     finishLine.rotation.x = -Math.PI / 2; finishLine.position.set(0, 0.02, -length + 1.2)
     const bossZ = -(length + 15)
-    const arena = new Mesh(own(new CylinderGeometry(14, 12.5, 0.9, 30)), lambert(lookConfig.track))
+    const arena = new Mesh(own(new CylinderGeometry(14, 12.5, 0.9, 48)), lambert(lookConfig.track))
     arena.position.set(0, -0.47, bossZ + 2); arena.receiveShadow = true
-    const ring = new Mesh(own(new CylinderGeometry(14.25, 14.25, 0.34, 30, 1, true)), edgeMaterial)
-    ring.position.set(0, -0.1, bossZ + 2)
+    const ring = new Mesh(own(new TorusGeometry(14.05, 0.34, 10, 56)), railMaterial)
+    ring.rotation.x = Math.PI / 2
+    ring.position.set(0, -0.02, bossZ + 2)
     group.add(road, slab, ...rails, finishLine, arena, ring)
     if (lookConfig.ground) {
       const groundMaterial = lookConfig.glow ? own(new MeshBasicMaterial({ color: lookConfig.ground })) : lambert(lookConfig.ground)
       const ground = new Mesh(own(new PlaneGeometry(900, length + 700)), groundMaterial)
       ground.rotation.x = -Math.PI / 2; ground.position.set(0, lookConfig.groundY, -length / 2)
       const pillarCount = Math.ceil(length / 20)
-      const pillars = new InstancedMesh(own(new BoxGeometry(1.4, -lookConfig.groundY, 1.4)), lambert(lookConfig.line), pillarCount * 2)
+      const pillars = new InstancedMesh(own(new CylinderGeometry(0.75, 0.95, -lookConfig.groundY, 14)), lambert(lookConfig.line), pillarCount * 2)
       for (let i = 0; i < pillarCount * 2; i++) place(pillars, i, (i % 2 ? 1 : -1) * 4, lookConfig.groundY / 2 - 0.4, -Math.floor(i / 2) * 20 - 6)
       pillars.frustumCulled = false
       group.add(ground, pillars)
@@ -173,7 +192,7 @@ export function createSquadScene(canvas) {
         const width = (TRACK_HALF * 2) / items.length
         for (let j = 0; j <= items.length; j++) place(posts, postIndex++, -TRACK_HALF + width * j, 0, -row.z)
         const panels = items.map(([text, color], j) => {
-          const panel = new Mesh(panelGeometry[items.length], own(new MeshBasicMaterial({ map: label(text, color), transparent: true, side: DoubleSide, depthWrite: false })))
+          const panel = new Mesh(panelGeometry[items.length], own(new MeshBasicMaterial({ map: label(text, color), transparent: true, side: DoubleSide, depthWrite: false, toneMapped: false })))
           panel.position.set(-TRACK_HALF + width * (j + 0.5), 2.2, -row.z)
           group.add(panel)
           return panel
@@ -184,7 +203,7 @@ export function createSquadScene(canvas) {
         const count = Math.min(12, row.value), start = enemyIndex
         const base = Array.from({ length: count }, (_, i) => [((i % 4) - 1.5) * 1.9 + (rng() - 0.5) * 0.6, -row.z - Math.floor(i / 4) * 1.5 + (rng() - 0.5) * 0.5])
         enemyIndex += count
-        const sprite = new Sprite(own(new SpriteMaterial({ map: label(`−${row.value}`, '#d7263d'), depthWrite: false })))
+        const sprite = new Sprite(own(new SpriteMaterial({ map: label(`−${row.value}`, '#d7263d'), depthWrite: false, toneMapped: false })))
         sprite.position.set(0, 3.5, -row.z); sprite.scale.set(3.4, 2.1, 1)
         group.add(sprite)
         return { start, base, sprite, done: false }
@@ -204,10 +223,10 @@ export function createSquadScene(canvas) {
     const arms = parts.arms.map((geometry, i) => { const arm = new Mesh(own(geometry), material); arm.position.set(i ? 0.45 : -0.45, 1.3, 0); return arm })
     const legs = parts.legs.map((geometry, i) => { const leg = new Mesh(own(geometry), material); leg.position.set(i ? 0.16 : -0.16, 0.6, 0); return leg })
     for (const mesh of [body, ...arms, ...legs]) { mesh.castShadow = true; leader.add(mesh) }
-    leader.scale.setScalar(1.25)
+    leader.scale.setScalar(1.12)
     const badge = createBadge()
     own(badge.texture)
-    const badgeSprite = new Sprite(own(new SpriteMaterial({ map: badge.texture, depthWrite: false, depthTest: false })))
+    const badgeSprite = new Sprite(own(new SpriteMaterial({ map: badge.texture, depthWrite: false, depthTest: false, toneMapped: false })))
     badgeSprite.position.set(0, 3.4, 0); badgeSprite.scale.set(2, 1, 1); badgeSprite.renderOrder = 5
     group.add(leader, badgeSprite)
     const squad = instanced(robotGeometry(skin), SQUAD_CAP, true)
@@ -224,8 +243,9 @@ export function createSquadScene(canvas) {
     view = {
       stage, skin, look: lookConfig, group, sky, leader, arms, legs, badge, badgeSprite, squad, coins, rowViews, enemies, boss, bossZ, bossScale, missiles,
       sx: new Float32Array(SQUAD_CAP), sz: new Float32Array(SQUAD_CAP), spawn: new Float32Array(SQUAD_CAP),
-      shown: 0, radius: 0, stride: 0, lastX: 0, anims: [], shake: 0, punch: 0, bossState: 'idle', bossTime: 0, ambient: 0, turn: 0, snap: true,
+      shown: 0, radius: 0, stride: 0, lean: 0, dust: 0, lastX: 0, anims: [], shake: 0, punch: 0, bossState: 'idle', bossTime: 0, ambient: 0, turn: 0, snap: true,
     }
+    frameAverage = 1 / 60; framesSinceChange = -60 // 새 코스의 셰이더 준비 시간은 성능 판정에서 뺀다
     resize()
   }
 
@@ -278,9 +298,15 @@ export function createSquadScene(canvas) {
     v.arms[0].rotation.x = won ? Math.PI + Math.sin(time * 9) * 0.3 : -swing
     v.arms[1].rotation.x = won ? Math.PI - Math.sin(time * 9) * 0.3 : swing
     v.turn += ((won ? Math.PI : 0) - v.turn) * Math.min(1, dt * 6)
-    const leaderY = running ? Math.abs(Math.sin(v.stride)) * 0.14 : won ? Math.abs(Math.sin(time * 6)) * 0.9 : 0
+    // 통통 튀는 느낌: 공중에서는 길쭉해지고 발이 닿을 때 납작해진다 (스쿼시 & 스트레치)
+    const bounce = running ? Math.abs(Math.sin(v.stride)) : won ? Math.abs(Math.sin(time * 6)) : 0.5
+    const leaderY = running ? bounce * 0.2 : won ? bounce * 0.9 : 0
+    const stretch = running || won ? (bounce - 0.5) * 0.2 : 0
+    v.lean += ((running ? (run.braking ? 0.24 : -0.16) : 0) - v.lean) * Math.min(1, dt * 8)
     v.leader.position.set(run.x, leaderY, lz)
-    v.leader.rotation.set(0, v.turn, clamp(-vx * 0.03, -0.3, 0.3))
+    v.leader.rotation.set(v.lean, v.turn, clamp(-vx * 0.035, -0.32, 0.32))
+    v.leader.scale.set(1.12 * (1 - stretch * 0.5), 1.12 * (1 + stretch), 1.12 * (1 - stretch * 0.5))
+    if (run.braking && running && (v.dust += dt) > 0.05) { v.dust = 0; particles.emit(run.x + (Math.random() - 0.5) * 0.8, 0.15, lz - 0.2, (Math.random() - 0.5) * 2, 1.2, -3, '#ffffff', 0.5, 0.45, 0) }
 
     // 특공대: 해바라기 나선 대형으로 대장을 따라온다
     const left = running ? run.count : Math.max(0, run.count - run.fired)
@@ -290,16 +316,17 @@ export function createSquadScene(canvas) {
     v.shown = target
     const radius = 0.44 * Math.sqrt(target)
     v.radius += (radius - v.radius) * Math.min(1, dt * 5)
-    const hopHeight = running ? 0.2 : won ? 0.7 : 0.04, hopSpeed = won ? 7 : 10
+    const hopHeight = running ? 0.26 : won ? 0.7 : 0.04, hopSpeed = won ? 7 : running && run.braking ? 7 : 10
     for (let i = 0; i < target; i++) {
       const r = 0.44 * Math.sqrt(i + 0.6), a = i * GOLDEN
       const k = Math.min(1, dt * (11 - Math.min(6, r)))
       v.sx[i] += (clamp(run.x + Math.cos(a) * r * 0.92, -4.55, 4.55) - v.sx[i]) * k
       v.sz[i] += (lz + 1 + radius * 1.05 + Math.sin(a) * r * 1.05 - v.sz[i]) * k
       const pop = Math.min(1, (time - v.spawn[i]) * 5)
-      dummy.position.set(v.sx[i], Math.abs(Math.sin(time * hopSpeed + i * 1.3)) * hopHeight, v.sz[i])
-      dummy.rotation.set(0, v.turn, 0)
-      dummy.scale.setScalar(0.3 + 0.7 * pop + Math.sin(pop * Math.PI) * 0.3)
+      const hop = Math.abs(Math.sin(time * hopSpeed + i * 1.3)), size = 0.3 + 0.7 * pop + Math.sin(pop * Math.PI) * 0.3, squash = (hop - 0.5) * 0.26
+      dummy.position.set(v.sx[i], hop * hopHeight, v.sz[i])
+      dummy.rotation.set(running ? v.lean * 0.7 : 0, v.turn, Math.sin(time * hopSpeed * 0.5 + i) * 0.08)
+      dummy.scale.set(size * (1 - squash * 0.5), size * (1 + squash), size * (1 - squash * 0.5))
       dummy.updateMatrix()
       v.squad.setMatrixAt(i, dummy.matrix)
     }
@@ -323,8 +350,9 @@ export function createSquadScene(canvas) {
       const row = stage.rows[i], rowView = v.rowViews[i]
       if (row.type === 'hazard') { rowView.mesh.position.x = hazardX(row, time); rowView.mesh.rotation.x = time * 5 } else if (row.type === 'enemy' && !rowView.done) {
         for (let j = 0; j < rowView.base.length; j++) {
-          dummy.position.set(rowView.base[j][0], Math.abs(Math.sin(time * 6 + j)) * 0.3, rowView.base[j][1])
-          dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(1.15); dummy.updateMatrix()
+          const hop = Math.abs(Math.sin(time * 6 + j)), squash = (hop - 0.5) * 0.3
+          dummy.position.set(rowView.base[j][0], hop * 0.35, rowView.base[j][1])
+          dummy.rotation.set(0, Math.sin(time * 2 + j) * 0.25, 0); dummy.scale.set(1.15 * (1 - squash * 0.5), 1.15 * (1 + squash), 1.15 * (1 - squash * 0.5)); dummy.updateMatrix()
           v.enemies.setMatrixAt(rowView.start + j, dummy.matrix)
         }
       }
@@ -388,14 +416,21 @@ export function createSquadScene(canvas) {
     v.sky.position.copy(camera.position)
     sun.position.set(run.x + 7, 16, lz + 13)
     sun.target.position.set(run.x, 0, lz - 5)
+    rim.position.set(run.x - 6, 9, lz - 16)
+    rim.target.position.set(run.x, 1, lz)
 
-    renderer.render(scene, camera)
+    // CPU 렌더링에서는 그리는 데 쓴 시간의 세 배만큼 쉬어, 게임 진행과 입력이 그리기에 밀리지 않게 한다.
+    const started = performance.now()
+    if (!software || started >= restUntil) {
+      renderer.render(scene, camera)
+      if (software) restUntil = started + Math.max(33, (performance.now() - started) * 3)
+    }
 
     // 느린 기기에서는 그림자 → 해상도 순으로 품질을 내려 프레임을 지킨다. 다시 올리지는 않아 깜빡임이 없다.
     if (dt > 0) {
       frameAverage = frameAverage * 0.95 + dt * 0.05
       // 아주 느린 기기(25fps 미만)는 0.2초 만에, 그 외에는 1.5초 관찰 후 한 단계씩 내린다.
-      if (++framesSinceChange > (frameAverage > 0.04 ? 6 : 90) && frameAverage > 1 / 42) {
+      if (++framesSinceChange > (frameAverage > 0.045 ? 6 : 90) && frameAverage > 1 / 40) {
         framesSinceChange = 0
         if (sun.castShadow) sun.castShadow = false
         // 30fps로 고정된 절전 모드 기기는 해상도를 낮춰도 빨라지지 않으므로 1.0 아래로는 정말 느릴 때만 내린다.
@@ -408,7 +443,7 @@ export function createSquadScene(canvas) {
     load, update, resize, unload,
     dispose() {
       unload()
-      particles.dispose(); material.dispose()
+      particles.dispose(); material.dispose(); scene.environment?.dispose()
       renderer.dispose(); renderer.forceContextLoss()
     },
   }

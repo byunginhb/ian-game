@@ -77,6 +77,17 @@ test('quizzes always have one right answer among three unique choices', () => {
   }
 })
 
+test('holding the brake slows the run and releasing it speeds back up', () => {
+  const stage = createStage(1, { easy: false, seed: 2 })
+  const fast = createRun(stage), slow = createRun(stage)
+  for (let i = 0; i < 120; i++) { stepRun(fast, 1 / 60, 0); stepRun(slow, 1 / 60, 0, true) }
+  assert.ok(slow.z < fast.z * 0.5 && slow.z > 0, `${slow.z} vs ${fast.z}`)
+  assert.equal(slow.braking, true)
+  const before = slow.z
+  for (let i = 0; i < 120; i++) stepRun(slow, 1 / 60, 0)
+  assert.ok(slow.z - before > before && slow.braking === false)
+})
+
 test('stars reward staying close to the best possible squad', () => {
   assert.deepEqual([starsFor(20, 20), starsFor(13, 20), starsFor(8, 20)], [3, 2, 1])
 })
