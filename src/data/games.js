@@ -1,5 +1,13 @@
 export const games = [
     {
+      id: "number-squad",
+      title: "숫자 특공대 3D",
+      emoji: "±",
+      description: "더 좋은 숫자 문을 골라 꼬마 로봇을 모으고 보스를 물리쳐라! 덧셈·곱셈·영어·한자가 쏙쏙 들어오는 3D 수학 러너 20탄.",
+      color: "#2f6bff",
+      tags: ["new", "hot", "action", "edu"],
+    },
+    {
       id: "treasure-kingdom",
       title: "이안이의 보물찾기 잘하자",
       emoji: "◇",

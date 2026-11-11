@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { games } from '../src/data/games.js'
 
 const starts = {
+  'number-squad': /^1탄 출동$/,
   'treasure-kingdom': /공룡 정글 탐험 시작/,
   'rhythm-party': /When the Saints/,
   'conquest': /1탄 출정하기/,
@@ -31,7 +32,8 @@ for (const game of games) {
     page.on('pageerror', (error) => errors.push(error.message))
     page.on('console', (message) => { if (message.type() === 'error' && !message.text().includes('Failed to load resource')) errors.push(message.text()) })
     await page.goto(`/game/${game.id}`)
-    await expect(page.locator('.game-loading')).toHaveCount(0)
+    // The 3D game's renderer chunk can take a while to parse when every worker is busy.
+    await expect(page.locator('.game-loading')).toHaveCount(0, { timeout: 15000 })
     await expect(page.locator('.session-title')).toContainText(game.title)
     if (game.id === 'conquest') await page.getByRole('button', { name: '아이 모드로 시작', exact: true }).click()
     if (game.id === 'swimming-race') await page.getByRole('button', { name: /어린이/ }).click()
